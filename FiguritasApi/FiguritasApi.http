@@ -1,6 +1,6 @@
 @FiguritasApi_HostAddress = http://localhost:5219
 
-GET {{FiguritasApi_HostAddress}}/weatherforecast/
+GET {{FiguritasApi_HostAddress}}/Figurita/
 Accept: application/json
 
 ###
