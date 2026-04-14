@@ -5,6 +5,7 @@ WORKDIR /app
 # Copiar la solución y el proyecto
 COPY tp-tacs-2026-grupo-4.sln ./
 COPY FiguritasApi/FiguritasApi.csproj ./FiguritasApi/
+COPY FiguritasApi.Tests/FiguritasApi.Tests.csproj ./FiguritasApi.Tests/
 
 # Restaurar dependencias (ahora con el SDK correcto)
 RUN dotnet restore
