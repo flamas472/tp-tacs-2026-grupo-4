@@ -5,9 +5,9 @@ public class FiguritaRepetidaRepository
 {
     private readonly List<FiguritaRepetida> figuritasRepetidas = new();
 
-    public List<FiguritaRepetida> GetAll()
+    public List<FiguritaRepetida> GetAll(Func<FiguritaRepetida, bool> predicate)
     {
-        return figuritasRepetidas;
+        return figuritasRepetidas.Where(predicate).ToList();
     }
 
     public void Add(FiguritaRepetida figuritaRepetida)

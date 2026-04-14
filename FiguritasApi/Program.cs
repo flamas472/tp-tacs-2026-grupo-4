@@ -12,6 +12,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<FiguritaRepository>();
 builder.Services.AddSingleton<UsuarioRepository>();
 builder.Services.AddSingleton<FiguritaRepetidaRepository>();
+builder.Services.AddSingleton<PropuestaIntercambioRepository>();
 
 // Para que al hacer un POST se puedan pasar los ENUM por su valor en texto en vez de su valor numérico.
 builder.Services.AddControllers()

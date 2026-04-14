@@ -9,6 +9,14 @@ public class Usuario
 
     public List<Figurita> figuritasFaltantes {get; set; } = new();
 
-    public int reputacion {get; set; }
+    public void AgregarFiguritaRepetida(FiguritaRepetida figurita) 
+    {
+        figuritasRepetidas.Add(figurita);
+    }
+
+    public void AgregarFiguritaFaltante(Figurita figurita) 
+    {
+        figuritasFaltantes.Add(figurita);
+    }
 
 }

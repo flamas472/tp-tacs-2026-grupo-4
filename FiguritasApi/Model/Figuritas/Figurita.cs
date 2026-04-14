@@ -4,6 +4,8 @@ public class Figurita
 {
     public int id {get; set; }
 
+    public int numero {get; set; }
+
     public Seleccion seleccion {get; set; }
 
     public Equipo equipo {get; set; }
