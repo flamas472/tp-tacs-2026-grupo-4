@@ -9,7 +9,6 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Para persistir en memoria las figuritas (puede que lo reutilicemos cuando tengamos el ORM)
-// Nota para nosotros del futuro: ORM de .NET --> EntityFramework
 builder.Services.AddSingleton<FiguritaRepository>();
 
 // Para que al hacer un POST se puedan pasar los ENUM por su valor en texto en vez de su valor numérico.
