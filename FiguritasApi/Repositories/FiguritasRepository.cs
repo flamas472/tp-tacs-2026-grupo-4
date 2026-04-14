@@ -1,6 +1,6 @@
 using FiguritasApi.Model;
 
-// Repo para persistencia en memoria. Cuando usemos el ORM va a cambiar.
+// Repo para persistencia en memoria. 
 public class FiguritaRepository
 {
     private readonly List<Figurita> figuritas = new();

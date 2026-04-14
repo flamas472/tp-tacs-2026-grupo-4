@@ -8,8 +8,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer(); 
 builder.Services.AddSwaggerGen();
 
-// Para persistir en memoria las figuritas (puede que lo reutilicemos cuando tengamos el ORM)
+// Para persistir en memoria las entidades (No sé si esto queda a futuro. De ser así, habría que hacer una clase initializer para no ensuciar este archivo)
 builder.Services.AddSingleton<FiguritaRepository>();
+builder.Services.AddSingleton<UsuarioRepository>();
+builder.Services.AddSingleton<FiguritaRepetidaRepository>();
 
 // Para que al hacer un POST se puedan pasar los ENUM por su valor en texto en vez de su valor numérico.
 builder.Services.AddControllers()

@@ -1,6 +1,6 @@
 @FiguritasApi_HostAddress = http://localhost:5219
 
-GET {{FiguritasApi_HostAddress}}/Figurita/
+GET {{FiguritasApi_HostAddress}}/Figuritas/
 Accept: application/json
 
 ###

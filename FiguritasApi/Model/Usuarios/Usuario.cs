@@ -5,10 +5,10 @@ public class Usuario
 
     public required string nombreUsuario {get; set;}
 
-    public List<FiguritaRepetida>? figuritasRepetidas {get; set; }
+    public List<FiguritaRepetida> figuritasRepetidas {get; set; } = new();
 
-    public List<Figurita>? figuritasFaltantes {get; set; }
+    public List<Figurita> figuritasFaltantes {get; set; } = new();
 
     public int reputacion {get; set; }
-    
+
 }

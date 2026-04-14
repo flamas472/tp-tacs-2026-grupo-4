@@ -5,7 +5,8 @@ public class FiguritaRepetida
 
     public required Figurita figurita {get; set;}
 
-    public required Usuario usuario {get; set; }
+    // Se lleva mal con la API si le pongo la clase Usuario. Habría que analizar (otra vez) si hace falta la bidireccionalidad.
+    public required int usuarioID {get; set; } 
 
     public bool puedeIntercambiarse {get; set; } // 0 --> Para subasta, 1 --> Para intercambios
 

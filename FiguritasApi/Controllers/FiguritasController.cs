@@ -7,17 +7,17 @@ namespace FiguritasApi.Controllers;
 [Route("[controller]")] // .NET reemplaza [controller] por el nombre de la clase sin “Controller”. 
 
 // Entonces, teniendo en cuenta lo de arriba, el endpoint es: api/Figurita
-public class FiguritaController : ControllerBase
+public class FiguritasController : ControllerBase
 {
 
     private readonly FiguritaRepository _repo;
 
-    public FiguritaController(FiguritaRepository repo)
+    public FiguritasController(FiguritaRepository repo)
     {
         _repo = repo;
     }
 
-    [HttpGet]
+    [HttpGet] 
     public ActionResult<List<Figurita>> GetFiguritas()
     {
         var figuritas = _repo.GetAll();
