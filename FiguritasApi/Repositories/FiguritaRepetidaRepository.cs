@@ -1,13 +1,14 @@
 using FiguritasApi.Model;
 
-// Repo para persistencia en memoria. 
+namespace FiguritasApi.Repositories;
+
 public class FiguritaRepetidaRepository
 {
-    private readonly List<FiguritaRepetida> figuritasRepetidas = new();
+    private readonly List<FiguritaRepetida> figuritasRepetidas = [];
 
-    public List<FiguritaRepetida> GetAll(Func<FiguritaRepetida, bool> predicate)
+    public List<FiguritaRepetida> GetAll(Func<FiguritaRepetida, bool> predicate, int page, int pageSize)
     {
-        return figuritasRepetidas.Where(predicate).ToList();
+        return figuritasRepetidas.Where(predicate).Skip((page - 1) * pageSize).Take(pageSize).ToList();
     }
 
     public void Add(FiguritaRepetida figuritaRepetida)

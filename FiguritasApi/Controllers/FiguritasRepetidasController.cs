@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using FiguritasApi.Model;
+using FiguritasApi.Repositories;
+using FiguritasApi.Controllers.DTO;
 
 namespace FiguritasApi.Controllers;
 
@@ -20,7 +22,11 @@ public class FiguritasRepetidasController : ControllerBase
     [HttpGet] 
     public ActionResult<List<FiguritaRepetida>> GetFiguritasRepetidas([FromQuery] GetFiguritasRepetidasDto dto)
     {
-        var figuritas = _repo.GetAll(dto.toPredicate());
+        var figuritas = _repo.GetAll(
+            dto.toPredicate(),
+            page: dto.Page,
+            pageSize: dto.PageSize
+            );
         return Ok(figuritas);
     }
 
@@ -31,21 +37,4 @@ public class FiguritasRepetidasController : ControllerBase
         return StatusCode(201, figuritaRepetida);
     }
 
-}
-
-public class GetFiguritasRepetidasDto
-{
-    public int? numero {get; set; }
-    public int? seleccionId {get; set; }
-    public int? equipoId {get; set; }
-    public int? categoriaId {get; set; }
-
-    public Func<FiguritaRepetida, bool> toPredicate()
-    {
-        return figurita => 
-            (!numero.HasValue || figurita.figurita.numero == numero) &&
-            (!seleccionId.HasValue || figurita.figurita.seleccion == (Seleccion)seleccionId) &&
-            (!equipoId.HasValue || figurita.figurita.equipo == (Equipo)equipoId) &&
-            (!categoriaId.HasValue || figurita.figurita.categoria == (Categoria)categoriaId);
-    }
 }

@@ -1,23 +1,21 @@
 using Microsoft.AspNetCore.Mvc;
 using FiguritasApi.Model;
+using FiguritasApi.Repositories;
+using FiguritasApi.Controllers.DTO;
 
 namespace FiguritasApi.Controllers;
 
 [ApiController]
 [Route("[controller]")]  
-
-// Entonces, teniendo en cuenta lo de arriba, el endpoint es: api/Usuario
-
-// Para cargar una figurita repetida del usuario vamos a tener una ruta del estilo: POST /api/Usuarios/{usuarioId}/Repetidas
 public class UsuariosController : ControllerBase
 {
 
     private readonly UsuarioRepository _repoUsuarios;
     private readonly FiguritaRepetidaRepository _repoFigRep;
 
-    private readonly PropuestaIntercambioRepository _repoPropuestaIntercambio;
+    private readonly IntercambiosRepository _repoPropuestaIntercambio;
 
-    public UsuariosController(UsuarioRepository repoUsuarios, FiguritaRepetidaRepository repoFigRep, PropuestaIntercambioRepository repoPropuestaIntercambio)
+    public UsuariosController(UsuarioRepository repoUsuarios, FiguritaRepetidaRepository repoFigRep, IntercambiosRepository repoPropuestaIntercambio)
     {
         _repoPropuestaIntercambio = repoPropuestaIntercambio;
         _repoUsuarios = repoUsuarios;
@@ -36,7 +34,7 @@ public class UsuariosController : ControllerBase
     public ActionResult<Figurita> PostUsers(Usuario usuario)
     {
         _repoUsuarios.Add(usuario);
-        foreach (var figuritaRepetida in usuario.figuritasRepetidas)
+        foreach (var figuritaRepetida in usuario.FiguritasRepetidas)
         {
             _repoFigRep.Add(figuritaRepetida);
         }
@@ -46,29 +44,49 @@ public class UsuariosController : ControllerBase
 
     // Rutas REST para gestionar las figuritas repetidas del usuario.
       [HttpPost("{usuarioId}/Repetidas")]
-    public ActionResult<FiguritaRepetida> PostFiguritaRepetida(int usuarioId, PostRepetidaDto figuritaRepetidaDto)
+    public ActionResult<FiguritaRepetida> PostFiguritaRepetida(int usuarioId, PostFiguritaRepetidaDto figuritaRepetidaDto)
     {
+        Console.WriteLine($"Aniadiendo Repetida al Usuario ID: {usuarioId}, figurita: {figuritaRepetidaDto.Figurita.numero}, puedeIntercambiarse: {figuritaRepetidaDto.PuedeIntercambiarse}, activo: {figuritaRepetidaDto.Activo}");
         var usuario = _repoUsuarios.GetByID(usuarioId);
-        var figuritaRepetida = figuritaRepetidaDto.toDomain();
+        if(usuario == null) 
+        {
+            return NotFound("Usuario no encontrado.");
+        }
+        var figuritaRepetida = figuritaRepetidaDto.ToDomain(usuarioId);
         _repoFigRep.Add(figuritaRepetida);
         usuario.AgregarFiguritaRepetida(figuritaRepetida);
         return StatusCode(201, figuritaRepetida);
     }
 
     [HttpPost("{usuarioId}/faltantes")]
-    public ActionResult<List<Figurita>> PostFiguritaFaltantes(int usuarioId, PostFaltanteDto faltanteDto)
+    public ActionResult<List<Figurita>> PostFiguritaFaltantes(int usuarioId, PostFiguritaFaltanteDto faltanteDto)
     {
         var usuario = _repoUsuarios.GetByID(usuarioId);
-        var figuritaFaltante = faltanteDto.toDomain();
+        if(usuario == null) 
+        {
+            return NotFound("Usuario no encontrado.");
+        }
+        var figuritaFaltante = faltanteDto.ToDomain();
         usuario.AgregarFiguritaFaltante(figuritaFaltante);
-        return StatusCode(201, usuario.figuritasFaltantes);
+        return StatusCode(201, usuario.FiguritasFaltantes);
+    }
+
+    [HttpGet("{usuarioId}/faltantes")]
+    public ActionResult<List<Figurita>> GetFiguritasFaltantes(int usuarioId)
+    {
+        var usuario = _repoUsuarios.GetByID(usuarioId);
+        if(usuario == null) 
+        {
+            return NotFound("Usuario no encontrado.");
+        }
+        return Ok(usuario.FiguritasFaltantes);
     }
 
     [HttpPost("{usuarioId}/intercambios")]
-    public ActionResult<List<PropuestaIntercambio>> PostFiguritaIntercambio(int usuarioId, PostPropuestaIntercambioDto propuestaIntercambioDto)
+    public ActionResult<List<Intercambio>> PostFiguritaIntercambio(int usuarioId, PostPropuestaIntercambioDto propuestaIntercambioDto)
     {
-        Console.WriteLine($"Usuario Proponente ID: {propuestaIntercambioDto.usuarioProponenteID}");
-        var usuarioProponente = _repoUsuarios.GetByID(propuestaIntercambioDto.usuarioProponenteID);
+        Console.WriteLine($"Usuario Proponente ID: {propuestaIntercambioDto.UsuarioProponenteID}");
+        var usuarioProponente = _repoUsuarios.GetByID(propuestaIntercambioDto.UsuarioProponenteID);
         var usuarioPropuesto = _repoUsuarios.GetByID(usuarioId);
         if(usuarioProponente == null ) 
         {
@@ -78,67 +96,26 @@ public class UsuariosController : ControllerBase
         {
             return NotFound("Usuario propuesto no encontrado.");
         }
-        var propuestaIntercambio = propuestaIntercambioDto.toDomain(usuarioProponente, usuarioPropuesto);
+        var propuestaIntercambio = propuestaIntercambioDto.ToDomain(usuarioProponente, usuarioPropuesto);
         _repoPropuestaIntercambio.Add(propuestaIntercambio);
         return StatusCode(201, propuestaIntercambio);
     }
 
-}
-
-public class PostPropuestaIntercambioDto
-{
-
-    public required int usuarioProponenteID {get; set; }
-
-    public required List<FiguritaRepetida> figuritasOfrecidas {get; set; }
-
-    public required List<Figurita> figuritasARecibir {get; set; }
-
-    public PropuestaIntercambio toDomain(Usuario proponente, Usuario propuesto) 
+    [HttpGet("{usuarioId}/recomendaciones")]
+    public ActionResult<List<Figurita>> GetRecomendaciones(int usuarioId, [FromQuery] PaginatedRequestDto pagination)
     {
-        return new PropuestaIntercambio {
-            id = 0, // El ID se asigna automáticamente al agregarlo a la base de datos.
-            proponente = proponente,
-            propuesto= propuesto,
-            figuritasOfrecidas = this.figuritasOfrecidas,
-            figuritasARecibir = this.figuritasARecibir,
-            estado = EstadoPropuestaIntercambio.Pendiente
-        };
+        var usuario = _repoUsuarios.GetByID(usuarioId);
+        if (usuario == null) 
+        {
+            return NotFound("Usuario no encontrado.");
+        }
+        List<Figurita> figuritasFaltantes = usuario.FiguritasFaltantes;
+        List<FiguritaRepetida> recomendaciones = _repoFigRep.GetAll(
+            fr => fr.puedeIntercambiarse
+            && fr.activo 
+            && figuritasFaltantes.Any(ff => ff.id == fr.figurita.id),
+            page: pagination.Page, pageSize: pagination.PageSize);
+        return Ok(recomendaciones);
     }
 
-}
-
-public class PostRepetidaDto
-{
-    public required Figurita figurita {get; set;}
-    public bool puedeIntercambiarse {get; set; } // 0 --> Para subasta, 1 --> Para intercambios
-    public bool activo {get; set; }
-
-    public FiguritaRepetida toDomain() 
-    {
-        return new FiguritaRepetida {
-            id = 0, // El ID se asigna automáticamente al agregarlo a la base de datos.
-            figurita = this.figurita,
-            puedeIntercambiarse = this.puedeIntercambiarse,
-            activo = this.activo
-        };
-    }
-    
-}
-
-public class PostFaltanteDto
-{
-    public required Figurita figurita {get; set;}
-
-    public Figurita toDomain() 
-    {
-        return new Figurita {
-            id = 0, // El ID se asigna automáticamente al agregarlo a la base de datos.
-            seleccion = this.figurita.seleccion,
-            equipo = this.figurita.equipo,
-            categoria = this.figurita.categoria,
-            numero = this.figurita.numero
-        };
-    }
-    
 }
