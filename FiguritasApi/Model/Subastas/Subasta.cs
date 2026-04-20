@@ -2,17 +2,17 @@ namespace FiguritasApi.Model;
 
 public class Subasta
 {
-    public int id {get; set; }
+    public int ID {get; set; }
 
-    public required Usuario subastador {get; set; }
+    public required Usuario Subastador {get; set; }
 
-    public DateTime fechaInicio {get; set; }
+    public DateTime FechaInicio {get; set; }
 
-    public DateTime fechaFin {get; set; }
+    public DateTime FechaFin {get; set; }
 
-    public required List<Figurita> ofertaMinima {get; set; }
+    public required List<Figurita> OfertaMinima {get; set; }
     
-    public required Figurita figuritaSubastada {get; set; }
+    public required List<Figurita> FiguritasSubastadas {get; set; }
 
-    public OfertaSubasta? mejorOfertaActual {get; set; }
+    public required List<OfertaSubasta> Ofertas {get; set; }
 }

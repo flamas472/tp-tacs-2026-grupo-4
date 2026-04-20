@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using System.Configuration;
+using FiguritasApi.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +14,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<FiguritaRepository>();
 builder.Services.AddSingleton<UsuarioRepository>();
 builder.Services.AddSingleton<FiguritaRepetidaRepository>();
-builder.Services.AddSingleton<PropuestaIntercambioRepository>();
+builder.Services.AddSingleton<IntercambiosRepository>();
+builder.Services.AddSingleton<SubastasRepository>();
 
 // Para que al hacer un POST se puedan pasar los ENUM por su valor en texto en vez de su valor numérico.
 builder.Services.AddControllers()

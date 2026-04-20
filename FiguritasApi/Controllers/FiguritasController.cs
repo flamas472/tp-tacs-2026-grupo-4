@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using FiguritasApi.Model;
+using FiguritasApi.Repositories;
 
 namespace FiguritasApi.Controllers;
 

@@ -2,11 +2,12 @@ namespace FiguritasApi.Model;
 
 public class OfertaSubasta
 {
-    public int id {get; set; }
+    public int ID {get; set; }
 
-    public required Usuario ofertante {get; set; }
+    public required Usuario Ofertante {get; set; }
 
-    public required List<FiguritaRepetida> oferta {get; set; }
+    public required List<Figurita> FiguritasOfertadas {get; set; }
     
-    public required Subasta subasta {get; set; }
+    public DateTime FechaOferta {get; set; } 
+    
 }

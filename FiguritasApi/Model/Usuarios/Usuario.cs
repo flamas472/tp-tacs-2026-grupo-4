@@ -1,22 +1,22 @@
 namespace FiguritasApi.Model;
 public class Usuario
 {
-    public int id {get; set; }
+    public int ID {get; set; }
 
-    public required string nombreUsuario {get; set;}
+    public required string NombreUsuario {get; set;}
 
-    public List<FiguritaRepetida> figuritasRepetidas {get; set; } = new();
+    public List<FiguritaRepetida> FiguritasRepetidas {get; set; } = new();
 
-    public List<Figurita> figuritasFaltantes {get; set; } = new();
+    public List<Figurita> FiguritasFaltantes {get; set; } = new();
 
     public void AgregarFiguritaRepetida(FiguritaRepetida figurita) 
     {
-        figuritasRepetidas.Add(figurita);
+        FiguritasRepetidas.Add(figurita);
     }
 
     public void AgregarFiguritaFaltante(Figurita figurita) 
     {
-        figuritasFaltantes.Add(figurita);
+        FiguritasFaltantes.Add(figurita);
     }
 
 }

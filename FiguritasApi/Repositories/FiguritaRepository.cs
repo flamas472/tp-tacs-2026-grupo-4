@@ -1,9 +1,10 @@
 using FiguritasApi.Model;
 
-// Repo para persistencia en memoria. 
+namespace FiguritasApi.Repositories;
+
 public class FiguritaRepository
 {
-    private readonly List<Figurita> figuritas = new();
+    private readonly List<Figurita> figuritas = [];
 
     public List<Figurita> GetAll()
     {

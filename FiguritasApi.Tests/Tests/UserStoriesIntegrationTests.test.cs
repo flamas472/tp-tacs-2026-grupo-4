@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using FiguritasApi.Model;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -9,15 +10,19 @@ namespace FiguritasApi.Tests;
 /// Pruebas de integración para las User Stories de la Entrega 1.
 /// Utiliza WebApplicationFactory para levantar la API en memoria y testear el diseño REST.
 /// </summary>
-public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<Program>>, IAsyncLifetime
 {
     private readonly HttpClient _client;
 
-    public UserStoriesIntegrationTests(WebApplicationFactory<Program> factory)
+    public UserStoriesIntegrationTests (WebApplicationFactory<Program> factory)
     {
         // Se inicializa el cliente HTTP que apuntará a la aplicación en memoria
         _client = factory.CreateClient();
-        var usuario = new
+    }
+
+    public async Task InitializeAsync()
+    {
+        var usuario1 = new
         {
             id = 0,
             nombreUsuario = "string",
@@ -51,10 +56,51 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
                     categoria = "Prueba"
                 }
             },
-            reputacion = 0
         };
-        _client.PostAsJsonAsync($"/usuarios", usuario);
+        var usuario2 = new
+        {
+            id = 1,
+            nombreUsuario = "string",
+            figuritasRepetidas = new[]
+            {
+                new
+                {
+                    id = 1,
+                    figurita = new
+                    {
+                        id = 0,
+                        numero = 0,
+                        seleccion = "Argentina",
+                        equipo = "Boca",
+                        categoria = "Prueba"
+                    },
+                    usuarioID = 1,
+                    puedeIntercambiarse = true,
+                    activo = true,
+                    cantidad = 0
+                }
+            },
+            figuritasFaltantes = new[]
+            {
+                new
+                {
+                    id = 999,
+                    numero = 0,
+                    seleccion = "Argentina",
+                    equipo = "Boca",
+                    categoria = "Prueba"
+                }
+            },
+        };
+
+        var response1 = await _client.PostAsJsonAsync($"/usuarios", usuario1);
+        response1.EnsureSuccessStatusCode();
+
+        var response2 = await _client.PostAsJsonAsync($"/usuarios", usuario2);
+        response2.EnsureSuccessStatusCode();
     }
+
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task US01_PublicarFiguritaRepetida_DeberiaRetornarCreated()
@@ -67,9 +113,9 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
             {
                 id = 0,
                 numero = 34,
-                seleccion = 0,
-                equipo = 0,
-                categoria = 0
+                seleccion = "0",
+                equipo = "0",
+                categoria = "0"
             },
             puedeIntercambiarse = true,
             activo = true
@@ -84,7 +130,7 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
-    public async Task US02_RegistrarFiguritaFaltante_DeberiaRetornarOk()
+    public async Task US02_RegistrarFiguritaFaltante_DeberiaRetornarCreated()
     {
         // Arrange
         var usuarioId = 0;
@@ -92,19 +138,26 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         {
             figurita = new
             {
-                id = 0,
+                id = 32,
                 numero = 23,
                 seleccion = "Argentina",
                 equipo = "Boca",
-                categoria = "Prueba"
+                categoria = "Prueba01"
             }
         };
 
         // Act
-        var response = await _client.PostAsJsonAsync($"usuarios/{usuarioId}/faltantes", figuritaFaltante);
-
+        var response = await _client.PostAsJsonAsync($"/usuarios/{usuarioId}/faltantes", figuritaFaltante);
+        var content = await response.Content.ReadAsStringAsync();
+        Console.WriteLine(content);
         // Assert
-        Assert.True(response.IsSuccessStatusCode);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);;
+
+        var responseGet = await _client.GetAsync($"/usuarios/{usuarioId}/faltantes");
+        responseGet.EnsureSuccessStatusCode();
+        var contentGet = await responseGet.Content.ReadAsStringAsync();
+        Console.WriteLine(contentGet);
+        Assert.Contains("Prueba01", contentGet); 
     }
 
     [Fact]
@@ -120,7 +173,7 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
                 numero = 0,
                 seleccion = "Argentina",
                 equipo = "Boca",
-                categoria = "Prueba"
+                categoria = "Prueba02"
             },
             usuarioID = 0,
             puedeIntercambiarse = true,
@@ -135,11 +188,55 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         // Assert
         response.EnsureSuccessStatusCode();
         var content = await response.Content.ReadAsStringAsync();
-        Console.WriteLine(content);
-        Assert.Contains("Prueba", content); // Asumiendo que el mock en memoria devuelve este dato
+        //Console.WriteLine(content);
+        Assert.Contains("Prueba02", content); // Asumiendo que el mock en memoria devuelve este dato
     }
 
-    //TODO implementar test para userStory4?
+    [Fact]
+    public async Task US04_BuscarRecomendaciones_DeberiaRetornarListaFiltrada()
+    {
+        var idFiguritaFaltante = 566;
+
+        var responseFaltante = await _client.PostAsync($"/Usuarios/{1}/faltantes", JsonContent.Create(
+        new
+        {
+            figurita= new
+            {
+            id = idFiguritaFaltante,
+            numero = 0,
+            seleccion = "Brasil",
+            equipo = "Boca",
+            categoria = "Prueba03"
+        }}));
+
+        responseFaltante.EnsureSuccessStatusCode();
+
+        var responseRepetidas =await _client.PostAsync($"/Usuarios/{0}/repetidas", JsonContent.Create(new
+        {
+            id = 0,
+            figurita = new
+            {
+                id = idFiguritaFaltante,
+                numero = 0,
+                seleccion = "Brasil",
+                equipo = "Boca",
+                categoria = "Prueba03"
+            },
+            puedeIntercambiarse = true,
+            activo = true,
+            cantidad = 1
+        }));
+
+        responseRepetidas.EnsureSuccessStatusCode();
+
+        var response = await _client.GetAsync($"Usuarios/{1}/recomendaciones");
+        response.EnsureSuccessStatusCode();
+
+        // Assert
+        var content = await response.Content.ReadAsStringAsync();
+        Console.WriteLine(content);
+        Assert.Contains("Prueba03", content); // Asumiendo que el mock en memoria devuelve este dato
+    }
 
     [Fact]
     public async Task US05_HacerPropuestaIntercambio_DeberiaRetornarCreated()
@@ -149,8 +246,8 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         var usuarioReceptorId = 0;
         var propuesta = new
         {
-            usuarioProponenteID = 0,
-            figuritasOfrecidas = new[]
+            UsuarioProponenteID = usuarioProponenteId,
+            FiguritasOfrecidas = new[]
             {
                 new
                 {
@@ -169,7 +266,7 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
                     cantidad = 0
                 }
             },
-            figuritasARecibir = new[]
+            FiguritasARecibir = new[]
             {
                 new
                 {
@@ -179,13 +276,19 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
                     equipo = "Boca",
                     categoria = "Prueba"
                 }
-            }
+            },
         };
 
-        var response = await _client.PostAsJsonAsync($"usuarios/{usuarioReceptorId}/intercambios", propuesta);
+        var response = await _client.PostAsJsonAsync($"/usuarios/{usuarioReceptorId}/intercambios", propuesta);
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var responseGet = await _client.GetAsync($"/intercambios?UsuarioPropuestoID={usuarioReceptorId}");
+        responseGet.EnsureSuccessStatusCode();
+
+        Assert.NotEmpty(await responseGet.Content.ReadAsStringAsync()); // Verifica que la propuesta se haya registrado correctamente
+
     }
 
     [Fact]
@@ -193,17 +296,73 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
     {
         // Arrange
         var figuritaRepetidaId = 150;
+        var usuarioSubastador = new
+        {
+            id = 0,
+            nombreUsuario = "string",
+            figuritasRepetidas = new[]
+            {
+                new
+                {
+                    id = figuritaRepetidaId,
+                    figurita = new
+                    {
+                        id = 0,
+                        numero = 0,
+                        seleccion = "Argentina",
+                        equipo = "Boca",
+                        categoria = "Prueba"
+                    },
+                    usuarioID = 0,
+                    puedeIntercambiarse = true,
+                    activo = true,
+                    cantidad = 0
+                }
+            },
+            figuritasFaltantes = Array.Empty<object>(),
+        };
         var reglasSubasta = new
         {
-            DuracionHoras = 48,
-            CantidadMinimaFiguritasRequeridas = 2
+            ID = 48,
+            Subastador = usuarioSubastador,
+            FechaInicio = DateTime.UtcNow,
+            FechaFin = DateTime.UtcNow.AddDays(7),
+            OfertaMinima = new[]
+            {
+                new
+                {
+                    id = 0,
+                    numero = 0,
+                    seleccion = "Argentina",
+                    equipo = "Boca",
+                    categoria = "Prueba"
+                }
+            },
+            FiguritasSubastadas = new[]
+            {
+                new
+                {
+                    id = 0,
+                    numero = 0,
+                    seleccion = "Argentina",
+                    equipo = "Boca",
+                    categoria = "Prueba"
+                }
+            },            
+            Ofertas = Array.Empty<object>()
         };
 
         // Act - Mapeando a un recurso anidado en FiguritasRepetidasController
-        var response = await _client.PostAsJsonAsync($"/api/figuritas-repetidas/{figuritaRepetidaId}/subasta", reglasSubasta);
+        var response = await _client.PostAsJsonAsync($"/subastas", reglasSubasta);
 
         // Assert
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        var getResponse = await _client.GetAsync($"/subastas?SubastadorId={usuarioSubastador.id}");
+        getResponse.EnsureSuccessStatusCode();
+
+        var content = await getResponse.Content.ReadAsStringAsync();
+        Assert.NotEmpty(content); // Verifica que la subasta se haya registrado correctamente
     }
 
     [Fact]
