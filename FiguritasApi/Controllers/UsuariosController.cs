@@ -4,7 +4,7 @@ using FiguritasApi.Model;
 namespace FiguritasApi.Controllers;
 
 [ApiController]
-[Route("[controller]")]  
+[Route("[controller]")]
 
 // Entonces, teniendo en cuenta lo de arriba, el endpoint es: api/Usuario
 
@@ -40,15 +40,19 @@ public class UsuariosController : ControllerBase
         {
             _repoFigRep.Add(figuritaRepetida);
         }
-        
+
         return StatusCode(201, usuario);
     }
 
     // Rutas REST para gestionar las figuritas repetidas del usuario.
-      [HttpPost("{usuarioId}/Repetidas")]
+    [HttpPost("{usuarioId}/Repetidas")]
     public ActionResult<FiguritaRepetida> PostFiguritaRepetida(int usuarioId, PostRepetidaDto figuritaRepetidaDto)
     {
         var usuario = _repoUsuarios.GetByID(usuarioId);
+        if (usuario is null) {
+            return NotFound("Usuario no encontrado.");
+        }
+
         var figuritaRepetida = figuritaRepetidaDto.toDomain();
         _repoFigRep.Add(figuritaRepetida);
         usuario.AgregarFiguritaRepetida(figuritaRepetida);
@@ -59,6 +63,10 @@ public class UsuariosController : ControllerBase
     public ActionResult<List<Figurita>> PostFiguritaFaltantes(int usuarioId, PostFaltanteDto faltanteDto)
     {
         var usuario = _repoUsuarios.GetByID(usuarioId);
+        if (usuario is null) {
+            return NotFound("Usuario no encontrado.");
+        }
+
         var figuritaFaltante = faltanteDto.toDomain();
         usuario.AgregarFiguritaFaltante(figuritaFaltante);
         return StatusCode(201, usuario.figuritasFaltantes);
@@ -69,15 +77,15 @@ public class UsuariosController : ControllerBase
     {
         Console.WriteLine($"Usuario Proponente ID: {propuestaIntercambioDto.usuarioProponenteID}");
         var usuarioProponente = _repoUsuarios.GetByID(propuestaIntercambioDto.usuarioProponenteID);
-        var usuarioPropuesto = _repoUsuarios.GetByID(usuarioId);
-        if(usuarioProponente == null ) 
-        {
+        if(usuarioProponente is null) {
             return NotFound("Usuario proponente no encontrado.");
         }
-        if(usuarioPropuesto == null) 
-        {
+
+        var usuarioPropuesto = _repoUsuarios.GetByID(usuarioId);
+        if(usuarioPropuesto is null) {
             return NotFound("Usuario propuesto no encontrado.");
         }
+
         var propuestaIntercambio = propuestaIntercambioDto.toDomain(usuarioProponente, usuarioPropuesto);
         _repoPropuestaIntercambio.Add(propuestaIntercambio);
         return StatusCode(201, propuestaIntercambio);
@@ -94,7 +102,7 @@ public class PostPropuestaIntercambioDto
 
     public required List<Figurita> figuritasARecibir {get; set; }
 
-    public PropuestaIntercambio toDomain(Usuario proponente, Usuario propuesto) 
+    public PropuestaIntercambio toDomain(Usuario proponente, Usuario propuesto)
     {
         return new PropuestaIntercambio {
             id = 0, // El ID se asigna automáticamente al agregarlo a la base de datos.
@@ -114,7 +122,7 @@ public class PostRepetidaDto
     public bool puedeIntercambiarse {get; set; } // 0 --> Para subasta, 1 --> Para intercambios
     public bool activo {get; set; }
 
-    public FiguritaRepetida toDomain() 
+    public FiguritaRepetida toDomain()
     {
         return new FiguritaRepetida {
             id = 0, // El ID se asigna automáticamente al agregarlo a la base de datos.
@@ -123,14 +131,14 @@ public class PostRepetidaDto
             activo = this.activo
         };
     }
-    
+
 }
 
 public class PostFaltanteDto
 {
     public required Figurita figurita {get; set;}
 
-    public Figurita toDomain() 
+    public Figurita toDomain()
     {
         return new Figurita {
             id = 0, // El ID se asigna automáticamente al agregarlo a la base de datos.
@@ -140,5 +148,5 @@ public class PostFaltanteDto
             numero = this.figurita.numero
         };
     }
-    
+
 }
