@@ -1,6 +1,6 @@
 using FiguritasApi.Model;
 
-// Repo para persistencia en memoria. 
+// Repo para persistencia en memoria.
 public class PropuestaIntercambioRepository
 {
     private readonly List<PropuestaIntercambio> propuestas = new();
@@ -15,8 +15,8 @@ public class PropuestaIntercambioRepository
         propuestas.Add(propuesta);
     }
 
-    public PropuestaIntercambio GetByID(int propuestaID)
+    public PropuestaIntercambio? GetByID(int propuestaID)
     {
-         return propuestas.FirstOrDefault(p => p.id == propuestaID);
+        return propuestas.FirstOrDefault(p => p.id == propuestaID);
     }
 }
