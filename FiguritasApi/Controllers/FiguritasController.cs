@@ -4,9 +4,9 @@ using FiguritasApi.Model;
 namespace FiguritasApi.Controllers;
 
 [ApiController]
-[Route("[controller]")] // .NET reemplaza [controller] por el nombre de la clase sin “Controller”. 
+[Route("api/[controller]")] // .NET replaces [controller] with the class name without "Controller".
 
-// Entonces, teniendo en cuenta lo de arriba, el endpoint es: api/Figurita
+// So, the endpoint is: api/figuritas
 public class FiguritasController : ControllerBase
 {
 
@@ -28,8 +28,6 @@ public class FiguritasController : ControllerBase
     public ActionResult<Figurita> PostFigurita(Figurita figurita)
     {
         _repo.Add(figurita);
-        return StatusCode(201, figurita);
+        return CreatedAtAction(nameof(GetFiguritas), new { id = figurita.Id }, figurita);
     }
-
-
 }

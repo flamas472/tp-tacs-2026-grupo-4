@@ -2,17 +2,16 @@ namespace FiguritasApi.Model;
 
 public class Figurita
 {
-    public int id {get; set; }
+    public int Id { get; set; }
 
-    public int numero {get; set; }
+    public int Number { get; set; }
 
-    public Seleccion seleccion {get; set; }
+    public Seleccion Selection { get; set; }
 
-    public Equipo equipo {get; set; }
+    public Equipo Team { get; set; }
 
-    public Categoria categoria {get; set; }
+    public Categoria Category { get; set; }
 
-    // Hacer que se persista el jugador sin tener un ORM para que se haga on cascade es un quilombo, queda ToDo
-    //public Jugador jugador {get; set; }
-    
+    // Persisting the player without ORM for cascade is complicated, TODO
+    //public Jugador Player { get; set; }
 }
