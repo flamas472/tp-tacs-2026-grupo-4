@@ -1,8 +1,8 @@
 namespace FiguritasApi.Model;
 
-public enum Seleccion {
+public enum NationalTeam {
     Argentina, 
-    Brasil,  
-    Francia
+    Francia,
+    Brasil 
     // ....
 }

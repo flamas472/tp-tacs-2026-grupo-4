@@ -1,24 +1,26 @@
-using Microsoft.AspNetCore.Mvc;
 using FiguritasApi.Model;
 using FiguritasApi.Services;
+using Microsoft.AspNetCore.Mvc;
 
-namespace FiguritasApi.Controllers;
+namespace StickersApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 
 // Endpoints: api/users
 
-// To add an inventory figurita for a user: POST /api/users/{userId}/inventory
+// To add an inventory Sticker for a user: POST /api/users/{userId}/inventory
 public class UsersController : ControllerBase
 {
 
     private readonly UserService _userService;
 
+
     public UsersController(UserService userService)
     {
         _userService = userService;
     }
+
 
     // REST routes for managing users.
     [HttpGet]
@@ -42,16 +44,16 @@ public class UsersController : ControllerBase
         }
     }
 
-    // REST routes for managing user's inventory figuritas.
+    // REST routes for managing user's inventory Stickers.
     [HttpPost("{userId}/inventory")]
-    public ActionResult<InventoryFigurita> PostInventoryFigurita(int userId, PostInventoryDto inventoryDto)
+    public ActionResult<UserSticker> PostUserSticker(int userId, PostInventoryDto inventoryDto)
     {
         try
         {
-            var inventoryFigurita = inventoryDto.ToDomain();
-            inventoryFigurita.UserId = userId;
-            _userService.AddInventoryFiguritaToUser(userId, inventoryFigurita);
-            return CreatedAtAction(nameof(GetUsers), new { id = inventoryFigurita.Id }, inventoryFigurita);
+            var userSticker = inventoryDto.ToDomain();
+            userSticker.UserId = userId;
+            _userService.AddUserStickerToUser(userId, userSticker);
+            return CreatedAtAction(nameof(GetUsers), new { id = userSticker.Id }, userSticker);
         }
         catch (ArgumentException ex)
         {
@@ -60,14 +62,75 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("{userId}/missing")]
-    public ActionResult<List<Figurita>> PostMissingFigurita(int userId, PostMissingDto missingDto)
+    public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingDto missingDto)
     {
         try
         {
-            var missingFigurita = missingDto.ToDomain();
-            _userService.AddMissingFiguritaToUser(userId, missingFigurita);
+            var missingSticker = missingDto.ToDomain();
+            _userService.AddMissingStickerToUser(userId, missingSticker);
             var user = _userService.GetUserById(userId);
-            return CreatedAtAction(nameof(GetUsers), new { id = missingFigurita.Id }, user?.MissingFiguritas);
+            return CreatedAtAction(nameof(GetUsers), new { id = missingSticker.Id }, user?.MissingStickers);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpPost("{userId}/exchangeProposal")]
+    public ActionResult<ExchangeProposal> PostExchangeProposal(PostExchangeProposalDTO exchangeProposalDTO)
+    {
+        try
+        {
+            // 1. Validations
+            if (exchangeProposalDTO.ProponentUserID == exchangeProposalDTO.ProposedUserID)
+                return BadRequest("No podés proponerte un intercambio a vos mismo.");
+
+            if (!exchangeProposalDTO.OfferedStickersID.Any() || !exchangeProposalDTO.RequestedStickersID.Any())
+                return BadRequest("Debe haber al menos una figurita ofrecida y una solicitada.");  
+
+             // 2. Search usesr
+            var proponent = _userService.GetUserById(exchangeProposalDTO.ProponentUserID);
+            var proposed = _userService.GetUserById(exchangeProposalDTO.ProposedUserID);
+
+            if (proponent == null || proposed == null)
+                return NotFound("Uno o ambos usuarios no existen.");    
+
+            // 3. Buscar stickers
+            var offered = exchangeProposalDTO.OfferedStickersID
+                .Select(id => _userService.GetUserStickerById(id))
+                .ToList();
+
+            var requested = exchangeProposalDTO.RequestedStickersID
+                .Select(id => _userService.GetUserStickerById(id))
+                .ToList();
+
+            if (offered.Any(s => s == null) || requested.Any(s => s == null))
+                return BadRequest("Algunas figuritas no existen.");
+
+            // 5. Check ownership
+            if (offered.Any(s => s!.UserId != proponent.Id))
+                return BadRequest("Estás ofreciendo figuritas que no son tuyas.");
+
+            if (requested.Any(s => s!.UserId != proposed.Id))
+                return BadRequest("Estás solicitando figuritas que el otro usuario no tiene.");
+
+            // 6. Create entity
+            var proposal = new ExchangeProposal
+            {
+                Id = 0,
+                Proponent = proponent,
+                Proposed = proposed,
+                OfferedStickers = offered,
+                RequestedStickers = requested,
+                State = ExchangeProposalState.Pending
+            };
+
+            // 7. Persist entity
+            _userService.CreateExchangeProposal(proposal);
+
+            // 8. Response
+            // ToDo
         }
         catch (ArgumentException ex)
         {
@@ -78,15 +141,15 @@ public class UsersController : ControllerBase
 
 public class PostInventoryDto
 {
-    public required Figurita Figurita { get; set; }
+    public required Sticker Sticker { get; set; }
     public bool CanBeExchanged { get; set; } // true for exchange, false for auction
     public bool Active { get; set; }
 
-    public InventoryFigurita ToDomain()
+    public UserSticker ToDomain()
     {
-        return new InventoryFigurita {
+        return new UserSticker {
             Id = 0, // ID assigned automatically
-            Figurita = this.Figurita,
+            Sticker = this.Sticker,
             CanBeExchanged = this.CanBeExchanged,
             Active = this.Active,
             Quantity = 1 // default
@@ -96,16 +159,27 @@ public class PostInventoryDto
 
 public class PostMissingDto
 {
-    public required Figurita Figurita { get; set; }
+    public required Sticker Sticker { get; set; }
 
-    public Figurita ToDomain()
+    public Sticker ToDomain()
     {
-        return new Figurita {
+        return new Sticker {
             Id = 0, // ID assigned automatically
-            Selection = this.Figurita.Selection,
-            Team = this.Figurita.Team,
-            Category = this.Figurita.Category,
-            Number = this.Figurita.Number
+            NationalTeam = this.Sticker.NationalTeam,
+            Team = this.Sticker.Team,
+            Category = this.Sticker.Category,
+            Number = this.Sticker.Number
         };
     }
+}
+
+public class PostExchangeProposalDTO
+{
+    public required List<int> OfferedStickersID { get; set; } // IDs de UserSticker
+
+    public required List<int> RequestedStickersID { get; set; } // IDs de UserSticker
+
+    public required int ProponentUserID {get; set; }
+
+    public required int ProposedUserID {get; set; }
 }

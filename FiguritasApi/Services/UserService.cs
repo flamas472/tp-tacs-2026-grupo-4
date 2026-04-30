@@ -5,12 +5,14 @@ namespace FiguritasApi.Services;
 public class UserService
 {
     private readonly UserRepository _userRepo;
-    private readonly InventoryFiguritaRepository _inventoryRepo;
+    private readonly UserStickerRepository _inventoryRepo;
+    private readonly ExchangeProposalRepository _exchangePropRepo;
 
-    public UserService(UserRepository userRepo, InventoryFiguritaRepository inventoryRepo)
+    public UserService(UserRepository userRepo, UserStickerRepository inventoryRepo, ExchangeProposalRepository exchangePropRepo)
     {
         _userRepo = userRepo;
         _inventoryRepo = inventoryRepo;
+        _exchangePropRepo = exchangePropRepo;
     }
 
     public List<User> GetAllUsers() => _userRepo.GetAll();
@@ -26,18 +28,27 @@ public class UserService
         _userRepo.Add(user);
     }
 
-    public void AddInventoryFiguritaToUser(int userId, InventoryFigurita inventoryFigurita)
+    public void AddUserStickerToUser(int userId, UserSticker userSticker)
     {
         var user = _userRepo.GetById(userId);
         if (user == null) throw new ArgumentException("User not found");
-        _inventoryRepo.Add(inventoryFigurita);
-        user.AddInventoryFigurita(inventoryFigurita);
+        _inventoryRepo.Add(userSticker);
+        user.AddUserSticker(userSticker);
     }
 
-    public void AddMissingFiguritaToUser(int userId, Figurita missingFigurita)
+    public void AddMissingStickerToUser(int userId, Sticker missingSticker)
     {
         var user = _userRepo.GetById(userId);
         if (user == null) throw new ArgumentException("User not found");
-        user.AddMissingFigurita(missingFigurita);
+        user.AddMissingSticker(missingSticker);
     }
+
+    // ¿Habría que crear services aparte para estas cosas?
+    public UserSticker? GetUserStickerById(int id) => _inventoryRepo.GetById(id);
+
+    public void CreateExchangeProposal(ExchangeProposal exchangeProposal)
+    {
+        _exchangePropRepo.Add(exchangeProposal);
+    }
+
 }

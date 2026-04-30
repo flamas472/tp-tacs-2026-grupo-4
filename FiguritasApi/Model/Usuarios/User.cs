@@ -5,17 +5,17 @@ public class User
 
     public required string Username { get; set; }
 
-    public List<InventoryFigurita> InventoryFiguritas { get; set; } = new();
+    public List<UserSticker> InventoryStickers { get; set; } = new();
 
-    public List<Figurita> MissingFiguritas { get; set; } = new();
+    public List<Sticker> MissingStickers { get; set; } = new();
 
-    public void AddInventoryFigurita(InventoryFigurita figurita)
+    public void AddUserSticker(UserSticker sticker)
     {
-        InventoryFiguritas.Add(figurita);
+        InventoryStickers.Add(sticker);
     }
 
-    public void AddMissingFigurita(Figurita figurita)
+    public void AddMissingSticker(Sticker sticker)
     {
-        MissingFiguritas.Add(figurita);
+        MissingStickers.Add(sticker);
     }
 }

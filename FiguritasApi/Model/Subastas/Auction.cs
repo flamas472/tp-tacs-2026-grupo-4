@@ -10,9 +10,9 @@ public class Auction
 
     public DateTime EndDate { get; set; }
 
-    public required List<Figurita> MinimumOffer { get; set; }
+    public required List<Sticker> MinimumOffer { get; set; }
 
-    public required Figurita AuctionedFigurita { get; set; }
+    public required Sticker AuctionedFigurita { get; set; }
 
     public AuctionOffer? BestCurrentOffer { get; set; }
 }

@@ -1,33 +1,33 @@
-using Microsoft.AspNetCore.Mvc;
 using FiguritasApi.Model;
+using Microsoft.AspNetCore.Mvc;
 
-namespace FiguritasApi.Controllers;
+namespace StickersApi.Controllers;
 
 [ApiController]
 [Route("api/search")]
 public class SearchController : ControllerBase
 {
-    private readonly InventoryFiguritaRepository _inventoryRepo;
+    private readonly UserStickerRepository _inventoryRepo;
 
-    public SearchController(InventoryFiguritaRepository inventoryRepo)
+    public SearchController(UserStickerRepository inventoryRepo)
     {
         _inventoryRepo = inventoryRepo;
     }
 
-    [HttpGet("inventory-figuritas")]
-    public ActionResult<List<InventoryFigurita>> SearchInventoryFiguritas(
+    [HttpGet("inventory-stickers")]
+    public ActionResult<List<UserSticker>> SearchInventoryStickers(
         [FromQuery] int? number,
-        [FromQuery] Seleccion? selection,
-        [FromQuery] Equipo? team,
-        [FromQuery] Categoria? category,
+        [FromQuery] NationalTeam? selection,
+        [FromQuery] Team? team,
+        [FromQuery] Category? category,
         [FromQuery] bool? canBeExchanged,
         [FromQuery] bool? active)
     {
         var results = _inventoryRepo.GetAll(fig =>
-            (!number.HasValue || fig.Figurita.Number == number.Value) &&
-            (!selection.HasValue || fig.Figurita.Selection == selection.Value) &&
-            (!team.HasValue || fig.Figurita.Team == team.Value) &&
-            (!category.HasValue || fig.Figurita.Category == category.Value) &&
+            (!number.HasValue || fig.Sticker.Number == number.Value) &&
+            (!selection.HasValue || fig.Sticker.NationalTeam == selection.Value) &&
+            (!team.HasValue || fig.Sticker.Team == team.Value) &&
+            (!category.HasValue || fig.Sticker.Category == category.Value) &&
             (!canBeExchanged.HasValue || fig.CanBeExchanged == canBeExchanged.Value) &&
             (!active.HasValue || fig.Active == active.Value)
         );

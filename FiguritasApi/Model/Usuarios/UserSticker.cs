@@ -1,9 +1,9 @@
 namespace FiguritasApi.Model;
-public class InventoryFigurita
+public class UserSticker
 {
     public int Id { get; set; }
 
-    public required Figurita Figurita { get; set; }
+    public required Sticker Sticker { get; set; }
 
     public int UserId { get; set; }
 
