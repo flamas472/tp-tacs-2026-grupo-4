@@ -13,7 +13,7 @@
 
 ### Locally
 1. Ensure you have .NET 10 SDK installed.
-2. Navigate to the FiguritasApi directory.
+2. Navigate to the Figuritas.Api directory.
 3. Run `dotnet restore` to restore dependencies.
 4. Run `dotnet run` to start the application.
 5. The application will be available at `http://localhost:5219` (HTTP) and `https://localhost:7268` (HTTPS).
@@ -28,7 +28,7 @@
 - Docker: Exposed on 5000 (mapped to internal 8080).
 
 ### Running Tests
-1. Navigate to the FiguritasApi.Tests directory.
+1. Navigate to the Figuritas.Api.Tests directory.
 2. Run `dotnet test` to execute the unit and integration tests.
 
 ### AI Usage

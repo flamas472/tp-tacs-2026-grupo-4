@@ -6,10 +6,10 @@ WORKDIR /app
 
 # Copiamos la solución y los tres proyectos
 COPY tp-tacs-2026-grupo-4.sln ./
-COPY FiguritasApi/FiguritasApi.csproj ./FiguritasApi/
-COPY FiguritasApi.Tests/FiguritasApi.Tests.csproj ./FiguritasApi.Tests/
-COPY FiguritasClient/FiguritasClient.csproj ./FiguritasClient/
-COPY FiguritasApi.Shared/FiguritasApi.Shared.csproj ./FiguritasApi.Shared/
+COPY Figuritas.Api/Figuritas.Api.csproj ./Figuritas.Api/
+COPY Figuritas.Api.Tests/Figuritas.Api.Tests.csproj ./Figuritas.Api.Tests/
+COPY Figuritas.Client/Figuritas.Client.csproj ./Figuritas.Client/
+COPY Figuritas.Shared/Figuritas.Shared.csproj ./Figuritas.Shared/
 
 # Restauramos todo de una vez
 RUN dotnet restore
@@ -18,10 +18,10 @@ RUN dotnet restore
 COPY . .
 
 # Publicamos la API
-RUN dotnet publish FiguritasApi/FiguritasApi.csproj -c Release -o /app/out-api
+RUN dotnet publish Figuritas.Api/Figuritas.Api.csproj -c Release -o /app/out-api
 
 # Publicamos el Cliente Blazor
-RUN dotnet publish FiguritasClient/FiguritasClient.csproj -c Release -o /app/out-client
+RUN dotnet publish Figuritas.Client/Figuritas.Client.csproj -c Release -o /app/out-client
 
 
 # ==========================================
@@ -32,7 +32,7 @@ WORKDIR /app
 COPY --from=build-env /app/out-api .
 # Informamos que la API usa el 8080
 EXPOSE 8080
-ENTRYPOINT ["dotnet", "FiguritasApi.dll"]
+ENTRYPOINT ["dotnet", "Figuritas.Api.dll"]
 
 
 # ==========================================
@@ -45,6 +45,6 @@ WORKDIR /usr/share/nginx/html
 COPY --from=build-env /app/out-client/wwwroot .
 
 # Copiamos la configuración de Nginx (debe estar en la carpeta del cliente)
-COPY FiguritasClient/nginx.conf /etc/nginx/conf.d/default.conf
+COPY Figuritas.Client/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

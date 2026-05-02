@@ -1,0 +1,19 @@
+@page "/holamundo"
+@using Figuritas.Client.Components 
+
+<PageTitle>Prueba de Componentes</PageTitle>
+
+<div class="container mt-5">
+    <h1>Página de Prueba</h1>
+    <p>A continuación, usamos el componente que creamos recién:</p>
+
+    <hr />
+
+    @* Llamamos al componente y le pasamos el parámetro "Titulo" *@
+    <HolaMundoComponent Titulo="¡Hola TACS 2026!" />
+
+    <div class="mt-4">
+        <p>Puedo usarlo otra vez con otro título:</p>
+        <HolaMundoComponent Titulo="Componente repetido" />
+    </div>
+</div>

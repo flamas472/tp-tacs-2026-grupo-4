@@ -3,13 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FiguritasApi", "FiguritasApi\FiguritasApi.csproj", "{43019BA2-0D26-0497-5BDC-7AD5E48DFB8E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Figuritas.Api", "Figuritas.Api\Figuritas.Api.csproj", "{43019BA2-0D26-0497-5BDC-7AD5E48DFB8E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FiguritasApi.Tests", "FiguritasApi.Tests\FiguritasApi.Tests.csproj", "{A0B35FC4-77AD-4416-BCD8-6FEA0135CEA3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Figuritas.Api.Tests", "Figuritas.Api.Tests\Figuritas.Api.Tests.csproj", "{A0B35FC4-77AD-4416-BCD8-6FEA0135CEA3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FiguritasClient", "FiguritasClient\FiguritasClient.csproj", "{2CA14C8E-084C-4342-ACC7-C9212B1796EB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Figuritas.Client", "Figuritas.Client\Figuritas.Client.csproj", "{2CA14C8E-084C-4342-ACC7-C9212B1796EB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FiguritasApi.Shared", "FiguritasApi.Shared\FiguritasApi.Shared.csproj", "{3C17FFA6-E0BA-45EF-87A0-408EE9A7BB94}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Figuritas.Shared", "Figuritas.Shared\Figuritas.Shared.csproj", "{3C17FFA6-E0BA-45EF-87A0-408EE9A7BB94}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
