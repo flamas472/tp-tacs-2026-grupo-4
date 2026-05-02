@@ -1,4 +1,5 @@
 using FiguritasApi.Model;
+using FiguritasApi.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace StickersApi.Controllers;
@@ -10,40 +11,33 @@ namespace StickersApi.Controllers;
 public class StickersController : ControllerBase
 {
 
-    private readonly StickerRepository _repo;
+    private readonly StickerService _stickerService;
 
-    public StickersController(StickerRepository repo)
+    public StickersController(StickerService stickerService)
     {
-        _repo = repo;
+        _stickerService = stickerService;
     }
 
-    [HttpGet] 
-    public ActionResult<List<Sticker>> GetStickers()
+    [HttpGet] // /stickers?team={team} o /stickers?number={number} o /stickers?player={player} ... (y sus combinaciones)
+    public ActionResult<List<Sticker>> GetStickers(int? number, Team? team, NationalTeam? nationalTeam, Category? category, string? player)
     {
-        var Stickers = _repo.GetAll();
-        return Ok(Stickers);
+        var stickers = _stickerService.GetAllStickers();
+
+        if (number.HasValue)
+            stickers = stickers.Where(s => s.Number == number.Value).ToList();
+
+        if (team.HasValue)
+            stickers = stickers.Where(s => s.Team == team.Value).ToList();
+
+        if (nationalTeam.HasValue)
+            stickers = stickers.Where(s => s.NationalTeam == nationalTeam.Value).ToList();
+
+        if (category.HasValue)
+            stickers = stickers.Where(s => s.Category == category.Value).ToList();
+
+        if (!string.IsNullOrEmpty(player))
+            stickers = stickers.Where(s => s.Player.Equals(player, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        return Ok(stickers);        
     }
-
-    [HttpPost]
-    public ActionResult<Sticker> PostSticker(Sticker sticker)
-    {
-        _repo.Add(sticker);
-        return CreatedAtAction(nameof(GetStickers), new { id = sticker.Id }, sticker);
-    }
-
-    [HttpPut("{id}")]
-    public IActionResult PutSticker(int id, [FromBody] Sticker sticker)
-    {
-        if (id != sticker.Id)
-            return BadRequest();
-
-        var existant = _repo.GetById(id);
-
-        if (existant == null)
-            return NotFound();
-
-        _repo.Update(id, sticker);
-
-    return NoContent();
-}
 }

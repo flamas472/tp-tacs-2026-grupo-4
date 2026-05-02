@@ -4,7 +4,7 @@ public class Sticker
 {
     public int Id { get; set; }
 
-    public int Number { get; set; }
+    public required int Number { get; set; }
 
     public NationalTeam NationalTeam { get; set; }
 
@@ -12,6 +12,5 @@ public class Sticker
 
     public Category Category { get; set; }
 
-    // Persisting the player without ORM for cascade is complicated, TODO
-    //public Jugador Player { get; set; }
+    public required string Player { get; set; }
 }

@@ -20,6 +20,16 @@ public class StickerRepository
 
     public Sticker? GetById(int id) => Stickers.FirstOrDefault(a => a.Id == id);
 
+    public Sticker? GetByNumber(int number) => Stickers.FirstOrDefault(a => a.Number == number);
+
+    public List<Sticker> GetAllByTeam(Team team) => Stickers.Where(a => a.Team == team).ToList();
+
+    public List<Sticker> GetAllByNationalTeam(NationalTeam nationalTeam) => Stickers.Where(a => a.NationalTeam == nationalTeam).ToList();
+
+    public List<Sticker> GetAllByCategory(Category category) => Stickers.Where(a => a.Category == category).ToList();
+
+    public List<Sticker> GetAllByPlayer(string playerName) => Stickers.Where(a => a.Player == playerName).ToList();
+
     public bool Update(int id, Sticker updated)
     {
         Sticker existing = GetById(id);

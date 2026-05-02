@@ -8,8 +8,6 @@ namespace StickersApi.Controllers;
 [Route("api/[controller]")]
 
 // Endpoints: api/users
-
-// To add an inventory Sticker for a user: POST /api/users/{userId}/inventory
 public class UsersController : ControllerBase
 {
 
@@ -31,11 +29,11 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<User> PostUser(User user)
+    public ActionResult<User> PostUser(PostUserDTO userDTO)
     {
         try
         {
-            _userService.CreateUser(user);
+            var user = _userService.CreateUser(userDTO.Username, userDTO.Password);
             return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
         }
         catch (ArgumentException ex)
@@ -44,16 +42,14 @@ public class UsersController : ControllerBase
         }
     }
 
-    // REST routes for managing user's inventory Stickers.
-    [HttpPost("{userId}/inventory")]
-    public ActionResult<UserSticker> PostUserSticker(int userId, PostInventoryDto inventoryDto)
+    // REST routes for managing user's Stickers.
+    [HttpPost("{userId}/stickers")]
+    public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerDto inventoryDto)
     {
         try
         {
-            var userSticker = inventoryDto.ToDomain();
-            userSticker.UserId = userId;
-            _userService.AddUserStickerToUser(userId, userSticker);
-            return CreatedAtAction(nameof(GetUsers), new { id = userSticker.Id }, userSticker);
+            var userSticker = _userService.CreateUserSticker(userId, inventoryDto.stickerID, inventoryDto.canBeExchanged);
+            return Ok();
         }
         catch (ArgumentException ex)
         {
@@ -61,6 +57,48 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HttpGet("{userId}/stickers")]
+    public ActionResult<List<UserSticker>> GetUserStickers(int userId)
+    {
+        var userStickers = _userService.GetAllUserStickers().FindAll(us => us.UserId == userId);
+        return Ok(userStickers);
+    }
+
+    [HttpPatch("{userId}/stickers/{stickerId}")]
+    public ActionResult<UserSticker> PatchUserSticker(int userId, int userStickerId, PatchUserStickerDto patchDto)
+    {
+        try
+        {
+            if(patchDto.quantity < 0)
+                return BadRequest("La cantidad ingresada no puede ser negativa.");
+
+            if(patchDto.canBeExchanged == null && patchDto.quantity == null)
+                return BadRequest("Debe proporcionar al menos un campo para actualizar.");
+            
+            var userSticker = _userService.UpdateUserSticker(userStickerId, patchDto.canBeExchanged, patchDto.quantity);
+            return Ok(userSticker);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpDelete("{userId}/stickers/{stickerId}")]
+    public ActionResult<UserSticker> DeleteUserSticker(int userId, int userStickerId)
+    {
+        try
+        {
+            _userService.DeleteUserSticker(userStickerId);
+            return Ok();
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    /* TODO: Analizar cómo habría que modelar los missing stickers.
     [HttpPost("{userId}/missing")]
     public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingDto missingDto)
     {
@@ -76,110 +114,25 @@ public class UsersController : ControllerBase
             return NotFound(ex.Message);
         }
     }
-
-    [HttpPost("{userId}/exchangeProposal")]
-    public ActionResult<ExchangeProposal> PostExchangeProposal(PostExchangeProposalDTO exchangeProposalDTO)
-    {
-        try
-        {
-            // 1. Validations
-            if (exchangeProposalDTO.ProponentUserID == exchangeProposalDTO.ProposedUserID)
-                return BadRequest("No podés proponerte un intercambio a vos mismo.");
-
-            if (!exchangeProposalDTO.OfferedStickersID.Any() || !exchangeProposalDTO.RequestedStickersID.Any())
-                return BadRequest("Debe haber al menos una figurita ofrecida y una solicitada.");  
-
-             // 2. Search usesr
-            var proponent = _userService.GetUserById(exchangeProposalDTO.ProponentUserID);
-            var proposed = _userService.GetUserById(exchangeProposalDTO.ProposedUserID);
-
-            if (proponent == null || proposed == null)
-                return NotFound("Uno o ambos usuarios no existen.");    
-
-            // 3. Buscar stickers
-            var offered = exchangeProposalDTO.OfferedStickersID
-                .Select(id => _userService.GetUserStickerById(id))
-                .ToList();
-
-            var requested = exchangeProposalDTO.RequestedStickersID
-                .Select(id => _userService.GetUserStickerById(id))
-                .ToList();
-
-            if (offered.Any(s => s == null) || requested.Any(s => s == null))
-                return BadRequest("Algunas figuritas no existen.");
-
-            // 5. Check ownership
-            if (offered.Any(s => s!.UserId != proponent.Id))
-                return BadRequest("Estás ofreciendo figuritas que no son tuyas.");
-
-            if (requested.Any(s => s!.UserId != proposed.Id))
-                return BadRequest("Estás solicitando figuritas que el otro usuario no tiene.");
-
-            // 6. Create entity
-            var proposal = new ExchangeProposal
-            {
-                Id = 0,
-                Proponent = proponent,
-                Proposed = proposed,
-                OfferedStickers = offered,
-                RequestedStickers = requested,
-                State = ExchangeProposalState.Pending
-            };
-
-            // 7. Persist entity
-            _userService.CreateExchangeProposal(proposal);
-
-            // 8. Response
-            // ToDo
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
-    }
+    */
 }
 
-public class PostInventoryDto
+public class PostUserStickerDto
 {
-    public required Sticker Sticker { get; set; }
-    public bool CanBeExchanged { get; set; } // true for exchange, false for auction
-    public bool Active { get; set; }
+    public required int stickerID { get; set; }
 
-    public UserSticker ToDomain()
-    {
-        return new UserSticker {
-            Id = 0, // ID assigned automatically
-            Sticker = this.Sticker,
-            CanBeExchanged = this.CanBeExchanged,
-            Active = this.Active,
-            Quantity = 1 // default
-        };
-    }
+    public required bool canBeExchanged { get; set; }
 }
 
-public class PostMissingDto
+public class PostUserDTO
 {
-    public required Sticker Sticker { get; set; }
-
-    public Sticker ToDomain()
-    {
-        return new Sticker {
-            Id = 0, // ID assigned automatically
-            NationalTeam = this.Sticker.NationalTeam,
-            Team = this.Sticker.Team,
-            Category = this.Sticker.Category,
-            Number = this.Sticker.Number
-        };
-    }
+    public required string Username { get; set; }
+    public required string Password { get; set; }
 }
 
-public class PostExchangeProposalDTO
+public class PatchUserStickerDto
 {
-    public required List<int> OfferedStickersID { get; set; } // IDs de UserSticker
+    public bool? canBeExchanged { get; set; }
 
-    public required List<int> RequestedStickersID { get; set; } // IDs de UserSticker
-
-    public required int ProponentUserID {get; set; }
-
-    public required int ProposedUserID {get; set; }
+    public int? quantity { get; set; }
 }
