@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using FiguritasApi.Model;
+using FiguritasApi.Shared.Model;
 using FiguritasApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;

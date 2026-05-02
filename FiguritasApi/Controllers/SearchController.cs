@@ -1,7 +1,7 @@
-using FiguritasApi.Model;
+using FiguritasApi.Shared.Model;
 using Microsoft.AspNetCore.Mvc;
 
-namespace StickersApi.Controllers;
+namespace FiguritasApi.Controllers;
 
 [ApiController]
 [Route("api/search")]

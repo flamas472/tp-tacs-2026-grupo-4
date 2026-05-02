@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FiguritasApi\FiguritasApi.csproj" />
+    <ProjectReference Include="..\FiguritasApi.Shared\FiguritasApi.Shared.csproj" />
   </ItemGroup>
 
 </Project>

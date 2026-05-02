@@ -1,21 +1,36 @@
 namespace FiguritasApi.Shared.Model;
+
+using System.ComponentModel.DataAnnotations;
 public class User
 {
     public int Id { get; set; }
 
     public required string Username { get; set; }
 
-    public List<InventoryFigurita> InventoryFiguritas { get; set; } = new();
+    public required string HashedPassword {get; set;}
 
-    public List<Figurita> MissingFiguritas { get; set; } = new();
+    public required bool isAdmin {get; set;}
 
-    public void AddInventoryFigurita(InventoryFigurita figurita)
+    // TODO: Analizar cómo habría que modelar los missing stickers.    
+    // public List<Sticker> MissingStickers { get; set; } = new();
+
+    public List<Rate>? Ratings {get; set; }
+
+    [Range(1, 10)]
+    public double Reputation => Ratings?.Average(r => r.Score) ?? 0;
+
+    // Voy a probar si realmente es necesaria la bidireccionalidad. Caso contrario, esto vuela.
+    //public List<UserSticker> InventoryStickers { get; set; } = new();
+
+    /*
+    public void AddUserSticker(UserSticker sticker)
     {
-        InventoryFiguritas.Add(figurita);
+        InventoryStickers.Add(sticker);
     }
 
-    public void AddMissingFigurita(Figurita figurita)
+    public void AddMissingSticker(Sticker sticker)
     {
-        MissingFiguritas.Add(figurita);
+        MissingStickers.Add(sticker);
     }
+    */
 }

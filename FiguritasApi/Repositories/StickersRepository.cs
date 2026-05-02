@@ -1,11 +1,24 @@
 using System.Collections.Concurrent;
-using FiguritasApi.Model;
+using FiguritasApi.Shared.Model;
 
 // Repo for in-memory persistence.
 public class StickerRepository
 {
     private readonly ConcurrentBag<Sticker> Stickers = new();
     private int nextId = 1;
+
+    public StickerRepository()// TODO BORRAR CUANDO IMPLEMENTEMOS DB
+    {
+        // =========================================================================
+        // TODO BORRAR CUANDO IMPLEMENTEMOS DB
+        // =========================================================================
+        Add(new Sticker { Number = 10, Player = "Lionel Messi", Team = Team.Boca, NationalTeam = NationalTeam.Argentina, Category = Category.Player });
+        Add(new Sticker { Number = 11, Player = "Angel Di Maria", Team = Team.River, NationalTeam = NationalTeam.Brasil, Category = Category.Player });
+        Add(new Sticker { Number = 7, Player = "Cristiano Ronaldo", Team = Team.Boca, NationalTeam = NationalTeam.Argentina, Category = Category.Player });
+        Add(new Sticker { Number = 10, Player = "Neymar Jr", Team = Team.River, NationalTeam = NationalTeam.Brasil, Category = Category.Player });
+        Add(new Sticker { Number = 5, Player = "Alexis Mac Allister", Team = Team.Boca, NationalTeam = NationalTeam.Argentina, Category = Category.Player });
+        // =========================================================================
+    }// TODO BORRAR CUANDO IMPLEMENTEMOS DB
 
     public List<Sticker> GetAll()
     {

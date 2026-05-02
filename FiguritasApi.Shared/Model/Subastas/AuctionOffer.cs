@@ -6,7 +6,7 @@ public class AuctionOffer
 
     public required User Bidder { get; set; }
 
-    public required List<InventoryFigurita> Offer { get; set; }
+    public required List<UserSticker> Offer { get; set; }
 
     public required Auction Auction { get; set; }
 }

@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using FiguritasApi.Model;
+using FiguritasApi.Shared.Model;
 
 // Repo for in-memory persistence.
 public class ExchangeRepository

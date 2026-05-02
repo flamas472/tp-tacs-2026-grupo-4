@@ -1,8 +1,8 @@
-using FiguritasApi.Model;
+using FiguritasApi.Shared.Model;
 using FiguritasApi.Services;
 using Microsoft.AspNetCore.Mvc;
 
-namespace StickersApi.Controllers;
+namespace FiguritasApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

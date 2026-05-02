@@ -1,4 +1,4 @@
-namespace FiguritasApi.Model;
+namespace FiguritasApi.Shared.Model;
 
 using System.ComponentModel.DataAnnotations;
 

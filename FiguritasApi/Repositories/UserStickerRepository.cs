@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using FiguritasApi.Model;
+using FiguritasApi.Shared.Model;
 
 // Repo for in-memory persistence.
 public class UserStickerRepository
@@ -7,10 +7,14 @@ public class UserStickerRepository
     private readonly ConcurrentBag<UserSticker> UserStickers = new();
     private int nextId = 1;
 
-    public List<UserSticker> GetAll()
+    public List<UserSticker> GetAll(Func<UserSticker, bool>? filter = null)
+{
+    if (filter == null)
     {
         return UserStickers.ToList();
     }
+    return UserStickers.Where(filter).ToList();
+}
 
     public void Add(UserSticker userSticker)
     {

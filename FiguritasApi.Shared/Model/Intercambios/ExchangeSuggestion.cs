@@ -1,4 +1,4 @@
-namespace FiguritasApi.Model;
+namespace FiguritasApi.Shared.Model;
 
 public class ExchangeSuggestion
 {

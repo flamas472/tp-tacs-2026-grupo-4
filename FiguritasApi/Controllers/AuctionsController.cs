@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using FiguritasApi.Model;
+using FiguritasApi.Shared.Model;
 using System.Security.Claims;
 
 namespace FiguritasApi.Controllers;

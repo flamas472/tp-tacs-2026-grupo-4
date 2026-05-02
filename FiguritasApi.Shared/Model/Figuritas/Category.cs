@@ -1,6 +1,6 @@
 namespace FiguritasApi.Shared.Model;
 
-public enum Categoria {
+public enum Category {
     Prueba,
     Player
 }

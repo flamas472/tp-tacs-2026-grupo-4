@@ -1,4 +1,4 @@
-using FiguritasApi.Model;
+using FiguritasApi.Shared.Model;
 
 namespace FiguritasApi.Services;
 

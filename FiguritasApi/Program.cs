@@ -45,6 +45,7 @@ builder.Services.AddSingleton<AuctionOfferRepository>();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddSingleton<AuthService>();
 builder.Services.AddSingleton<StickerService>();
+builder.Services.AddSingleton<ExchangeRepository>();
 builder.Services.AddSingleton<ExchangeProposalService>();
 builder.Services.AddSingleton<ExchangeService>();
 

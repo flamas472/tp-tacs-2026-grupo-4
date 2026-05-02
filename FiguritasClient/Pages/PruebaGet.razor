@@ -23,7 +23,7 @@ else
         {
             // Como configuramos el BaseAddress relativo en Program.cs,
             // esto va a buscar a http://localhost:5000/api/Figuritas
-            resultadoRaw = await Http.GetStringAsync("api/Figuritas");
+            resultadoRaw = await Http.GetStringAsync("api/Stickers");
         }
         catch (Exception ex)
         {

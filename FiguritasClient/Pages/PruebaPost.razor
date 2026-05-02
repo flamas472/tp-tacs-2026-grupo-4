@@ -1,62 +1,74 @@
-@page "/prueba-post"
+@page "/pruebapost"
 @using FiguritasApi.Shared.Model
 @inject HttpClient Http
 
-<h3>Cargar Nueva Figurita</h3>
+<h3>Prueba de Registro de Usuario</h3>
 
-<div class="mb-3">
-    <label>Número:</label>
-    <input type="number" @bind="nuevaFigu.Number" class="form-control" />
+<div class="card p-3" style="max-width: 400px;">
+    <div class="mb-3">
+        <label>Nombre de Usuario:</label>
+        <input @bind="userDto.Username" class="form-control" placeholder="Ej: messi10" />
+    </div>
+    <div class="mb-3">
+        <label>Contraseña:</label>
+        <input @bind="userDto.Password" type="password" class="form-control" />
+    </div>
+
+    <button class="btn btn-primary" @onclick="GuardarUsuario">Registrar Usuario</button>
 </div>
 
-<div class="mb-3">
-    <label>Selección:</label>
-    <select @bind="nuevaFigu.Selection" class="form-control">
-        @foreach (var sel in Enum.GetValues<Seleccion>())
-        {
-            <option value="@sel">@sel</option>
-        }
-    </select>
-</div>
-
-<button class="btn btn-primary" @onclick="EnviarFigurita">Guardar Figurita</button>
-
-@if (mensaje != "")
+@if (!string.IsNullOrEmpty(mensaje))
 {
-    <div class="alert alert-info mt-3">@mensaje</div>
+    <div class="alert @claseAlert mt-3">
+        @mensaje
+    </div>
 }
 
 @code {
-    // Inicializamos con valores por defecto basados en tus Enums[cite: 2, 3, 5]
-    private Figurita nuevaFigu = new Figurita { 
-        Selection = Seleccion.Argentina, 
-        Team = Equipo.Boca, 
-        Category = Categoria.Player 
-    };
-    
+    // Usamos una clase interna o la del Shared para el DTO
+    private PostUserDto userDto = new PostUserDto();
     private string mensaje = "";
+    private string claseAlert = "";
 
-    private async Task EnviarFigurita()
+    private async Task GuardarUsuario()
     {
         try
         {
-            // Enviamos el POST al endpoint "api/figuritas" definido en el Controller
-            var response = await Http.PostAsJsonAsync("api/figuritas", nuevaFigu);
+            // El endpoint ahora es api/Users (asumiendo que el controlador se llama UsersController)
+            var response = await Http.PostAsJsonAsync("api/Users", userDto);
 
             if (response.IsSuccessStatusCode)
             {
-                mensaje = "¡Figurita guardada con éxito! Ahora podés verla en la Home.";
-                // Limpiamos el form
-                nuevaFigu = new Figurita { Selection = Seleccion.Argentina };
+                var usuarioCreado = await response.Content.ReadFromJsonAsync<User>();
+                mensaje = $"Usuario creado con éxito! ID: {usuarioCreado?.Id}";
+                claseAlert = "alert-success";
+                userDto = new PostUserDto(); // Limpiar formulario
             }
             else
             {
-                mensaje = $"Error: {response.StatusCode}";
+                var error = await response.Content.ReadAsStringAsync();
+                mensaje = $"Error en el servidor: {error}";
+                claseAlert = "alert-danger";
             }
         }
         catch (Exception ex)
         {
-            mensaje = "Error de conexión: " + ex.Message;
+            mensaje = $"Error de conexión: {ex.Message}";
+            claseAlert = "alert-danger";
         }
+    }
+
+    // Definición local del DTO para evitar problemas de referencia si no está en el Shared
+    public class PostUserDto
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+
+    // Clase espejo para recibir la respuesta (ajustar según tu modelo User)
+    public class User 
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = "";
     }
 }
