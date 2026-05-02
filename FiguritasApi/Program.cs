@@ -1,24 +1,56 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using FiguritasApi.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Todo lo necesario para implementar los JWT
+builder.Services.AddAuthorization();
+builder.Services.AddAuthentication(options =>
+{
+    // Definimos que el esquema por defecto es JWT Bearer
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = false, // Valida que el emisor sea el correcto
+        ValidateAudience = false, // Valida que el receptor sea el correcto
+        //ValidateLifetime = true, // Valida que el token no haya expirado
+        ValidateIssuerSigningKey = true, // Valida la firma digital con nuestra Key
+        
+        //ValidIssuer = builder.Configuration["Jwt:Issuer"], // Nuestra API es la única que emite tokens válidos para la misma.
+        //ValidAudience = builder.Configuration["Jwt:Audience"], // Nuestra App es la única autorizada para consumirlos.
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))// Lee la Key del appsettings
+    };
+});
 
 // Add services to the container.
 builder.Services.AddControllers();
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
 // For in-memory persistence (Not sure if this will stay in the future. If so, we shouldn't clutter this file)
-builder.Services.AddSingleton<FiguritaRepository>();
+builder.Services.AddSingleton<StickerRepository>();
 builder.Services.AddSingleton<UserRepository>();
-builder.Services.AddSingleton<InventoryFiguritaRepository>();
+builder.Services.AddSingleton<UserStickerRepository>();
 builder.Services.AddSingleton<ExchangeProposalRepository>();
 builder.Services.AddSingleton<AuctionRepository>();
 builder.Services.AddSingleton<AuctionOfferRepository>();
 
 // Services
 builder.Services.AddSingleton<UserService>();
+builder.Services.AddSingleton<AuthService>();
+builder.Services.AddSingleton<StickerService>();
+builder.Services.AddSingleton<ExchangeProposalService>();
+builder.Services.AddSingleton<ExchangeService>();
+
+// Swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // Para que al hacer un POST se puedan pasar los ENUM por su valor en texto en vez de su valor numérico.
 builder.Services.AddControllers()
@@ -48,6 +80,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+app.UseAuthentication();
 
 app.MapControllers();
 

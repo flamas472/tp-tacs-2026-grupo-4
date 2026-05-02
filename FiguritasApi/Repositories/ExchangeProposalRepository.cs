@@ -22,4 +22,26 @@ public class ExchangeProposalRepository
     {
         return proposals.FirstOrDefault(p => p.Id == proposalId);
     }
+
+    public List<ExchangeProposal> GetAllUserSentProposals(int userId)
+    {
+        return proposals.Where(p => p.ProponentID == userId).ToList();
+    }
+
+    public List<ExchangeProposal> GetAllUserReceivedProposals(int userId)
+    {
+        return proposals.Where(p => p.ProposedID == userId).ToList();
+    }
+
+    public void Update(ExchangeProposal proposal)
+    {
+        var existingProposal = GetById(proposal.Id);
+        if (existingProposal != null)
+        {
+            proposals.TryTake(out existingProposal);
+            proposals.Add(proposal);
+        }
+    }
+
 }
+      

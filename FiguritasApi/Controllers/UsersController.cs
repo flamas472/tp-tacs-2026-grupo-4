@@ -1,24 +1,24 @@
-using Microsoft.AspNetCore.Mvc;
 using FiguritasApi.Model;
 using FiguritasApi.Services;
+using Microsoft.AspNetCore.Mvc;
 
-namespace FiguritasApi.Controllers;
+namespace StickersApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 
 // Endpoints: api/users
-
-// To add an inventory figurita for a user: POST /api/users/{userId}/inventory
 public class UsersController : ControllerBase
 {
 
     private readonly UserService _userService;
 
+
     public UsersController(UserService userService)
     {
         _userService = userService;
     }
+
 
     // REST routes for managing users.
     [HttpGet]
@@ -29,11 +29,11 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<User> PostUser(User user)
+    public ActionResult<User> PostUser(PostUserDTO userDTO)
     {
         try
         {
-            _userService.CreateUser(user);
+            var user = _userService.CreateUser(userDTO.Username, userDTO.Password);
             return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
         }
         catch (ArgumentException ex)
@@ -42,16 +42,14 @@ public class UsersController : ControllerBase
         }
     }
 
-    // REST routes for managing user's inventory figuritas.
-    [HttpPost("{userId}/inventory")]
-    public ActionResult<InventoryFigurita> PostInventoryFigurita(int userId, PostInventoryDto inventoryDto)
+    // REST routes for managing user's Stickers.
+    [HttpPost("{userId}/stickers")]
+    public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerDto inventoryDto)
     {
         try
         {
-            var inventoryFigurita = inventoryDto.ToDomain();
-            inventoryFigurita.UserId = userId;
-            _userService.AddInventoryFiguritaToUser(userId, inventoryFigurita);
-            return CreatedAtAction(nameof(GetUsers), new { id = inventoryFigurita.Id }, inventoryFigurita);
+            var userSticker = _userService.CreateUserSticker(userId, inventoryDto.stickerID, inventoryDto.canBeExchanged);
+            return Ok();
         }
         catch (ArgumentException ex)
         {
@@ -59,53 +57,82 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HttpGet("{userId}/stickers")]
+    public ActionResult<List<UserSticker>> GetUserStickers(int userId)
+    {
+        var userStickers = _userService.GetAllUserStickers().FindAll(us => us.UserId == userId);
+        return Ok(userStickers);
+    }
+
+    [HttpPatch("{userId}/stickers/{stickerId}")]
+    public ActionResult<UserSticker> PatchUserSticker(int userId, int userStickerId, PatchUserStickerDto patchDto)
+    {
+        try
+        {
+            if(patchDto.quantity < 0)
+                return BadRequest("La cantidad ingresada no puede ser negativa.");
+
+            if(patchDto.canBeExchanged == null && patchDto.quantity == null)
+                return BadRequest("Debe proporcionar al menos un campo para actualizar.");
+            
+            var userSticker = _userService.UpdateUserSticker(userStickerId, patchDto.canBeExchanged, patchDto.quantity);
+            return Ok(userSticker);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpDelete("{userId}/stickers/{stickerId}")]
+    public ActionResult<UserSticker> DeleteUserSticker(int userId, int userStickerId)
+    {
+        try
+        {
+            _userService.DeleteUserSticker(userStickerId);
+            return Ok();
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    /* TODO: Analizar cómo habría que modelar los missing stickers.
     [HttpPost("{userId}/missing")]
-    public ActionResult<List<Figurita>> PostMissingFigurita(int userId, PostMissingDto missingDto)
+    public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingDto missingDto)
     {
         try
         {
-            var missingFigurita = missingDto.ToDomain();
-            _userService.AddMissingFiguritaToUser(userId, missingFigurita);
+            var missingSticker = missingDto.ToDomain();
+            _userService.AddMissingStickerToUser(userId, missingSticker);
             var user = _userService.GetUserById(userId);
-            return CreatedAtAction(nameof(GetUsers), new { id = missingFigurita.Id }, user?.MissingFiguritas);
+            return CreatedAtAction(nameof(GetUsers), new { id = missingSticker.Id }, user?.MissingStickers);
         }
         catch (ArgumentException ex)
         {
             return NotFound(ex.Message);
         }
     }
+    */
 }
 
-public class PostInventoryDto
+public class PostUserStickerDto
 {
-    public required Figurita Figurita { get; set; }
-    public bool CanBeExchanged { get; set; } // true for exchange, false for auction
-    public bool Active { get; set; }
+    public required int stickerID { get; set; }
 
-    public InventoryFigurita ToDomain()
-    {
-        return new InventoryFigurita {
-            Id = 0, // ID assigned automatically
-            Figurita = this.Figurita,
-            CanBeExchanged = this.CanBeExchanged,
-            Active = this.Active,
-            Quantity = 1 // default
-        };
-    }
+    public required bool canBeExchanged { get; set; }
 }
 
-public class PostMissingDto
+public class PostUserDTO
 {
-    public required Figurita Figurita { get; set; }
+    public required string Username { get; set; }
+    public required string Password { get; set; }
+}
 
-    public Figurita ToDomain()
-    {
-        return new Figurita {
-            Id = 0, // ID assigned automatically
-            Selection = this.Figurita.Selection,
-            Team = this.Figurita.Team,
-            Category = this.Figurita.Category,
-            Number = this.Figurita.Number
-        };
-    }
+public class PatchUserStickerDto
+{
+    public bool? canBeExchanged { get; set; }
+
+    public int? quantity { get; set; }
 }

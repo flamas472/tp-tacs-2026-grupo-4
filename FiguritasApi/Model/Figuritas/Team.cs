@@ -1,6 +1,6 @@
 namespace FiguritasApi.Model;
 
-public enum Equipo {
+public enum Team {
     Boca, 
     River,  
     Morón
