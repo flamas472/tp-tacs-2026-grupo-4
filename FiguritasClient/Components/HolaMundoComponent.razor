@@ -1,0 +1,16 @@
+
+<div class="card p-3 bg-light border-primary shadow-sm">
+    <h4 class="text-secondary">@Titulo</h4>
+    <p>Soy un componente reutilizable. Me podés llamar desde cualquier lado.</p>
+    <button class="btn btn-outline-primary" @onclick="Saludar">¡Saludar!</button>
+</div>
+
+@code {
+    [Parameter] public string Titulo { get; set; } = "Título por defecto";
+
+    private void Saludar()
+    {
+        // Esto solo imprime en la consola del navegador (F12)
+        Console.WriteLine("¡Hola desde el componente de C#!");
+    }
+}

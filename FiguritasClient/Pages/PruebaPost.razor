@@ -1,0 +1,62 @@
+@page "/prueba-post"
+@using FiguritasApi.Shared.Model
+@inject HttpClient Http
+
+<h3>Cargar Nueva Figurita</h3>
+
+<div class="mb-3">
+    <label>Número:</label>
+    <input type="number" @bind="nuevaFigu.Number" class="form-control" />
+</div>
+
+<div class="mb-3">
+    <label>Selección:</label>
+    <select @bind="nuevaFigu.Selection" class="form-control">
+        @foreach (var sel in Enum.GetValues<Seleccion>())
+        {
+            <option value="@sel">@sel</option>
+        }
+    </select>
+</div>
+
+<button class="btn btn-primary" @onclick="EnviarFigurita">Guardar Figurita</button>
+
+@if (mensaje != "")
+{
+    <div class="alert alert-info mt-3">@mensaje</div>
+}
+
+@code {
+    // Inicializamos con valores por defecto basados en tus Enums[cite: 2, 3, 5]
+    private Figurita nuevaFigu = new Figurita { 
+        Selection = Seleccion.Argentina, 
+        Team = Equipo.Boca, 
+        Category = Categoria.Player 
+    };
+    
+    private string mensaje = "";
+
+    private async Task EnviarFigurita()
+    {
+        try
+        {
+            // Enviamos el POST al endpoint "api/figuritas" definido en el Controller
+            var response = await Http.PostAsJsonAsync("api/figuritas", nuevaFigu);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensaje = "¡Figurita guardada con éxito! Ahora podés verla en la Home.";
+                // Limpiamos el form
+                nuevaFigu = new Figurita { Selection = Seleccion.Argentina };
+            }
+            else
+            {
+                mensaje = $"Error: {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = "Error de conexión: " + ex.Message;
+        }
+    }
+}

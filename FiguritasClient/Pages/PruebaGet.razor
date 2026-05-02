@@ -1,0 +1,33 @@
+@page "/pruebaget"
+@inject HttpClient Http
+
+<PageTitle>Prueba de API</PageTitle>
+
+<h1>Hola Mundo!</h1>
+
+@if (resultadoRaw == null)
+{
+    <p><em>Cargando datos de la API...</em></p>
+}
+else
+{
+    <p>El string que devuelve la API es: <strong>@resultadoRaw</strong></p>
+}
+
+@code {
+    private string? resultadoRaw;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Como configuramos el BaseAddress relativo en Program.cs,
+            // esto va a buscar a http://localhost:5000/api/Figuritas
+            resultadoRaw = await Http.GetStringAsync("api/Figuritas");
+        }
+        catch (Exception ex)
+        {
+            resultadoRaw = "Error al conectar: " + ex.Message;
+        }
+    }
+}
