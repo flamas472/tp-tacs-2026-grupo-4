@@ -17,17 +17,17 @@ public class SearchController : ControllerBase
     [HttpGet("inventory-stickers")]
     public ActionResult<List<UserSticker>> SearchInventoryStickers(
         [FromQuery] int? number,
-        [FromQuery] NationalTeam? selection,
-        [FromQuery] Team? team,
-        [FromQuery] Category? category,
+        [FromQuery] int? selection,
+        [FromQuery] string? team,
+        [FromQuery] int? category,
         [FromQuery] bool? canBeExchanged,
         [FromQuery] bool? active)
     {
         var results = _inventoryRepo.GetAll(fig =>
             (!number.HasValue || fig.Sticker.Number == number.Value) &&
-            (!selection.HasValue || fig.Sticker.NationalTeam == selection.Value) &&
-            (!team.HasValue || fig.Sticker.Team == team.Value) &&
-            (!category.HasValue || fig.Sticker.Category == category.Value) &&
+            (!selection.HasValue || fig.Sticker.NationalTeam.Id == selection.Value) &&
+            (string.IsNullOrEmpty(team) || fig.Sticker.Team.Description.Equals(team, StringComparison.OrdinalIgnoreCase)) &&
+            (!category.HasValue || fig.Sticker.Category.Id == category.Value) &&
             (!canBeExchanged.HasValue || fig.CanBeExchanged == canBeExchanged.Value) &&
             (!active.HasValue || fig.Active == active.Value)
         );

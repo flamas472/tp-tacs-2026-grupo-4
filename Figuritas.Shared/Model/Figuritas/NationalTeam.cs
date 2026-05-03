@@ -1,8 +1,8 @@
 namespace Figuritas.Shared.Model;
 
-public enum NationalTeam {
-    Argentina, 
-    Francia,
-    Brasil 
-    // ....
+public class NationalTeam
+{
+    public int Id { get; set; }
+
+    public required string Description { get; set; }
 }

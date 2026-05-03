@@ -18,25 +18,25 @@ public class StickersController : ControllerBase
         _stickerService = stickerService;
     }
 
-    [HttpGet] // /stickers?team={team} o /stickers?number={number} o /stickers?player={player} ... (y sus combinaciones)
-    public ActionResult<List<Sticker>> GetStickers(int? number, Team? team, NationalTeam? nationalTeam, Category? category, string? player)
+    [HttpGet] // /stickers?team={team} o /stickers?number={number} o /stickers?nationalTeamId={nationalTeamId} ... (y sus combinaciones)
+    public ActionResult<List<Sticker>> GetStickers(int? number, string? team, int? nationalTeamId, int? categoryId, string? description)
     {
         var stickers = _stickerService.GetAllStickers();
 
         if (number.HasValue)
             stickers = stickers.Where(s => s.Number == number.Value).ToList();
 
-        if (team.HasValue)
-            stickers = stickers.Where(s => s.Team == team.Value).ToList();
+        if (!string.IsNullOrEmpty(team))
+            stickers = stickers.Where(s => s.Team.Description.Equals(team, StringComparison.OrdinalIgnoreCase)).ToList();
 
-        if (nationalTeam.HasValue)
-            stickers = stickers.Where(s => s.NationalTeam == nationalTeam.Value).ToList();
+        if (nationalTeamId.HasValue)
+            stickers = stickers.Where(s => s.NationalTeam.Id == nationalTeamId.Value).ToList();
 
-        if (category.HasValue)
-            stickers = stickers.Where(s => s.Category == category.Value).ToList();
+        if (categoryId.HasValue)
+            stickers = stickers.Where(s => s.Category.Id == categoryId.Value).ToList();
 
-        if (!string.IsNullOrEmpty(player))
-            stickers = stickers.Where(s => s.Player.Equals(player, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (!string.IsNullOrEmpty(description))
+            stickers = stickers.Where(s => s.Description.Equals(description, StringComparison.OrdinalIgnoreCase)).ToList();
 
         return Ok(stickers);        
     }

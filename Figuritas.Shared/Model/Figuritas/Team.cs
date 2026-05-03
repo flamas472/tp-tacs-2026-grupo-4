@@ -1,8 +1,8 @@
 namespace Figuritas.Shared.Model;
 
-public enum Team {
-    Boca, 
-    River,  
-    Morón
-    // ....
+public class Team
+{
+    public int Id { get; set; }
+
+    public required string Description { get; set; }
 }

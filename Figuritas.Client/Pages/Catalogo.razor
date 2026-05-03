@@ -1,10 +1,52 @@
 @page "/catalogo"
 
+@inject HttpClient Http
+@using Figuritas.Shared.Model
+
 <PageTitle>Catálogo</PageTitle>
 
 <h1>Pendiente Construcción.</h1>
 <p>En esta página se mostrará el catálogo con todas las figuritas existentes.</p>
 <p>Controller: StickersControllers</p>
-<p>Endpoint: /api/stickers</p>
+<p>Endpoint: /api/Stickers</p>
 <p>Podrá filtrarse por selección y categoría</p>
 
+@if (stickers == null || !stickers.Any())
+{
+    <p><em>@mensajeFetch</em></p>
+}
+else
+{
+    <ul>
+        @foreach (Sticker sticker in stickers)
+        {
+            <li>@sticker.Description - @sticker.Category.Description</li>
+        }
+    </ul>
+}
+
+
+
+@code {
+    private List<Sticker>? stickers;
+    private string mensajeFetch = "Cargando figuritas...";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            stickers = await Http.GetFromJsonAsync<List<Sticker>>("api/Stickers");
+            
+            if (stickers == null)
+            {
+                mensajeFetch = "No se encontraron figuritas.";
+            }
+        }
+        catch (Exception ex)
+        {
+
+            mensajeFetch = "Error al cargar figuritas: " + ex.Message;
+            Console.WriteLine(mensajeFetch);
+        }
+    }
+}
