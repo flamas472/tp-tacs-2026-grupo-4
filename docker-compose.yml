@@ -9,6 +9,7 @@ services:
       - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - Jwt__Key=${JWT_KEY}  # <--- Esto vincula el .env con la API
 
   web-client:
     build:

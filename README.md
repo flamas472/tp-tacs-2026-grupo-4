@@ -24,6 +24,13 @@ Para levantar el sistema se usa `docker-compose`.
 - El backend se expone en el puerto **5000** del equipo. La URL raíz redirige a la documentación swagger.
 - El frontend se expone en el puerto **5001** del equipo.
 
+### Variables de entorno
+crear un el archivo `.env` en la raiz del proyecto con los siguientes datos
+Estos valores deben ser secretos en producción, usar otro valor y no subirlo a ningún repositorio.
+```bash
+JWT_KEY=ClaveS3cr3t4SuperLargaDeAlMenos32Caracteres
+```
+
 ### Comando
 
 ```bash
