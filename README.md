@@ -31,10 +31,15 @@ Estos valores deben ser secretos en producción, usar otro valor y no subirlo a 
 JWT_KEY=ClaveS3cr3t4SuperLargaDeAlMenos32Caracteres
 ```
 
-### Comando
-
+### Comando (ejecuta entorno de desarrollo por defecto)
 ```bash
 docker-compose up --build
+```
+
+### Comando para ejecutar entorno de produccion
+#### La diferencia principal es que no expone swagger que en producción representaría un riesgo de seguridad
+```bash
+docker compose -f docker-compose.prod.yml up --build
 ```
 
 Después de iniciar, la aplicación se puede usar desde:
@@ -44,7 +49,27 @@ Después de iniciar, la aplicación se puede usar desde:
 
 Si fuera necesario modificar los puertos de ejecución: editar `docker-compose.yml` en la raíz de proyecto. Modificar el primer valor de cada propiedad `ports` de cada aplicación según sea necesario. NO modificar el segundo valor que indica el puerto interno del contenedor docker porque hará que dejen de funcionar las peticiones del cliente a la API REST.
 
+## Ejecución local
 
+
+### Variables de entorno
+correr comando en la raíz del proyecto
+```bash
+dotnet user-secrets set "Jwt:Key" "TuClaveSuperSecretaDeMasDe32Caracteres" --project Figuritas.Api/Figuritas.Api.csproj
+```
+
+### Levantar api
+```bash
+cd Figuritas.Api
+dotnet run
+```
+
+### Levantar cliente (en otra consola)
+```bash
+cd Figuritas.Client
+dotnet run
+```
+ejecutar `dotnet watch run` para ejecutar con hot reload para ver cambios en timpo real si es necesario
 
 ### Ejecución de pruebas
 1. Posicionarse en la carpeta Figuritas.Api.Tests.
