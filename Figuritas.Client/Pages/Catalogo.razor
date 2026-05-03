@@ -1,7 +1,10 @@
 @page "/catalogo"
-@using Figuritas.Client.Components 
-@using Figuritas.Client.Extensions
+@using Figuritas.Client.Components;
+@using Figuritas.Client.Extensions;
+@using Figuritas.Shared.Responses;
+@using Figuritas.Client.Requests;
 
+@inject StickerHttpClient StickerHttp
 @inject HttpClient Http
 @using Figuritas.Shared.Model
 
@@ -20,6 +23,20 @@
     @foreach (NationalTeam nationalTeam in nationalTeams ?? new List<NationalTeam>())
     {
         <option value="@nationalTeam.Id">@nationalTeam.Description</option>
+    }
+
+</InputSelect>
+<InputSelect
+    class="mb-4"
+    Value="@filtroCategoryId"
+    ValueChanged="@OnFiltroCategoryIdChanged"
+    ValueExpression="() => filtroCategoryId"
+    TValue="int"
+>
+    <option value=0>Todas las categorías</option>
+    @foreach (Category category in category ?? new List<Category>())
+    {
+        <option value="@category.Id">@category.Description</option>
     }
 
 </InputSelect>
@@ -48,28 +65,36 @@ else
 @code {
     private List<Sticker>? stickers;
     private List<NationalTeam>? nationalTeams;
+    private List<Category>? category;
     private string mensajeFetch = "Cargando figuritas...";
     private int filtroNationalTeamId = 0;
+    private int filtroCategoryId = 0;
 
     private async Task OnFiltroNationalTeamIdChanged(int value)
     {
         filtroNationalTeamId = value;
-        await FiltrarFiguritas();
+        await FetchStickers();
+    }
+
+    private async Task OnFiltroCategoryIdChanged(int value)
+    {
+        filtroCategoryId = value;
+        await FetchStickers();
     }
     
-    private async Task FiltrarFiguritas()
+    private async Task FetchStickers()
     {
-        try
-        {
-            string url = "api/Stickers";
-            url += filtroNationalTeamId == 0 ? "" : $"?nationalTeamId={filtroNationalTeamId}";
+        mensajeFetch = "Cargando figuritas...";
+        stickers = null; // Esto hace que se muestre el mensaje de "Cargando figuritas..." mientras se hace la petición
 
-            var response = await Http.GetAsync(url);
-            stickers = await response.ProcesarRespuesta<List<Sticker>>();
-        }
-        catch (Exception ex)
+        ApiResponse<List<Sticker>> response = await StickerHttp.GetStickersAsync(filtroNationalTeamId, filtroCategoryId);
+        if (response.Success)
         {
-            mensajeFetch = "Error en petición http: " + ex.Message;
+            stickers = response.Data;
+        }
+        else
+        {
+            mensajeFetch = "Error al cargar figuritas: " + response.ErrorMessage;
             Console.WriteLine(mensajeFetch);
         }
     }
@@ -77,18 +102,25 @@ else
     {
         try
         {
-            var stickersTask = Http.GetAsync("api/Stickers");
             var nationalTeamsTask = Http.GetAsync("api/NationalTeam");
+            var categoryTask = Http.GetAsync("api/Category");
             
-            await Task.WhenAll(stickersTask, nationalTeamsTask);
+            await Task.WhenAll(nationalTeamsTask, categoryTask);
 
             nationalTeams = await nationalTeamsTask.Result.ProcesarRespuesta<List<NationalTeam>>();
-            stickers = await stickersTask.Result.ProcesarRespuesta<List<Sticker>>();
+            category = await categoryTask.Result.ProcesarRespuesta<List<Category>>();
 
             if (nationalTeams != null)
             {
                 nationalTeams = nationalTeams.OrderBy(nt => nt.Description).ToList();
             }
+            if (category != null)
+            {
+                category = category.OrderBy(c => c.Description).ToList();
+            }
+
+
+            await FetchStickers();
             
             
         }
