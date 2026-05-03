@@ -60,6 +60,16 @@ builder.Services.AddControllers()
             new JsonStringEnumConverter());
     });
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("BlazorLocalPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:5280") // permitir CORS solo para 5280 (puerto del cliente Blazor)
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -82,6 +92,8 @@ app.UseHttpsRedirection();
 
 app.UseAuthorization();
 app.UseAuthentication();
+
+app.UseCors("BlazorLocalPolicy");
 
 app.MapControllers();
 
