@@ -34,6 +34,12 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 
 // For in-memory persistence (Not sure if this will stay in the future. If so, we shouldn't clutter this file)
+builder.Services.AddSingleton<NationalTeamRepository>();
+builder.Services.AddSingleton<NationalTeamService>();
+builder.Services.AddSingleton<TeamRepository>();
+builder.Services.AddSingleton<TeamService>();
+builder.Services.AddSingleton<CategoryRepository>();
+builder.Services.AddSingleton<CategoryService>();
 builder.Services.AddSingleton<StickerRepository>();
 builder.Services.AddSingleton<UserRepository>();
 builder.Services.AddSingleton<UserStickerRepository>();

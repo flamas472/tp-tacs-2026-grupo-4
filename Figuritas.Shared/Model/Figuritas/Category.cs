@@ -1,6 +1,8 @@
 namespace Figuritas.Shared.Model;
 
-public enum Category {
-    Prueba,
-    Player
+public class Category
+{
+    public int Id { get; set; }
+
+    public required string Description { get; set; }
 }

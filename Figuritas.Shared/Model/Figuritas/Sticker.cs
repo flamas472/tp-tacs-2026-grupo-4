@@ -6,11 +6,11 @@ public class Sticker
 
     public required int Number { get; set; }
 
-    public NationalTeam NationalTeam { get; set; }
+    public required NationalTeam NationalTeam { get; set; }
 
-    public Team Team { get; set; }
+    public required Team Team { get; set; }
 
-    public Category Category { get; set; }
+    public required Category Category { get; set; }
 
-    public required string Player { get; set; }
+    public required string Description { get; set; }
 }

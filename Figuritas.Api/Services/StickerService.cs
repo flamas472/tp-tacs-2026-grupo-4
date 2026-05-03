@@ -26,19 +26,19 @@ public class StickerService
         return _stickerRepo.GetAllByTeam(team);
     }
 
-    public List<Sticker> GetStickersByNationalTeam(NationalTeam nationalTeam)
+    public List<Sticker> GetStickersByNationalTeamId(int nationalTeamId)
     {
-        return _stickerRepo.GetAllByNationalTeam(nationalTeam);
+        return _stickerRepo.GetAllByNationalTeamId(nationalTeamId);
     }
 
-    public List<Sticker> GetStickersByCategory(Category category)
+    public List<Sticker> GetStickersByCategoryId(int categoryId)
     {
-        return _stickerRepo.GetAllByCategory(category);
+        return _stickerRepo.GetAllByCategoryId(categoryId);
     }
 
-    public List<Sticker> GetStickersByPlayer(string playerName)
+    public List<Sticker> GetStickersByDescription(string description)
     {
-        return _stickerRepo.GetAllByPlayer(playerName);
+        return _stickerRepo.GetAllByDescription(description);
     }
 
 }
