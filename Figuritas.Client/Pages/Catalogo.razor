@@ -1,15 +1,10 @@
 @page "/catalogo"
+@using Figuritas.Client.Components 
 
 @inject HttpClient Http
 @using Figuritas.Shared.Model
 
 <PageTitle>Catálogo</PageTitle>
-
-<h1>Pendiente Construcción.</h1>
-<p>En esta página se mostrará el catálogo con todas las figuritas existentes.</p>
-<p>Controller: StickersControllers</p>
-<p>Endpoint: /api/Stickers</p>
-<p>Podrá filtrarse por selección y categoría</p>
 
 @if (stickers == null || !stickers.Any())
 {
@@ -17,12 +12,12 @@
 }
 else
 {
-    <ul>
+    <div class="flex flex-wrap gap-4">
         @foreach (Sticker sticker in stickers)
         {
-            <li>@sticker.Description - @sticker.Category.Description</li>
+            <StickerComponent sticker=@sticker @key="sticker.Id"/>
         }
-    </ul>
+    </div>
 }
 
 

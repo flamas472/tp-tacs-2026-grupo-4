@@ -1,0 +1,25 @@
+@using Figuritas.Shared.Model
+
+
+<div class="w-52 p-4 bg-white rounded-2xl shadow-md border border-gray-300 flex-shrink-0 flex flex-col items-start gap-1">
+    <p class="w-fit px-2 text-gray-500 text-sm leading-none rounded-sm">
+        @sticker.Number.ToString("D3")
+    </p>
+    <img src="@sticker.ImageUrl" alt="@sticker.Description" class="w-full h-auto aspect-[5/6.5] object-cover rounded-lg shadow-md mb-4" />
+    <h4 class="text-gray-900 font-bold">@sticker.Description</h4>
+    <div class="w-full flex flex-row justify-between items-center">
+        <p class="text-gray-900 text-base">@sticker.NationalTeam.Description</p>
+        <p class="text-gray-700 text-sm">@sticker.Category.Description</p>
+    </div>
+
+</div>
+
+@code {
+    [Parameter] [EditorRequired] public Sticker sticker { get; set; }
+
+    private void Saludar()
+    {
+        // Esto solo imprime en la consola del navegador (F12)
+        Console.WriteLine("¡Hola desde el componente de C#!");
+    }
+}

@@ -27,12 +27,12 @@ public class StickerRepository
         var escudo = categoryRepository.GetById(2)
             ?? throw new InvalidOperationException("Category repository must contain Escudo.");
 
-        Add(new Sticker { Number = 10, Description = "Lionel Messi", Team = boca, NationalTeam = argentina, Category = jugador });
-        Add(new Sticker { Number = 11, Description = "Angel Di Maria", Team = river, NationalTeam = brasil, Category = jugador });
-        Add(new Sticker { Number = 7, Description = "Cristiano Ronaldo", Team = boca, NationalTeam = argentina, Category = jugador });
-        Add(new Sticker { Number = 10, Description = "Neymar Jr", Team = river, NationalTeam = brasil, Category = jugador });
-        Add(new Sticker { Number = 5, Description = "Alexis Mac Allister", Team = boca, NationalTeam = argentina, Category = jugador });
-        Add(new Sticker { Number = 5, Description = "Escudo Argentina", Team = boca, NationalTeam = argentina, Category = escudo });
+        Add(new Sticker { Number = 5, Description = "Escudo Argentina", Team = boca, NationalTeam = argentina, Category = escudo, ImageUrl = "https://a.espncdn.com/photo/2023/0417/r1160276_1000x1000_1-1.png" });
+        Add(new Sticker { Number = 11, Description = "Angel Di Maria", Team = river, NationalTeam = brasil, Category = jugador, ImageUrl = "https://i.pinimg.com/474x/d4/2c/d4/d42cd4c9fd6cb46a4983233064887fa8.jpg" });
+        Add(new Sticker { Number = 7, Description = "Cristiano Ronaldo", Team = boca, NationalTeam = argentina, Category = jugador, ImageUrl = "https://www.clarin.com/img/2021/09/09/-XSm8HJjP_340x340__1.jpg" });
+        Add(new Sticker { Number = 10, Description = "Neymar Jr", Team = river, NationalTeam = brasil, Category = jugador, ImageUrl = "https://i.pinimg.com/474x/96/d5/7a/96d57a7d924b625f9cc357fae88bfb9e.jpg" });
+        Add(new Sticker { Number = 5, Description = "Alexis Mac Allister", Team = boca, NationalTeam = argentina, Category = jugador, ImageUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ92U1nqgfzPGlHxBTKEYnf8PI0FceHNEyXBXxtlfKmTLn4XWyHAycC41owGYqqlryLBMnBX1V3ZZhzqK26MiP2G2f8U3n6cy2GKWBP-q8U&s=10" });
+        Add(new Sticker { Number = 10, Description = "Lionel Messi", Team = boca, NationalTeam = argentina, Category = jugador, ImageUrl = "https://i.pinimg.com/736x/8e/28/dc/8e28dca199d2c529e710f2fc7550fc85.jpg" });
         // =========================================================================
     }// TODO BORRAR CUANDO IMPLEMENTEMOS DB
 

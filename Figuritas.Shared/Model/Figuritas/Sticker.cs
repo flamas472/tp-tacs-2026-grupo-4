@@ -13,4 +13,6 @@ public class Sticker
     public required Category Category { get; set; }
 
     public required string Description { get; set; }
+
+    public string ImageUrl { get; set; } = string.Empty;
 }
