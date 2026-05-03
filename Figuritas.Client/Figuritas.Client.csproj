@@ -16,4 +16,12 @@
     <ProjectReference Include="..\Figuritas.Shared\Figuritas.Shared.csproj" />
   </ItemGroup>
 
+  <Target Name="InstallNpmDependencies" BeforeTargets="Build">
+    <Exec Command="npm install" />
+  </Target>
+
+  <Target Name="BuildCss" BeforeTargets="Build">
+    <Exec Command="npm run build-css" />
+  </Target>
+
 </Project>
