@@ -8,7 +8,7 @@ namespace Figuritas.Api.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/exchange-proposals")]
+[Route("api/[controller]")]
 public class ExchangeProposalsController : ControllerBase
 {
 

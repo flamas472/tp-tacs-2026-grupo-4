@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Figuritas.Api.Controllers;
 
 [ApiController]
-[Route("api/search")]
+[Route("api/[controller]")]
 public class SearchController : ControllerBase
 {
     private readonly UserStickerRepository _inventoryRepo;
