@@ -1,14 +1,37 @@
 @page "/catalogo"
 @using Figuritas.Client.Components 
+@using Figuritas.Client.Extensions
 
 @inject HttpClient Http
 @using Figuritas.Shared.Model
 
 <PageTitle>Catálogo</PageTitle>
 
-@if (stickers == null || !stickers.Any())
+
+@* FILTROS *@
+<InputSelect
+    class="mb-4"
+    Value="@filtroNationalTeamId"
+    ValueChanged="@OnFiltroNationalTeamIdChanged"
+    ValueExpression="() => filtroNationalTeamId"
+    TValue="int"
+>
+    <option value=0>Todas las selecciones</option>
+    @foreach (NationalTeam nationalTeam in nationalTeams ?? new List<NationalTeam>())
+    {
+        <option value="@nationalTeam.Id">@nationalTeam.Description</option>
+    }
+
+</InputSelect>
+
+@* LISTADO DE FIGURITAS *@
+@if (stickers == null )
 {
     <p><em>@mensajeFetch</em></p>
+}
+else if (!stickers.Any())
+{
+    <p><em>No se encontraron figuritas</em></p>
 }
 else
 {
@@ -24,24 +47,57 @@ else
 
 @code {
     private List<Sticker>? stickers;
+    private List<NationalTeam>? nationalTeams;
     private string mensajeFetch = "Cargando figuritas...";
+    private int filtroNationalTeamId = 0;
 
+    private async Task OnFiltroNationalTeamIdChanged(int value)
+    {
+        filtroNationalTeamId = value;
+        await FiltrarFiguritas();
+    }
+    
+    private async Task FiltrarFiguritas()
+    {
+        try
+        {
+            string url = "api/Stickers";
+            url += filtroNationalTeamId == 0 ? "" : $"?nationalTeamId={filtroNationalTeamId}";
+
+            var response = await Http.GetAsync(url);
+            stickers = await response.ProcesarRespuesta<List<Sticker>>();
+        }
+        catch (Exception ex)
+        {
+            mensajeFetch = "Error en petición http: " + ex.Message;
+            Console.WriteLine(mensajeFetch);
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            stickers = await Http.GetFromJsonAsync<List<Sticker>>("api/Stickers");
+            var stickersTask = Http.GetAsync("api/Stickers");
+            var nationalTeamsTask = Http.GetAsync("api/NationalTeam");
             
-            if (stickers == null)
+            await Task.WhenAll(stickersTask, nationalTeamsTask);
+
+            nationalTeams = await nationalTeamsTask.Result.ProcesarRespuesta<List<NationalTeam>>();
+            stickers = await stickersTask.Result.ProcesarRespuesta<List<Sticker>>();
+
+            if (nationalTeams != null)
             {
-                mensajeFetch = "No se encontraron figuritas.";
+                nationalTeams = nationalTeams.OrderBy(nt => nt.Description).ToList();
             }
+            
+            
         }
         catch (Exception ex)
         {
 
-            mensajeFetch = "Error al cargar figuritas: " + ex.Message;
+            mensajeFetch = "Error en petición http: " + ex.Message;
             Console.WriteLine(mensajeFetch);
         }
     }
+    
 }
