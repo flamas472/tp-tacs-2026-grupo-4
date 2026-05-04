@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
 
@@ -32,15 +33,15 @@ public static class DtoExtensions
             dto.Description.AllWordsAreContainedBy(sticker.Description)
         ;
     
-    public static Func<UserSticker, bool> ToPredicate(this GetUserStickersDto dto) =>
-        us => 
+    public static Expression<Func<UserSticker, bool>> ToPredicate(this GetUserStickersDto dto)
+    {
+        // Construimos la expresión de forma dinámica o estática
+        return us => 
             (dto.Number == null || us.Sticker.Number == dto.Number) 
-            && dto.Team.AllWordsAreContainedBy(us.Sticker.Team) 
-            && dto.NationalTeam.AllWordsAreContainedBy(us.Sticker.NationalTeam) 
-            && dto.Category.AllWordsAreContainedBy(us.Sticker.Category) 
-            && dto.Description.AllWordsAreContainedBy(us.Sticker.Description) 
-            && dto.CanBeExchanged == us.CanBeExchanged
-        ;
-
-
-    }
+            && (string.IsNullOrEmpty(dto.Team) || us.Sticker.Team.Contains(dto.Team)) 
+            && (string.IsNullOrEmpty(dto.NationalTeam) || us.Sticker.NationalTeam.Contains(dto.NationalTeam)) 
+            && (string.IsNullOrEmpty(dto.Category) || us.Sticker.Category.Contains(dto.Category))
+            && (string.IsNullOrEmpty(dto.Description) || us.Sticker.Description.Contains(dto.Description))
+            && (dto.CanBeExchanged == null || us.CanBeExchanged == dto.CanBeExchanged);
+    }   
+}
