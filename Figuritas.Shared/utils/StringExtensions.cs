@@ -7,6 +7,7 @@ public static class StringExtension
      Checks if origin contains all the words contained in filter in any order.
      eg.: filter = "Hola Mundo"; origin = "Mundo Hola Pan"; is true
      eg.: filer = "Hola Mundo"; origin = "Hola Pan"; is false
+     eg.: filter = "" | null ; origin = *; is true
       */
     public static bool AllWordsAreContainedBy(this string? filter, string origin)
     {
