@@ -87,7 +87,13 @@ else
         mensajeFetch = "Cargando figuritas...";
         stickers = null; // Esto hace que se muestre el mensaje de "Cargando figuritas..." mientras se hace la petición
 
-        ApiResponse<List<Sticker>> response = await StickerHttp.GetStickersAsync(filtroNationalTeamId, filtroCategoryId);
+        ApiResponse<List<Sticker>> response = await StickerHttp.GetStickersAsync(
+            page: 1,
+            pageSize: 20,
+            nationalTeamId: filtroNationalTeamId,
+            categoryId: filtroCategoryId
+            );
+            
         if (response.Success)
         {
             stickers = response.Data;
