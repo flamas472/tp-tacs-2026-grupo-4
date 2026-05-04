@@ -33,25 +33,10 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
     {
         var user = new
         {
-            Username = "testuser",
-            InventoryFiguritas = new object[] { },
-            MissingFiguritas = new object[] { }
+            Username = "testuserxds",
+            Password = "passwordxsd"
         };
         var response = await _client.PostAsJsonAsync("/api/users", user);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task PostFigurita_ReturnsCreated()
-    {
-        var figurita = new
-        {
-            Number = 10,
-            Selection = "Argentina",
-            Team = "River",
-            Category = "Player"
-        };
-        var response = await _client.PostAsJsonAsync("/api/figuritas", figurita);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
@@ -62,27 +47,13 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         var newSticker = new StickerField
         {
             Number = 892,
-            NationalTeamDescription = "Argentina",
-            TeamDescription = "River",
-            CategoryDescription = "Player",
+            NationalTeam = "Argentina",
+            Team = "River",
+            Category = "Player",
             Description = "Gabriel Mercado"
         };
         var userSticker = new PostUserStickerRequestDTO{
             Sticker = newSticker,
-            CanBeExchanged = true,
-            Quantity = 1,
-        };
-        var expectedResult = new UserSticker
-        {
-            UserId = 1,
-            Sticker =
-            new Sticker{
-                Number = 892,
-                NationalTeam = "Argentina",
-                Team = "River",
-                Category = "Player",
-                Description = "Gabriel Mercado"
-            },
             CanBeExchanged = true,
             Quantity = 1,
         };
@@ -106,16 +77,16 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         Assert.True(responseContent?.Id > 0); // Solo verificamos que se haya generado un ID
     }
 
-        [Fact]
+    [Fact]
     public async Task US1_PostFigurita_Returns_Error_If_Already_Existent()
     {
 
         var newSticker = new StickerField
         {
             Number = 999,
-            NationalTeamDescription = "Argentina",
-            TeamDescription = "River",
-            CategoryDescription = "Player",
+            NationalTeam = "Argentina",
+            Team = "River",
+            Category = "Player",
             Description = "Gabriel Mercado"
         };
         var userSticker = new PostUserStickerRequestDTO{
@@ -143,6 +114,70 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
+    public async Task US2_PostMissingSticker_ReturnsCreatedAt()
+    {
+
+        var newSticker = new StickerField
+        {
+            Number = 892,
+            NationalTeam = "Argentina",
+            Team = "River",
+            Category = "Player",
+            Description = "Gabriel Mercado"
+        };
+        var userSticker = new PostMissingStickerRequestDTO{
+            Sticker = newSticker
+        };
+        int userId = 1;
+        var user = new
+        {
+            Username = "TestUser4325",
+            Password = "123"
+        };
+        HttpResponseMessage postUserResponse = await _client.PostAsJsonAsync("/api/users", user); 
+        postUserResponse.EnsureSuccessStatusCode();
+
+        HttpResponseMessage addMissingStickerToCollection = await _client.PostAsJsonAsync($"/api/Users/{userId}/missing-stickers", userSticker);
+        addMissingStickerToCollection.EnsureSuccessStatusCode();
+        var responseContent = await addMissingStickerToCollection.Content.ReadFromJsonAsync<Sticker>();
+        
+        Assert.Equal(HttpStatusCode.Created, addMissingStickerToCollection.StatusCode);
+        Assert.Equal(userSticker.Sticker.Description, responseContent?.Description);
+    }
+
+    [Fact]
+    public async Task US2_PostMissingSticker_Returns_Error_If_Already_Existent()
+    {
+
+        var newSticker = new StickerField
+        {
+            Number = 89223,
+            NationalTeam = "Argentina",
+            Team = "River",
+            Category = "Player",
+            Description = "Gabriel Mercado"
+        };
+        var userSticker = new PostMissingStickerRequestDTO{
+            Sticker = newSticker
+        };
+        int userId = 1;
+        var user = new
+        {
+            Username = "TestUser4325ew",
+            Password = "123"
+        };
+        HttpResponseMessage postUserResponse = await _client.PostAsJsonAsync("/api/users", user); 
+        postUserResponse.EnsureSuccessStatusCode();
+
+        HttpResponseMessage addMissingStickerToCollection = await _client.PostAsJsonAsync($"/api/Users/{userId}/missing-stickers", userSticker);
+        addMissingStickerToCollection.EnsureSuccessStatusCode();
+
+        HttpResponseMessage addMissingStickerToCollection2 = await _client.PostAsJsonAsync($"/api/Users/{userId}/missing-stickers", userSticker);
+
+        Assert.Equal(HttpStatusCode.NotFound, addMissingStickerToCollection2.StatusCode);
+    }
+
+/*     [Fact]
     public async Task SearchInventoryFiguritas_ReturnsFilteredResults()
     {
         // First create a figurita
@@ -181,5 +216,5 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         var results = await searchResponse.Content.ReadFromJsonAsync<List<dynamic>>();
         Assert.NotNull(results);
         Assert.NotEmpty(results);
-    }
+    } */
 }

@@ -1,5 +1,6 @@
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Utils;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Figuritas.Api.Services;
@@ -47,21 +48,30 @@ public class UserService(
         return user; // Credenciales válidas
     }
 
-    public void AddMissingStickerToUser(int userId, Sticker missingSticker)
+    public Sticker AddMissingStickerToUser(int userId, Sticker missingSticker)
     {
-        var user = _userRepo.GetById(userId);
+        User? user = _userRepo.GetById(userId);
+        
         if (user == null) throw new ArgumentException("User not found");
+        if (user.HasMissingSticker(missingSticker)) throw new ArgumentException("Inventory already registered");
+
+        _stickerService.CreateIfNonExistent(missingSticker);
+
+
+        user.AddMissingSticker(missingSticker);
+
+        return missingSticker;
     }
 
     public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
     {
         if(!_userRepo.ExistsId(userId)) throw new ArgumentException("User not found");
 
-        Sticker sticker = ToDomain(data.Sticker);
+        Sticker sticker = data.Sticker.ToDomain();
 
         _stickerService.CreateIfNonExistent(sticker);
 
-        var userSticker = ToDomain(userId, data);
+        var userSticker = data.ToDomain(userId);
 
         if (_inventoryRepo.Exists(userSticker)) throw new ArgumentException("Inventory already registered");
 
@@ -94,25 +104,4 @@ public class UserService(
         _inventoryRepo.Delete(userStickerId);
     }
 
-    public Sticker ToDomain(StickerField dto) => new()
-        {
-            Number = dto.Number,
-            Description = dto.Description,
-            NationalTeam = dto.NationalTeamDescription,
-            Team = dto.TeamDescription,
-            Category = dto.CategoryDescription,
-        };
-    
-    public UserSticker ToDomain(int userId, PostUserStickerRequestDTO dto)
-    {
-   
-        return new UserSticker
-        {
-            UserId = userId,
-            Sticker = ToDomain(dto.Sticker),
-            CanBeExchanged = dto.CanBeExchanged,
-            Quantity = dto.Quantity
-        };
-
-    }
 }

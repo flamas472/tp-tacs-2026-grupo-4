@@ -1,4 +1,5 @@
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Utils;
 using Figuritas.Shared.DTO;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -100,23 +101,23 @@ public class UsersController : ControllerBase
         }
     }
 
-    /* TODO: Analizar cómo habría que modelar los missing stickers.
-    [HttpPost("{userId}/missing")]
-    public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingDto missingDto)
+    [HttpPost("{userId}/missing-stickers")]
+    public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingStickerRequestDTO data)
     {
         try
         {
-            var missingSticker = missingDto.ToDomain();
-            _userService.AddMissingStickerToUser(userId, missingSticker);
-            var user = _userService.GetUserById(userId);
-            return CreatedAtAction(nameof(GetUsers), new { id = missingSticker.Id }, user?.MissingStickers);
+            Sticker sticker = data.Sticker.ToDomain();
+            var missingSticker = _userService.AddMissingStickerToUser(userId, sticker);
+
+            return CreatedAtAction( nameof(PostMissingSticker), missingSticker );
         }
         catch (ArgumentException ex)
         {
             return NotFound(ex.Message);
         }
+        
     }
-    */
+   
 }
 
 public class PostUserDTO

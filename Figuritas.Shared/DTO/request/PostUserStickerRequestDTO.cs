@@ -12,13 +12,3 @@ public class PostUserStickerRequestDTO
     public required bool CanBeExchanged {get;set;}
 
 }
-
-public class StickerField
-{
-    public required int Number {get;set;}
-    public required string NationalTeamDescription {get;set;}
-    public required string TeamDescription {get;set;}
-    public required string Description {get;set;}
-    public required string CategoryDescription {get;set;}
-
-}
