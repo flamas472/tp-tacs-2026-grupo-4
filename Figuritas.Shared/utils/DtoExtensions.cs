@@ -23,5 +23,24 @@ public static class DtoExtensions
             Quantity = dto.Quantity
         };
 
+    public static Func<Sticker, bool> ToPredicate(this GetStickersDto dto) =>
+        sticker => 
+            (dto.Number == null || sticker.Number == dto.Number) &&
+            dto.Team.AllWordsAreContainedBy(sticker.Team) &&
+            dto.NationalTeam.AllWordsAreContainedBy(sticker.NationalTeam) &&
+            dto.Category.AllWordsAreContainedBy(sticker.Category) &&
+            dto.Description.AllWordsAreContainedBy(sticker.Description)
+        ;
+    
+    public static Func<UserSticker, bool> ToPredicate(this GetUserStickersDto dto) =>
+        us => 
+            (dto.Number == null || us.Sticker.Number == dto.Number) 
+            && dto.Team.AllWordsAreContainedBy(us.Sticker.Team) 
+            && dto.NationalTeam.AllWordsAreContainedBy(us.Sticker.NationalTeam) 
+            && dto.Category.AllWordsAreContainedBy(us.Sticker.Category) 
+            && dto.Description.AllWordsAreContainedBy(us.Sticker.Description) 
+            && dto.CanBeExchanged == us.CanBeExchanged
+        ;
+
 
     }

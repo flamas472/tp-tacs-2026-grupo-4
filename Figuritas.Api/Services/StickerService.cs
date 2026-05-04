@@ -22,7 +22,7 @@ public class StickerService(
 
     public List<Sticker> Get(GetStickersDto filters)
     {
-        return _stickerRepo.Get(ToPredicate(filters), filters.Page, filters.PageSize).ToList();
+        return _stickerRepo.Get(filters.ToPredicate(), filters.Page, filters.PageSize).ToList();
     }
 
     public void CreateIfNonExistent(Sticker sticker)
@@ -37,16 +37,5 @@ public class StickerService(
         _stickerRepo.Add(sticker);
         return;
     }
-
-    public Func<Sticker, bool> ToPredicate(GetStickersDto dto)
-    {
-        return sticker => 
-            (dto.Number == null || sticker.Number == dto.Number) &&
-            dto.Team.AllWordsAreContainedBy(sticker.Team) &&
-            dto.NationalTeam.AllWordsAreContainedBy(sticker.NationalTeam) &&
-            dto.Category.AllWordsAreContainedBy(sticker.Category) &&
-            dto.Description.AllWordsAreContainedBy(sticker.Description);
-    }
-
 
 }
