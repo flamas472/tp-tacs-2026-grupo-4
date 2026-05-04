@@ -1,44 +1,30 @@
 using Figuritas.Shared.Model;
+using FiguritasApi.Controllers.DTO;
 
 namespace Figuritas.Api.Services;
 
-public class StickerService
+public class StickerService(StickerRepository stickerRepo)
 {
-    private readonly StickerRepository _stickerRepo;
-    
-    public StickerService(StickerRepository stickerRepo)
-    {
-        _stickerRepo = stickerRepo;
-    }
+    private readonly StickerRepository _stickerRepo = stickerRepo;
 
     public List<Sticker> GetAllStickers()
     {
         return _stickerRepo.GetAll();
     }
 
-    public Sticker? GetStickersByNumber(int number)
+    public List<Sticker> Get(GetStickersDto filters)
     {
-        return _stickerRepo.GetByNumber(number);
+        return _stickerRepo.Get(ToPredicate(filters), filters.Page, filters.PageSize).ToList();
     }
-
-    public List<Sticker> GetStickersByTeam(Team team)
+    public Func<Sticker, bool> ToPredicate(GetStickersDto dto)
     {
-        return _stickerRepo.GetAllByTeam(team);
+        return sticker => 
+            (dto.Number == null || sticker.Number == dto.Number) &&
+            (string.IsNullOrEmpty(dto.TeamDescription) || dto.TeamDescription.Split(" ").All(words => sticker.Team.Description.Contains(words, StringComparison.OrdinalIgnoreCase))) &&
+            (dto.NationalTeamId == null || sticker.NationalTeam.Id == dto.NationalTeamId) &&
+            (dto.CategoryId == null || sticker.Category.Id == dto.CategoryId) &&
+            (string.IsNullOrEmpty(dto.Description) || dto.Description.Split(" ").All(words => sticker.Description.Contains(words, StringComparison.OrdinalIgnoreCase)));
     }
-
-    public List<Sticker> GetStickersByNationalTeamId(int nationalTeamId)
-    {
-        return _stickerRepo.GetAllByNationalTeamId(nationalTeamId);
-    }
-
-    public List<Sticker> GetStickersByCategoryId(int categoryId)
-    {
-        return _stickerRepo.GetAllByCategoryId(categoryId);
-    }
-
-    public List<Sticker> GetStickersByDescription(string description)
-    {
-        return _stickerRepo.GetAllByDescription(description);
-    }
+    
 
 }

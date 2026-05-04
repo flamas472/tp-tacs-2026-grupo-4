@@ -30,30 +30,28 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Add services to the container.
 builder.Services.AddControllers();
 
-// For in-memory persistence (Not sure if this will stay in the future. If so, we shouldn't clutter this file)
+builder.Services.AddScoped<NationalTeamService>();
+builder.Services.AddScoped<TeamService>();
+builder.Services.AddScoped<CategoryService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<StickerService>();
+builder.Services.AddScoped<ExchangeProposalService>();
+builder.Services.AddScoped<ExchangeService>();
+
+//TODO los repository deberan ser Scoped cuando no sea in-memory
+builder.Services.AddSingleton<ExchangeRepository>();
 builder.Services.AddSingleton<NationalTeamRepository>();
-builder.Services.AddSingleton<NationalTeamService>();
 builder.Services.AddSingleton<TeamRepository>();
-builder.Services.AddSingleton<TeamService>();
-builder.Services.AddSingleton<CategoryRepository>();
-builder.Services.AddSingleton<CategoryService>();
 builder.Services.AddSingleton<StickerRepository>();
+builder.Services.AddSingleton<CategoryRepository>();
 builder.Services.AddSingleton<UserRepository>();
 builder.Services.AddSingleton<UserStickerRepository>();
 builder.Services.AddSingleton<ExchangeProposalRepository>();
 builder.Services.AddSingleton<AuctionRepository>();
 builder.Services.AddSingleton<AuctionOfferRepository>();
-
-// Services
-builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<AuthService>();
-builder.Services.AddSingleton<StickerService>();
-builder.Services.AddSingleton<ExchangeRepository>();
-builder.Services.AddSingleton<ExchangeProposalService>();
-builder.Services.AddSingleton<ExchangeService>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();

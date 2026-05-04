@@ -1,13 +1,15 @@
 using System.Collections.Concurrent;
 using Figuritas.Shared.Model;
 
-// Repo for in-memory persistence.
 public class StickerRepository
 {
-    private readonly ConcurrentBag<Sticker> Stickers = new();
+    private readonly ConcurrentBag<Sticker> Stickers = [];
     private int nextId = 1;
 
-    public StickerRepository(NationalTeamRepository nationalTeamRepository, TeamRepository teamRepository, CategoryRepository categoryRepository)// TODO BORRAR CUANDO IMPLEMENTEMOS DB
+    public StickerRepository( //TODO BORRAR ESTOS CUANDO IMPLEMENTEMOS
+        NationalTeamRepository nationalTeamRepository, 
+        TeamRepository teamRepository, 
+        CategoryRepository categoryRepository)// TODO BORRAR CUANDO IMPLEMENTEMOS DB
     {
         // =========================================================================
         // TODO BORRAR CUANDO IMPLEMENTEMOS DB
@@ -36,28 +38,15 @@ public class StickerRepository
         // =========================================================================
     }// TODO BORRAR CUANDO IMPLEMENTEMOS DB
 
-    public List<Sticker> GetAll()
-    {
-        return Stickers.ToList();
-    }
+    public List<Sticker> GetAll() => Stickers.ToList();
+    public IEnumerable<Sticker> Get(Func<Sticker, bool> predicate, int page, int pageSize) => Stickers.Where(predicate).Skip((page - 1) * pageSize).Take(pageSize);
+    public Sticker? GetById(int id) => Stickers.FirstOrDefault(s => s.Id == id);
 
     public void Add(Sticker sticker)
     {
         sticker.Id = Interlocked.Increment(ref nextId) - 1;
         Stickers.Add(sticker);
     }
-
-    public Sticker? GetById(int id) => Stickers.FirstOrDefault(a => a.Id == id);
-
-    public Sticker? GetByNumber(int number) => Stickers.FirstOrDefault(a => a.Number == number);
-
-    public List<Sticker> GetAllByTeam(Team team) => Stickers.Where(a => a.Team == team).ToList();
-
-    public List<Sticker> GetAllByNationalTeamId(int nationalTeamId) => Stickers.Where(a => a.NationalTeam.Id == nationalTeamId).ToList();
-
-    public List<Sticker> GetAllByCategoryId(int categoryId) => Stickers.Where(a => a.Category.Id == categoryId).ToList();
-
-    public List<Sticker> GetAllByDescription(string description) => Stickers.Where(a => a.Description == description).ToList();
 
     public bool Update(int id, Sticker updated)
     {
@@ -66,7 +55,7 @@ public class StickerRepository
         if (existing == null)
         {
            return false; 
-        }          
+        }
 
         existing.NationalTeam = updated.NationalTeam;
         existing.Category = updated.Category;
@@ -74,4 +63,5 @@ public class StickerRepository
         existing.Team = updated.Team;
         return true;
     }
+
 }
