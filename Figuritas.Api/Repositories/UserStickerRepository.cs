@@ -24,6 +24,11 @@ public class UserStickerRepository
 
     public UserSticker? GetById(int id) => UserStickers.FirstOrDefault(a => a.Id == id);
 
+    public bool Exists(UserSticker userSticker)
+    {
+        return UserStickers.Any(us => us.Sticker.Equals(userSticker.Sticker));
+    }
+
     public void Update(UserSticker userSticker)
     {
         var existingUserSticker = GetById(userSticker.Id);

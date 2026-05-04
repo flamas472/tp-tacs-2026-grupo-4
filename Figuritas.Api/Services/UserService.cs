@@ -63,6 +63,8 @@ public class UserService(
 
         var userSticker = ToDomain(userId, data);
 
+        if (_inventoryRepo.Exists(userSticker)) throw new ArgumentException("Inventory already registered");
+
         _inventoryRepo.Add(userSticker);
 
         return userSticker;

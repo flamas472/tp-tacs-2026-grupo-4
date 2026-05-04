@@ -89,7 +89,7 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         int userId = 1;
         var user = new
         {
-            Username = "TestUser",
+            Username = "TestUser45",
             Password = "123"
         };
         HttpResponseMessage postUserResponse = await _client.PostAsJsonAsync("/api/users", user); 
@@ -104,6 +104,42 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         Assert.Equal(userSticker.Sticker.Description, responseContent?.Sticker.Description);
         Assert.Equal(userSticker.Quantity, responseContent?.Quantity);
         Assert.True(responseContent?.Id > 0); // Solo verificamos que se haya generado un ID
+    }
+
+        [Fact]
+    public async Task US1_PostFigurita_Returns_Error_If_Already_Existent()
+    {
+
+        var newSticker = new StickerField
+        {
+            Number = 999,
+            NationalTeamDescription = "Argentina",
+            TeamDescription = "River",
+            CategoryDescription = "Player",
+            Description = "Gabriel Mercado"
+        };
+        var userSticker = new PostUserStickerRequestDTO{
+            Sticker = newSticker,
+            CanBeExchanged = true,
+            Quantity = 1,
+        };
+        int userId = 1;
+        var user = new
+        {
+            Username = "TestUser",
+            Password = "123"
+        };
+        HttpResponseMessage postUserResponse = await _client.PostAsJsonAsync("/api/users", user); 
+        postUserResponse.EnsureSuccessStatusCode();
+
+        HttpResponseMessage addStickerToCollection = await _client.PostAsJsonAsync($"/api/Users/{userId}/stickers", userSticker);
+        addStickerToCollection.EnsureSuccessStatusCode();
+
+        HttpResponseMessage addStickerToCollection2 = await _client.PostAsJsonAsync($"/api/Users/{userId}/stickers", userSticker);
+        
+       //TODO verificar statusCode y mensaje de error si corresponde
+        Assert.Equal(HttpStatusCode.NotFound, addStickerToCollection2.StatusCode);
+        
     }
 
     [Fact]
