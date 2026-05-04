@@ -109,7 +109,7 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         HttpResponseMessage addStickerToCollection2 = await _client.PostAsJsonAsync($"/api/Users/{userId}/stickers", userSticker);
         
        //TODO verificar statusCode y mensaje de error si corresponde
-        Assert.Equal(HttpStatusCode.NotFound, addStickerToCollection2.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, addStickerToCollection2.StatusCode);
         
     }
 
@@ -174,7 +174,7 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
 
         HttpResponseMessage addMissingStickerToCollection2 = await _client.PostAsJsonAsync($"/api/Users/{userId}/missing-stickers", userSticker);
 
-        Assert.Equal(HttpStatusCode.NotFound, addMissingStickerToCollection2.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, addMissingStickerToCollection2.StatusCode);
     }
 
 /*     [Fact]

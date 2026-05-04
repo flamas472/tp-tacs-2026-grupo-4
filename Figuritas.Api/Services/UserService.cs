@@ -53,7 +53,7 @@ public class UserService(
         User? user = _userRepo.GetById(userId);
         
         if (user == null) throw new ArgumentException("User not found");
-        if (user.HasMissingSticker(missingSticker)) throw new ArgumentException("Inventory already registered");
+        if (user.HasMissingSticker(missingSticker)) throw new ArgumentException("Missing sticker already registered");
 
         _stickerService.CreateIfNonExistent(missingSticker);
 
@@ -86,7 +86,7 @@ public class UserService(
     {
         var sticker = _inventoryRepo.GetById(stickerId);
         if (sticker == null) 
-            throw new ArgumentException("Figurita no encontrada");
+            throw new ArgumentException("Sticker not found");
 
         // Solo actualizamos si el parámetro NO es nulo
         if (canBeExchanged.HasValue) 
