@@ -33,7 +33,7 @@ public class UserService(
         {
             Username = username,
             HashedPassword = password, // TODO: Hashear la password
-            isAdmin = false
+            IsAdmin = false
         };
 
         _userRepo.Add(user);

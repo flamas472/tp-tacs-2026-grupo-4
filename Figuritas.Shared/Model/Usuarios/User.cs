@@ -9,7 +9,7 @@ public class User
 
     public required string HashedPassword {get; set;}
 
-    public required bool isAdmin {get; set;}
+    public required bool IsAdmin {get; set;}
 
     public List<Sticker> MissingStickers { get; set; } = [];
 
@@ -27,14 +27,5 @@ public class User
     {
         return MissingStickers.Any(s => s.Equals(sticker));
     }
-    // Voy a probar si realmente es necesaria la bidireccionalidad. Caso contrario, esto vuela.
-    //public List<UserSticker> InventoryStickers { get; set; } = new();
 
-    /*
-    public void AddUserSticker(UserSticker sticker)
-    {
-        InventoryStickers.Add(sticker);
-    }
-
-    */
 }
