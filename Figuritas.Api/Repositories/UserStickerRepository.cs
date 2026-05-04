@@ -7,14 +7,29 @@ public class UserStickerRepository
     private readonly ConcurrentBag<UserSticker> UserStickers = new();
     private int nextId = 1;
 
-    public List<UserSticker> GetAll(Func<UserSticker, bool>? filter = null)
-{
-    if (filter == null)
+    public List<UserSticker> GetAll()
     {
+        
         return UserStickers.ToList();
+    
     }
-    return UserStickers.Where(filter).ToList();
-}
+    public List<UserSticker> GetPaginated(int page, int pageSize, Func<UserSticker, bool>? filter = null)
+    {
+
+        if(page < 1 || pageSize < 1)
+        {
+            throw new ArgumentException("Page and PageSize must be grater than 0");
+        }
+
+        if(filter == null)
+        {
+            return UserStickers.Skip((page-1)*pageSize).Take(pageSize).ToList();
+        }
+
+        return UserStickers.Where(filter).Skip((page-1)*pageSize).Take(pageSize).ToList();
+
+    }
+
 
     public void Add(UserSticker userSticker)
     {
@@ -23,6 +38,11 @@ public class UserStickerRepository
     }
 
     public UserSticker? GetById(int id) => UserStickers.FirstOrDefault(a => a.Id == id);
+
+    public bool Exists(UserSticker userSticker)
+    {
+        return UserStickers.Any(us => us.Sticker.Equals(userSticker.Sticker) && us.UserId == userSticker.UserId);
+    }
 
     public void Update(UserSticker userSticker)
     {

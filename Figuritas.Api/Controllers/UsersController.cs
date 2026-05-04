@@ -1,4 +1,6 @@
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Utils;
+using Figuritas.Shared.DTO;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +22,53 @@ public class UsersController : ControllerBase
     }
 
 
+    //* ENDPOINT_US01
+    [HttpPost("{userId}/stickers")]
+    public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerRequestDTO data)
+    {
+        try
+        {
+            var userSticker = _userService.CreateUserSticker(userId, data);
+
+            return CreatedAtAction( nameof(PostUserSticker), userSticker );
+        }
+        catch (ArgumentException ex)
+        {
+            if(ex.Message.Equals("User not found")) return NotFound(ex.Message);
+            if(ex.Message.Equals("Inventory already registered")) return Conflict(ex.Message);
+            
+            return StatusCode(500);
+        }
+    }
+
+    //* ENDPOINT_US02
+    [HttpPost("{userId}/missing-stickers")]
+    public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingStickerRequestDTO data)
+    {
+        try
+        {
+            Sticker sticker = data.Sticker.ToDomain();
+            var missingSticker = _userService.AddMissingStickerToUser(userId, sticker);
+
+            return CreatedAtAction( nameof(PostMissingSticker), missingSticker );
+        }
+        catch (ArgumentException ex)
+        {
+            if(ex.Message.Equals("User not found")) return NotFound(ex.Message);
+            if(ex.Message.Equals("Missing sticker already registered")) return Conflict(ex.Message);
+            return StatusCode(500);
+        }
+        
+    }
+
+    
+    [HttpGet("{userId}/stickers")]
+    public ActionResult<List<UserSticker>> GetUserStickers(int userId)
+    {
+        var userStickers = _userService.GetAllUserStickers().FindAll(us => us.UserId == userId);
+        return Ok(userStickers);
+    }
+
     // REST routes for managing users.
     [HttpGet]
     public ActionResult<List<User>> GetUsers()
@@ -40,28 +89,6 @@ public class UsersController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
-    }
-
-    // REST routes for managing user's Stickers.
-    [HttpPost("{userId}/stickers")]
-    public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerDto inventoryDto)
-    {
-        try
-        {
-            var userSticker = _userService.CreateUserSticker(userId, inventoryDto.stickerID, inventoryDto.canBeExchanged);
-            return Ok();
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
-    }
-
-    [HttpGet("{userId}/stickers")]
-    public ActionResult<List<UserSticker>> GetUserStickers(int userId)
-    {
-        var userStickers = _userService.GetAllUserStickers().FindAll(us => us.UserId == userId);
-        return Ok(userStickers);
     }
 
     [HttpPatch("{userId}/stickers/{stickerId}")]
@@ -97,31 +124,7 @@ public class UsersController : ControllerBase
             return NotFound(ex.Message);
         }
     }
-
-    /* TODO: Analizar cómo habría que modelar los missing stickers.
-    [HttpPost("{userId}/missing")]
-    public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingDto missingDto)
-    {
-        try
-        {
-            var missingSticker = missingDto.ToDomain();
-            _userService.AddMissingStickerToUser(userId, missingSticker);
-            var user = _userService.GetUserById(userId);
-            return CreatedAtAction(nameof(GetUsers), new { id = missingSticker.Id }, user?.MissingStickers);
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
-    }
-    */
-}
-
-public class PostUserStickerDto
-{
-    public required int stickerID { get; set; }
-
-    public required bool canBeExchanged { get; set; }
+   
 }
 
 public class PostUserDTO

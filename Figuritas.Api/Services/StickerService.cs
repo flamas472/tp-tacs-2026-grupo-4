@@ -1,11 +1,19 @@
+using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
-using FiguritasApi.Controllers.DTO;
-
+using Figuritas.Shared.Utils;
 namespace Figuritas.Api.Services;
 
-public class StickerService(StickerRepository stickerRepo)
+public class StickerService(
+    StickerRepository stickerRepo,
+    CategoryRepository categoryRepo,
+    TeamRepository teamRepo,
+    NationalTeamRepository nationalTeamRepo
+    )
 {
     private readonly StickerRepository _stickerRepo = stickerRepo;
+    private readonly CategoryRepository _categoryRepo = categoryRepo;
+    private readonly TeamRepository _teamRepo = teamRepo;
+    private readonly NationalTeamRepository _nationalTeamRepo = nationalTeamRepo;
 
     public List<Sticker> GetAllStickers()
     {
@@ -14,17 +22,20 @@ public class StickerService(StickerRepository stickerRepo)
 
     public List<Sticker> Get(GetStickersDto filters)
     {
-        return _stickerRepo.Get(ToPredicate(filters), filters.Page, filters.PageSize).ToList();
+        return _stickerRepo.Get(filters.ToPredicate(), filters.Page, filters.PageSize).ToList();
     }
-    public Func<Sticker, bool> ToPredicate(GetStickersDto dto)
+
+    public void CreateIfNonExistent(Sticker sticker)
     {
-        return sticker => 
-            (dto.Number == null || sticker.Number == dto.Number) &&
-            (string.IsNullOrEmpty(dto.TeamDescription) || dto.TeamDescription.Split(" ").All(words => sticker.Team.Description.Contains(words, StringComparison.OrdinalIgnoreCase))) &&
-            (dto.NationalTeamId == null || sticker.NationalTeam.Id == dto.NationalTeamId) &&
-            (dto.CategoryId == null || sticker.Category.Id == dto.CategoryId) &&
-            (string.IsNullOrEmpty(dto.Description) || dto.Description.Split(" ").All(words => sticker.Description.Contains(words, StringComparison.OrdinalIgnoreCase)));
+        if (_stickerRepo.Exists(sticker))
+        {
+            return;
+        }
+        _teamRepo.CreateIfNonExistent(new Team {Description=sticker.Team});
+        _nationalTeamRepo.CreateIfNonExistent(new NationalTeam {Description = sticker.NationalTeam});
+        _categoryRepo.CreateIfNonExistent(new Category {Description = sticker.Team});
+        _stickerRepo.Add(sticker);
+        return;
     }
-    
 
 }

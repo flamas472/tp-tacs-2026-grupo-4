@@ -27,7 +27,7 @@ public class AuthService
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), //estándar de la industria para guardar el ID del usuario
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim("IsAdmin", user.isAdmin.ToString())
+            new Claim("IsAdmin", user.IsAdmin.ToString())
         };
 
         // 3. Crear el objeto del Token

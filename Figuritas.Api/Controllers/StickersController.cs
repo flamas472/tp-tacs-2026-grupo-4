@@ -1,7 +1,7 @@
 using Figuritas.Shared.Model;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Mvc;
-using FiguritasApi.Controllers.DTO;
+using Figuritas.Shared.DTO;
 
 namespace Figuritas.Api.Controllers;
 

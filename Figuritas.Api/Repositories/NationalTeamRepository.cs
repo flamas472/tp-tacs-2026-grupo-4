@@ -14,6 +14,17 @@ public class NationalTeamRepository
         Add(new NationalTeam { Description = "Brasil" });
     }
 
+        public void CreateIfNonExistent(NationalTeam nationalTeam)
+    {
+        if (!NationalTeams.Any(t => t.Equals(nationalTeam)))
+        {
+            return;
+        }
+        Add(nationalTeam);
+    }
+
+    public NationalTeam? GetByDescription(string description) => NationalTeams.FirstOrDefault(t => t.Description.Equals(description, StringComparison.OrdinalIgnoreCase));
+
     public List<NationalTeam> GetAll()
     {
         return NationalTeams.ToList();
