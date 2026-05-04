@@ -25,5 +25,16 @@ public class CategoryRepository
         Categories.Add(category);
     }
 
+    public void CreateIfNonExistent(Category category)
+    {
+        if (!Categories.Any(t => t.Equals(category)))
+        {
+            return;
+        }
+        Add(category);
+    }
+
+    public Category? GetByDescription(string description) => Categories.FirstOrDefault(c => c.Description.Equals(description));
+
     public Category? GetById(int id) => Categories.FirstOrDefault(a => a.Id == id);
 }

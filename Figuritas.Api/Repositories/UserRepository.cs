@@ -4,8 +4,14 @@ using Figuritas.Shared.Model;
 // Repo for in-memory persistence.
 public class UserRepository
 {
-    private readonly ConcurrentBag<User> users = new();
+    private readonly ConcurrentBag<User> users = [];
     private int nextId = 1;
+
+    
+    public bool ExistsId(int userId)
+    {
+        return users.Any(u => u.Id == userId);
+    }
 
     public List<User> GetAll()
     {

@@ -1,4 +1,5 @@
 using Figuritas.Shared.Model;
+using Figuritas.Shared.DTO;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -44,11 +45,11 @@ public class UsersController : ControllerBase
 
     // REST routes for managing user's Stickers.
     [HttpPost("{userId}/stickers")]
-    public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerDto inventoryDto)
+    public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerRequestDTO data)
     {
         try
         {
-            var userSticker = _userService.CreateUserSticker(userId, inventoryDto.stickerID, inventoryDto.canBeExchanged);
+            var userSticker = _userService.CreateUserSticker(userId, data);
             return Ok();
         }
         catch (ArgumentException ex)
@@ -115,13 +116,6 @@ public class UsersController : ControllerBase
         }
     }
     */
-}
-
-public class PostUserStickerDto
-{
-    public required int stickerID { get; set; }
-
-    public required bool canBeExchanged { get; set; }
 }
 
 public class PostUserDTO

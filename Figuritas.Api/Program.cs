@@ -17,16 +17,15 @@ builder.Services.AddAuthentication(options =>
 .AddJwtBearer(options =>
 {
 
+    var secretKey = builder.Configuration["Jwt:Key"] 
+                ?? throw new InvalidOperationException("Falta la configuración 'Jwt:Key' en appsettings.json");
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = false, // Valida que el emisor sea el correcto
-        ValidateAudience = false, // Valida que el receptor sea el correcto
-        //ValidateLifetime = true, // Valida que el token no haya expirado
-        ValidateIssuerSigningKey = true, // Valida la firma digital con nuestra Key
-        
-        //ValidIssuer = builder.Configuration["Jwt:Issuer"], // Nuestra API es la única que emite tokens válidos para la misma.
-        //ValidAudience = builder.Configuration["Jwt:Audience"], // Nuestra App es la única autorizada para consumirlos.
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))// Lee la Key del appsettings
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
 });
 

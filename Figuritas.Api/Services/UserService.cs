@@ -1,19 +1,19 @@
+using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
+using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Figuritas.Api.Services;
 
-public class UserService
+public class UserService(
+    UserRepository userRepo, 
+    UserStickerRepository inventoryRepo, 
+    StickerService stickerService
+    )
 {
-    private readonly UserStickerRepository _inventoryRepo;
-    private readonly UserRepository _userRepo;
-    private readonly StickerRepository _stickerRepo;
+    private readonly UserStickerRepository _inventoryRepo = inventoryRepo;
+    private readonly UserRepository _userRepo = userRepo;
+    private readonly StickerService _stickerService = stickerService;
 
-    public UserService(UserRepository userRepo, UserStickerRepository inventoryRepo, StickerRepository stickerRepo)
-    {
-        _inventoryRepo = inventoryRepo;
-        _userRepo = userRepo;
-        _stickerRepo = stickerRepo;
-    }
 
     public List<User> GetAllUsers() => _userRepo.GetAll();
 
@@ -47,34 +47,24 @@ public class UserService
         return user; // Credenciales válidas
     }
 
-    /* Ya no haría falta. Los user sticker se crean directamente asociados al usuario.
-    public void AddUserStickerToUser(int userId, UserSticker userSticker)
-    {
-        var user = _userRepo.GetById(userId);
-        if (user == null) throw new ArgumentException("User not found");
-        _inventoryRepo.Add(userSticker);
-    }
-    */
     public void AddMissingStickerToUser(int userId, Sticker missingSticker)
     {
         var user = _userRepo.GetById(userId);
         if (user == null) throw new ArgumentException("User not found");
     }
 
-    public UserSticker CreateUserSticker(int userId, int stickerId, bool canBeExchanged)
+    public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
     {
-        var sticker = _stickerRepo.GetById(stickerId);
-        if (sticker == null) throw new ArgumentException("Sticker not found");
+        if(!_userRepo.ExistsId(userId)) throw new ArgumentException("User not found");
 
-        var userSticker = new UserSticker
-        {
-            Id = 0,
-            UserId = userId,
-            Sticker = sticker,
-            CanBeExchanged = canBeExchanged
-        };
+        Sticker sticker = ToDomain(data.Sticker);
+
+        _stickerService.CreateIfNonExistent(sticker);
+
+        var userSticker = ToDomain(userId, data);
 
         _inventoryRepo.Add(userSticker);
+
         return userSticker;
     }
 
@@ -100,5 +90,27 @@ public class UserService
     public void DeleteUserSticker(int userStickerId)
     {
         _inventoryRepo.Delete(userStickerId);
+    }
+
+    public Sticker ToDomain(StickerField dto) => new()
+        {
+            Number = dto.Number,
+            Description = dto.Description,
+            NationalTeam = dto.NationalTeamDescription,
+            Team = dto.TeamDescription,
+            Category = dto.CategoryDescription,
+        };
+    
+    public UserSticker ToDomain(int userId, PostUserStickerRequestDTO dto)
+    {
+   
+        return new UserSticker
+        {
+            UserId = userId,
+            Sticker = ToDomain(dto.Sticker),
+            CanBeExchanged = dto.CanBeExchanged,
+            Quantity = dto.Quantity
+        };
+
     }
 }

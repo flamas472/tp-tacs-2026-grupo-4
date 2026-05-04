@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using Figuritas.Api.Controllers;
+using Figuritas.Shared.DTO;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -50,6 +52,47 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
         };
         var response = await _client.PostAsJsonAsync("/api/figuritas", figurita);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task US1_PostFigurita_ReturnsCreatedAt()
+    {
+
+        var newSticker = new StickerField
+        {
+            Number = 892,
+            NationalTeamDescription = "Argentina",
+            TeamDescription = "River",
+            CategoryDescription = "Player",
+            Description = "Gabriel Mercado"
+        };
+        var userSticker = new PostUserStickerRequestDTO{
+            Sticker = newSticker,
+            CanBeExchanged = true,
+            Quantity = 1,
+        };
+        var expectedResult = new PostUserStickerResponseDTO
+        {
+            UserId = 1,
+            Sticker =
+            new StickerField{
+                Number = 892,
+                NationalTeamDescription = "Argentina",
+                TeamDescription = "River",
+                CategoryDescription = "Player",
+                Description = "Gabriel Mercado"
+            },
+            CanBeExchanged = true,
+            Quantity = 1,
+        };
+        int userId = 1;
+
+        HttpResponseMessage aniadirFiguAColeccion = await _client.PostAsJsonAsync($"/api/Users/{userId}/stickers", userSticker);
+        aniadirFiguAColeccion.EnsureSuccessStatusCode();
+        var responseContent = await aniadirFiguAColeccion.Content.ReadFromJsonAsync<PostUserStickerResponseDTO>();
+        
+        Assert.Equal(HttpStatusCode.Created, aniadirFiguAColeccion.StatusCode);
+        Assert.Equal(expectedResult, responseContent);
     }
 
     [Fact]

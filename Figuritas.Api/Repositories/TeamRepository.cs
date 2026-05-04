@@ -15,6 +15,9 @@ public class TeamRepository
         Add(new Team { Description = "Morón" });
     }
 
+    public Team? GetByDescription(string description) => Teams.FirstOrDefault(t => t.Description.Equals(description, StringComparison.OrdinalIgnoreCase));
+    
+
     public List<Team> GetAll()
     {
         return Teams.ToList();
@@ -24,6 +27,15 @@ public class TeamRepository
     {
         team.Id = Interlocked.Increment(ref nextId) - 1;
         Teams.Add(team);
+    }
+
+    public void CreateIfNonExistent(Team team)
+    {
+        if (!Teams.Any(t => t.Equals(team)))
+        {
+            return;
+        }
+        Add(team);
     }
 
     public Team? GetById(int id) => Teams.FirstOrDefault(a => a.Id == id);
