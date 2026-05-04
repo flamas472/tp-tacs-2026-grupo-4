@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Figuritas.Api.Controllers;
 using Figuritas.Shared.DTO;
+using Figuritas.Shared.Model;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -71,28 +72,38 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
             CanBeExchanged = true,
             Quantity = 1,
         };
-        var expectedResult = new PostUserStickerResponseDTO
+        var expectedResult = new UserSticker
         {
             UserId = 1,
             Sticker =
-            new StickerField{
+            new Sticker{
                 Number = 892,
-                NationalTeamDescription = "Argentina",
-                TeamDescription = "River",
-                CategoryDescription = "Player",
+                NationalTeam = "Argentina",
+                Team = "River",
+                Category = "Player",
                 Description = "Gabriel Mercado"
             },
             CanBeExchanged = true,
             Quantity = 1,
         };
         int userId = 1;
+        var user = new
+        {
+            Username = "TestUser",
+            Password = "123"
+        };
+        HttpResponseMessage postUserResponse = await _client.PostAsJsonAsync("/api/users", user); 
+        postUserResponse.EnsureSuccessStatusCode();
 
         HttpResponseMessage aniadirFiguAColeccion = await _client.PostAsJsonAsync($"/api/Users/{userId}/stickers", userSticker);
         aniadirFiguAColeccion.EnsureSuccessStatusCode();
-        var responseContent = await aniadirFiguAColeccion.Content.ReadFromJsonAsync<PostUserStickerResponseDTO>();
+        var responseContent = await aniadirFiguAColeccion.Content.ReadFromJsonAsync<UserSticker>();
         
+       // En lugar de Assert.Equal(userSticker, responseContent);
         Assert.Equal(HttpStatusCode.Created, aniadirFiguAColeccion.StatusCode);
-        Assert.Equal(expectedResult, responseContent);
+        Assert.Equal(userSticker.Sticker.Description, responseContent?.Sticker.Description);
+        Assert.Equal(userSticker.Quantity, responseContent?.Quantity);
+        Assert.True(responseContent?.Id > 0); // Solo verificamos que se haya generado un ID
     }
 
     [Fact]

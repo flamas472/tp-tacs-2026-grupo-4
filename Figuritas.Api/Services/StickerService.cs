@@ -1,5 +1,6 @@
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Utils;
 namespace Figuritas.Api.Services;
 
 public class StickerService(
@@ -41,22 +42,11 @@ public class StickerService(
     {
         return sticker => 
             (dto.Number == null || sticker.Number == dto.Number) &&
-            AllWordsAreContainedBy(dto.Team, sticker.Team) &&
-            AllWordsAreContainedBy(dto.NationalTeam, sticker.NationalTeam) &&
-            AllWordsAreContainedBy(dto.Category, sticker.Category) &&
-            AllWordsAreContainedBy(dto.Description, sticker.Description);
+            dto.Team.AllWordsAreContainedBy(sticker.Team) &&
+            dto.NationalTeam.AllWordsAreContainedBy(sticker.NationalTeam) &&
+            dto.Category.AllWordsAreContainedBy(sticker.Category) &&
+            dto.Description.AllWordsAreContainedBy(sticker.Description);
     }
 
-    //TODO MOVER A UTILS
-     /* 
-     Checks if origin contains all the words contained in filter in any order.
-     eg.: filter = "Hola Mundo"; origin = "Mundo Hola Pan"; is true
-     eg.: filer = "Hola Mundo"; origin = "Hola Pan"; is false
-      */
-    private static bool AllWordsAreContainedBy(string? filter, string origin)
-    {
-        return string.IsNullOrEmpty(filter) || filter.Split(" ").All(words => origin.Contains(words, StringComparison.OrdinalIgnoreCase));
-    }
-    
 
 }

@@ -1,4 +1,5 @@
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Utils;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Figuritas.Api.Controllers;
@@ -17,19 +18,18 @@ public class SearchController : ControllerBase
     [HttpGet("inventory-stickers")]
     public ActionResult<List<UserSticker>> SearchInventoryStickers(
         [FromQuery] int? number,
-        [FromQuery] int? selection,
+        [FromQuery] string? nationalTeam,
         [FromQuery] string? team,
-        [FromQuery] int? category,
-        [FromQuery] bool? canBeExchanged,
-        [FromQuery] bool? active)
+        [FromQuery] string? category,
+        [FromQuery] bool? canBeExchanged
+        )
     {
         var results = _inventoryRepo.GetAll(fig =>
-            (!number.HasValue || fig.Sticker.Number == number.Value) &&
-            (!selection.HasValue || fig.Sticker.NationalTeam.Id == selection.Value) &&
-            (string.IsNullOrEmpty(team) || fig.Sticker.Team.Description.Equals(team, StringComparison.OrdinalIgnoreCase)) &&
-            (!category.HasValue || fig.Sticker.Category.Id == category.Value) &&
-            (!canBeExchanged.HasValue || fig.CanBeExchanged == canBeExchanged.Value) &&
-            (!active.HasValue || fig.Active == active.Value)
+            (!number.HasValue || fig.Sticker.Number == number.Value) 
+            && nationalTeam.AllWordsAreContainedBy(fig.Sticker.NationalTeam) 
+            && team.AllWordsAreContainedBy(fig.Sticker.Team)
+            && category.AllWordsAreContainedBy(fig.Sticker.Category)
+            && (!canBeExchanged.HasValue || fig.CanBeExchanged == canBeExchanged.Value) 
         );
         return Ok(results);
     }

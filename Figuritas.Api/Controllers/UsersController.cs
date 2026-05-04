@@ -50,7 +50,8 @@ public class UsersController : ControllerBase
         try
         {
             var userSticker = _userService.CreateUserSticker(userId, data);
-            return Ok();
+
+            return CreatedAtAction( nameof(PostUserSticker), userSticker );
         }
         catch (ArgumentException ex)
         {
