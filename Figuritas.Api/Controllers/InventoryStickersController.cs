@@ -25,7 +25,7 @@ public class InventoryStickersController : ControllerBase
     {
         try
         {
-            Func<UserSticker, bool> filter = queryParams.ToPredicate();
+            var filter = queryParams.ToPredicate();
             var results = _inventoryRepo.GetPaginated(queryParams.Page, queryParams.PageSize, filter);
             return Ok(results);
         }
