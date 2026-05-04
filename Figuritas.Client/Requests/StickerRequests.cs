@@ -14,19 +14,19 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
-        public async Task<ApiResponse<List<Sticker>>> GetStickersAsync(int page, int pageSize, int? nationalTeamId = null, int? categoryId = null)
+        public async Task<ApiResponse<List<Sticker>>> GetStickersAsync(int page, int pageSize, string? nationalTeam = null, string? category = null)
         {
             string url = $"api/Stickers?Page={page}&PageSize={pageSize}";
 
             
-            if (nationalTeamId.HasValue && nationalTeamId > 0)
+            if (!string.IsNullOrEmpty(nationalTeam))
             {
-                url += $"&nationalTeamId={nationalTeamId}";
+                url += $"&nationalTeam={nationalTeam}";
             }
             
-            if (categoryId.HasValue && categoryId > 0)
+            if (!string.IsNullOrEmpty(category))
             {
-                url += $"&categoryId={categoryId}";
+                url += $"&category={category}";
             }
 
             try

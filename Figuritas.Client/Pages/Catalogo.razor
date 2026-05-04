@@ -14,29 +14,29 @@
 @* FILTROS *@
 <InputSelect
     class="mb-4"
-    Value="@filtroNationalTeamId"
+    Value="@filtroNationalTeam"
     ValueChanged="@OnFiltroNationalTeamIdChanged"
-    ValueExpression="() => filtroNationalTeamId"
-    TValue="int"
+    ValueExpression="() => filtroNationalTeam"
+    TValue="string"
 >
-    <option value=0>Todas las selecciones</option>
+    <option value="">Todas las selecciones</option>
     @foreach (NationalTeam nationalTeam in nationalTeams ?? new List<NationalTeam>())
     {
-        <option value="@nationalTeam.Id">@nationalTeam.Description</option>
+        <option value="@nationalTeam.Description">@nationalTeam.Description</option>
     }
 
 </InputSelect>
 <InputSelect
     class="mb-4"
-    Value="@filtroCategoryId"
+    Value="@filtroCategory"
     ValueChanged="@OnFiltroCategoryIdChanged"
-    ValueExpression="() => filtroCategoryId"
-    TValue="int"
+    ValueExpression="() => filtroCategory"
+    TValue="string"
 >
-    <option value=0>Todas las categorías</option>
+    <option value="">Todas las categorías</option>
     @foreach (Category category in category ?? new List<Category>())
     {
-        <option value="@category.Id">@category.Description</option>
+        <option value="@category.Description">@category.Description</option>
     }
 
 </InputSelect>
@@ -67,18 +67,18 @@ else
     private List<NationalTeam>? nationalTeams;
     private List<Category>? category;
     private string mensajeFetch = "Cargando figuritas...";
-    private int filtroNationalTeamId = 0;
-    private int filtroCategoryId = 0;
+    private string filtroNationalTeam = "";
+    private string filtroCategory = "";
 
-    private async Task OnFiltroNationalTeamIdChanged(int value)
+    private async Task OnFiltroNationalTeamIdChanged(string value)
     {
-        filtroNationalTeamId = value;
+        filtroNationalTeam = value;
         await FetchStickers();
     }
 
-    private async Task OnFiltroCategoryIdChanged(int value)
+    private async Task OnFiltroCategoryIdChanged(string value)
     {
-        filtroCategoryId = value;
+        filtroCategory = value;
         await FetchStickers();
     }
     
@@ -90,8 +90,8 @@ else
         ApiResponse<List<Sticker>> response = await StickerHttp.GetStickersAsync(
             page: 1,
             pageSize: 20,
-            nationalTeamId: filtroNationalTeamId,
-            categoryId: filtroCategoryId
+            nationalTeam: filtroNationalTeam,
+            category: filtroCategory
             );
             
         if (response.Success)
