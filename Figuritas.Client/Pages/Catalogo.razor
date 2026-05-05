@@ -12,52 +12,62 @@
 
 
 @* FILTROS *@
-<InputSelect
-    class="mb-4"
-    Value="@filtroNationalTeamId"
-    ValueChanged="@OnFiltroNationalTeamIdChanged"
-    ValueExpression="() => filtroNationalTeamId"
-    TValue="int"
->
-    <option value=0>Todas las selecciones</option>
-    @foreach (NationalTeam nationalTeam in nationalTeams ?? new List<NationalTeam>())
-    {
-        <option value="@nationalTeam.Id">@nationalTeam.Description</option>
-    }
+<MudPaper Style="padding: 1rem; margin-bottom: 1rem;">
+    <div style="display: flex; flex-wrap: wrap; gap: 1.5rem;">
+        <MudSelect
+            T="string"
+            Label="Selección"
+            Value="@filtroNationalTeam"
+            ValueChanged="@OnFiltroNationalTeamIdChanged"
+            Style="min-width: 240px;"
+        >
+            <MudSelectItem Value="@(string.Empty)">Todas las selecciones</MudSelectItem>
+            @foreach (NationalTeam nationalTeam in nationalTeams ?? new List<NationalTeam>())
+            {
+                <MudSelectItem Value="@(nationalTeam.Description)">@nationalTeam.Description</MudSelectItem>
+            }
+        </MudSelect>
 
-</InputSelect>
-<InputSelect
-    class="mb-4"
-    Value="@filtroCategoryId"
-    ValueChanged="@OnFiltroCategoryIdChanged"
-    ValueExpression="() => filtroCategoryId"
-    TValue="int"
->
-    <option value=0>Todas las categorías</option>
-    @foreach (Category category in category ?? new List<Category>())
-    {
-        <option value="@category.Id">@category.Description</option>
-    }
-
-</InputSelect>
+        <MudSelect
+            T="string"
+            Label="Categoría"
+            Value="@filtroCategory"
+            ValueChanged="@OnFiltroCategoryIdChanged"
+            Style="min-width: 240px;"
+        >
+            <MudSelectItem Value="@(string.Empty)">Todas las categorías</MudSelectItem>
+            @foreach (Category category in category ?? new List<Category>())
+            {
+                <MudSelectItem Value="@(category.Description)">@category.Description</MudSelectItem>
+            }
+        </MudSelect>
+    </div>
+</MudPaper>
 
 @* LISTADO DE FIGURITAS *@
-@if (stickers == null )
+@if (stickers == null)
 {
-    <p><em>@mensajeFetch</em></p>
+    <MudPaper Style="padding: 1rem;">
+        <MudText Typo="Typo.subtitle1">@mensajeFetch</MudText>
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Style="margin-top: 1rem;" />
+    </MudPaper>
 }
 else if (!stickers.Any())
 {
-    <p><em>No se encontraron figuritas</em></p>
+    <MudPaper Style="padding: 1rem;">
+        <MudText Typo="Typo.subtitle1">No se encontraron figuritas</MudText>
+    </MudPaper>
 }
 else
 {
-    <div class="flex flex-wrap gap-4">
+    <MudGrid GutterSize="3">
         @foreach (Sticker sticker in stickers)
         {
-            <StickerComponent sticker=@sticker @key="sticker.Id"/>
+            <MudItem xs="12" sm="6" md="4" lg="3">
+                <StickerComponent sticker="@sticker" @key="sticker.Id" />
+            </MudItem>
         }
-    </div>
+    </MudGrid>
 }
 
 
@@ -67,18 +77,18 @@ else
     private List<NationalTeam>? nationalTeams;
     private List<Category>? category;
     private string mensajeFetch = "Cargando figuritas...";
-    private int filtroNationalTeamId = 0;
-    private int filtroCategoryId = 0;
+    private string filtroNationalTeam = "";
+    private string filtroCategory = "";
 
-    private async Task OnFiltroNationalTeamIdChanged(int value)
+    private async Task OnFiltroNationalTeamIdChanged(string value)
     {
-        filtroNationalTeamId = value;
+        filtroNationalTeam = value;
         await FetchStickers();
     }
 
-    private async Task OnFiltroCategoryIdChanged(int value)
+    private async Task OnFiltroCategoryIdChanged(string value)
     {
-        filtroCategoryId = value;
+        filtroCategory = value;
         await FetchStickers();
     }
     
@@ -86,8 +96,14 @@ else
     {
         mensajeFetch = "Cargando figuritas...";
         stickers = null; // Esto hace que se muestre el mensaje de "Cargando figuritas..." mientras se hace la petición
-
-        ApiResponse<List<Sticker>> response = await StickerHttp.GetStickersAsync(filtroNationalTeamId, filtroCategoryId);
+        StateHasChanged(); // Forzamos a Blazor a actualizar la UI antes de hacer la petición
+        ApiResponse<List<Sticker>> response = await StickerHttp.GetStickersAsync(
+            page: 1,
+            pageSize: 20,
+            nationalTeam: filtroNationalTeam,
+            category: filtroCategory
+            );
+            
         if (response.Success)
         {
             stickers = response.Data;

@@ -1,9 +1,11 @@
 
-<div class="bg-white rounded-lg shadow-md p-4 border border-blue-500">
-    <h4 class="text-gray-600">@Titulo</h4>
-    <p>Soy un componente reutilizable. Me podés llamar desde cualquier lado.</p>
-    <button class="border border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white px-4 py-2 rounded" @onclick="Saludar">¡Saludar!</button>
-</div>
+<MudPaper Style="padding: 1rem; border: 1px solid #3b82f6;">
+    <MudText Typo="Typo.h6" Color="Color.Primary">@Titulo</MudText>
+    <MudText>Soy un componente reutilizable. Me podés llamar desde cualquier lado.</MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="Saludar" Style="margin-top: 1rem;">
+        ¡Saludar!
+    </MudButton>
+</MudPaper>
 
 @code {
     [Parameter] public string Titulo { get; set; } = "Título por defecto";
