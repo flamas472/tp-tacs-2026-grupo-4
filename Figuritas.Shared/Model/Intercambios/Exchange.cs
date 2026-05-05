@@ -12,7 +12,7 @@ public class Exchange
 
     public required int ExchangeProposalID { get; set; }
 
-    public required int ProponentID { get; set; }
+    public required int User1ID { get; set; }
 
-    public required int ProposedID { get; set; }
+    public required int User2ID { get; set; }
 }

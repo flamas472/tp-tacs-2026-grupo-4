@@ -40,6 +40,8 @@ public class UserStickerRepository
 
     public UserSticker? GetById(int id) => UserStickers.FirstOrDefault(a => a.Id == id);
 
+    public List<UserSticker> GetMultipleById(List<int> ids) => UserStickers.Where(us => ids.Contains(us.Id)).ToList();
+
     public bool Exists(UserSticker userSticker)
     {
         return UserStickers.Any(us => us.Sticker.Equals(userSticker.Sticker) && us.UserId == userSticker.UserId);
@@ -48,29 +50,17 @@ public class UserStickerRepository
     public void Update(UserSticker userSticker)
     {
         var existingUserSticker = GetById(userSticker.Id);
-        if (existingUserSticker != null)
-        {
-            UserStickers.TryTake(out existingUserSticker);
-            UserStickers.Add(userSticker);
-        }
+        if (existingUserSticker == null) throw new ArgumentException("UserSticker not found");
+
+        existingUserSticker.CanBeExchanged = userSticker.CanBeExchanged;
+        existingUserSticker.Quantity = userSticker.Quantity;
     }
 
     public void Delete(int userStickerId)
     {
         var userSticker = GetById(userStickerId);
-        if (userSticker != null)
-        {
-            var deletedUserSticker = new UserSticker
-            {
-                Id = userSticker.Id,
-                UserId = userSticker.UserId,
-                Sticker = userSticker.Sticker,
-                CanBeExchanged = userSticker.CanBeExchanged,
-                Quantity = 0,
-                Active = false
-            };
-            UserStickers.TryTake(out userSticker);
-            UserStickers.Add(deletedUserSticker);
-        }
+        if (userSticker == null) throw new ArgumentException("UserSticker not found");
+        
+        userSticker.Active = false;
     }
 }

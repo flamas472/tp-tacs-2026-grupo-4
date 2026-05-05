@@ -12,4 +12,6 @@ public class Rate
     public required string Comment { get; set; }
     
     public int ExchangeID {get; set; }
+
+    public required int RaterID { get; set; }
 }

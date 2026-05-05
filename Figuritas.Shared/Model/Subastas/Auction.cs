@@ -12,7 +12,7 @@ public class Auction
 
     public required List<Sticker> MinimumOffer { get; set; }
 
-    public required UserSticker AuctionedFigurita { get; set; }
+    public required UserSticker AuctionedSticker { get; set; }
 
     public AuctionOffer? BestCurrentOffer { get; set; }
 }

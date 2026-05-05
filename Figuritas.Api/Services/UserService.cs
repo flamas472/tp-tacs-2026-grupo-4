@@ -8,20 +8,25 @@ namespace Figuritas.Api.Services;
 public class UserService(
     UserRepository userRepo, 
     UserStickerRepository inventoryRepo, 
-    StickerService stickerService
+    StickerService stickerService,
+    ExchangeRepository exchangeRepo
     )
 {
     private readonly UserStickerRepository _inventoryRepo = inventoryRepo;
     private readonly UserRepository _userRepo = userRepo;
     private readonly StickerService _stickerService = stickerService;
-
+    private readonly ExchangeRepository _exchangeRepo = exchangeRepo;
 
     public List<User> GetAllUsers() => _userRepo.GetAll();
 
     public User? GetUserById(int id) => _userRepo.GetById(id);
 
-    public User CreateUser(string username, string password)
+    public User CreateUser(PostUserDTO userDTO)
     {
+
+        var username = userDTO.Username;
+        var password = userDTO.Password;
+
         if (string.IsNullOrWhiteSpace(username))
             throw new ArgumentException("Username is required");
         if (_userRepo.GetAll().Any(u => u.Username == username))
@@ -40,8 +45,28 @@ public class UserService(
         return user;
     }
 
-    public User? ValidateCredentials(string username, string password)
+    public User UpdateUser(int userID, PatchUserDTO patchDTO)
     {
+        var user = _userRepo.GetById(userID);
+        if (user == null) 
+            throw new ArgumentException("User not found");
+
+        // Solo actualizamos si el parámetro NO es nulo
+        if (patchDTO.Username != null) 
+            user.Username = patchDTO.Username;
+
+        if (patchDTO.Password != null) 
+            user.HashedPassword = patchDTO.Password; // TODO: Hashear la password
+
+        _userRepo.Update(user);
+        return user;
+    }
+
+    public User? ValidateCredentials(PostUserDTO userDTO)
+    {
+        var username = userDTO.Username;
+        var password = userDTO.Password;
+
         var user = _userRepo.GetAll().FirstOrDefault(u => u.Username == username);
         if (user == null || user.HashedPassword != password) // TODO: Hash de la clave
             return null; // Credenciales inválidas
@@ -104,4 +129,52 @@ public class UserService(
         _inventoryRepo.Delete(userStickerId);
     }
 
+    public List<Rate> GetAllUserRatings(int userId)
+    {
+        User? user = _userRepo.GetById(userId);
+        if (user == null) throw new ArgumentException("User not found");
+
+        return user.Ratings;
+    }
+
+    // TODO: Ver si se puede mejorar esta solución
+    public Rate CreateUserRate(int exchangeId, PostRateDTO postRateDTO, int raterId)
+    {
+        var exchange = _exchangeRepo.GetById(exchangeId);
+        if (exchange == null) 
+            throw new ArgumentException("Exchange not found");
+        if(exchange.User1ID != raterId || exchange.User2ID != raterId)
+            throw new ArgumentException("User did not participate in the exchange");
+
+        var rate = new Rate
+        {
+            Score = postRateDTO.Score,
+            Comment = postRateDTO.Comment ?? string.Empty,
+            ExchangeID = exchangeId,
+            RaterID = raterId
+        };
+
+        if(exchange.User1ID == raterId)
+        {
+            var user2 = _userRepo.GetById(exchange.User2ID); // El usuario a ratear es el otro que participó del intercambio
+            user2.Ratings.Add(rate);
+            _userRepo.Update(user2);
+        }
+        else
+        {
+            var user1 = _userRepo.GetById(exchange.User1ID); // El usuario a ratear es el otro que participó del intercambio
+            user1.Ratings.Add(rate);
+            _userRepo.Update(user1);
+        }
+
+        return rate;
+    }
+
+    public double GetUserReputation(int userId)
+    {
+        User? user = _userRepo.GetById(userId);
+        if (user == null) throw new ArgumentException("User not found");
+
+        return user.Reputation;
+    }
 }

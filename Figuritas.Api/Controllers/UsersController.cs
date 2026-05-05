@@ -41,6 +41,7 @@ public class UsersController : ControllerBase
         }
     }
 
+
     //* ENDPOINT_US02
     [HttpPost("{userId}/missing-stickers")]
     public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingStickerRequestDTO data)
@@ -60,35 +61,12 @@ public class UsersController : ControllerBase
         }
         
     }
-
     
     [HttpGet("{userId}/stickers")]
     public ActionResult<List<UserSticker>> GetUserStickers(int userId)
     {
         var userStickers = _userService.GetAllUserStickers().FindAll(us => us.UserId == userId);
         return Ok(userStickers);
-    }
-
-    // REST routes for managing users.
-    [HttpGet]
-    public ActionResult<List<User>> GetUsers()
-    {
-        var users = _userService.GetAllUsers();
-        return Ok(users);
-    }
-
-    [HttpPost]
-    public ActionResult<User> PostUser(PostUserDTO userDTO)
-    {
-        try
-        {
-            var user = _userService.CreateUser(userDTO.Username, userDTO.Password);
-            return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
     }
 
     [HttpPatch("{userId}/stickers/{stickerId}")]
@@ -125,17 +103,74 @@ public class UsersController : ControllerBase
         }
     }
    
+
+    //* ENDPOINT_US10
+    [HttpGet("{userID}/ratings")]
+    public ActionResult<List<Rate>> GetUserRatings(int userID)
+    {
+        try
+        {
+            var userRatings = _userService.GetAllUserRatings(userID);
+            return Ok(userRatings);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpGet("{userId}/reputation")]
+    public ActionResult<double> GetUserReputation(int userId)
+    {
+        try
+        {
+            var reputation = _userService.GetUserReputation(userId);
+            return Ok(reputation);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    // Rutas REST para gestión de usuarios.
+    [HttpGet]
+    public ActionResult<List<User>> GetUsers()
+    {
+        var users = _userService.GetAllUsers();
+        return Ok(users);
+    }
+
+    [HttpPost]
+    public ActionResult<User> PostUser(PostUserDTO userDTO)
+    {
+        try
+        {
+            var user = _userService.CreateUser(userDTO);
+            return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPatch("/{id}")]
+    public ActionResult<User> PatchUser(int userId, PatchUserDTO patchDTO)
+    {
+        try
+        {
+            if(patchDTO.Username == null && patchDTO.Password == null)
+                return BadRequest("Debe proporcionar al menos un campo para actualizar.");
+            
+            var user = _userService.UpdateUser(userId, patchDTO);
+            return Ok(user);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
 }
 
-public class PostUserDTO
-{
-    public required string Username { get; set; }
-    public required string Password { get; set; }
-}
-
-public class PatchUserStickerDto
-{
-    public bool? canBeExchanged { get; set; }
-
-    public int? quantity { get; set; }
-}

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Figuritas.Shared.Model;
 using Figuritas.Api.Services;
+using Figuritas.Shared.DTO;
 
 namespace Figuritas.Api.Controllers;
 
@@ -18,10 +19,10 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginDto loginDto)
+    public IActionResult Login([FromBody] PostUserDTO loginDto)
     {
         // 1. Validar identidad (esto es parte de la lógica que ya debés tener)
-        var user = _userService.ValidateCredentials(loginDto.Username, loginDto.Password);
+        var user = _userService.ValidateCredentials(loginDto);
         
         if (user == null) return Unauthorized("Credenciales inválidas");
 
@@ -31,10 +32,4 @@ public class AuthController : ControllerBase
         // 3. Entregarlo al cliente
         return Ok(new { Token = token });
     }
-}
-
-public class LoginDto
-{
-    public required string Username { get; set; }
-    public required string Password { get; set; }
 }

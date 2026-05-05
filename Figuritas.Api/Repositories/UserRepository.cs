@@ -29,4 +29,12 @@ public class UserRepository
         return users.FirstOrDefault(u => u.Id == userId);
     }
      
+    public void Update(User user)
+    {
+        var existingUser = GetById(user.Id);
+        if (existingUser == null) throw new ArgumentException("User not found");
+
+        existingUser.Username = user.Username;
+        existingUser.HashedPassword = user.HashedPassword;
+    }
 }
