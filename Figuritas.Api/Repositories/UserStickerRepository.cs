@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Linq.Expressions;
 using Figuritas.Shared.Model;
 
 // Repo for in-memory persistence.
@@ -13,7 +14,7 @@ public class UserStickerRepository
         return UserStickers.ToList();
     
     }
-    public List<UserSticker> GetPaginated(int page, int pageSize, Func<UserSticker, bool>? filter = null)
+    public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null)
     {
 
         if(page < 1 || pageSize < 1)
@@ -26,7 +27,7 @@ public class UserStickerRepository
             return UserStickers.Skip((page-1)*pageSize).Take(pageSize).ToList();
         }
 
-        return UserStickers.Where(filter).Skip((page-1)*pageSize).Take(pageSize).ToList();
+        return UserStickers.Where(filter.Compile()).Skip((page-1)*pageSize).Take(pageSize).ToList();
 
     }
 
