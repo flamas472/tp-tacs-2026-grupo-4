@@ -4,11 +4,11 @@
 <MudCard Style="max-width: 280px;">
     <MudCardMedia Image="@sticker.ImageUrl" Alt="@sticker.Description" Style="width: 100%; height: auto; aspect-ratio: 5 / 6.5; object-fit: cover;" />
     <MudCardContent>
-        <MudText Typo="Typo.caption" Color="Color.Secondary">@sticker.Number.ToString("D3")</MudText>
-        <MudText Typo="Typo.h6">@sticker.Description</MudText>
+        <MudText class="text-sm" Color="Color.Secondary">@sticker.Number.ToString("D3")</MudText>
+        <MudText class="text-lg text-bold">@sticker.Description</MudText>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
-            <MudText>@sticker.NationalTeam</MudText>
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@sticker.Category</MudText>
+            <MudText Class="text-md">@sticker.NationalTeam</MudText>
+            <MudText class="text-sm" Color="Color.Secondary">@sticker.Category</MudText>
         </div>
     </MudCardContent>
 </MudCard>
@@ -16,9 +16,4 @@
 @code {
     [Parameter] [EditorRequired] public Sticker sticker { get; set; }
 
-    private void Saludar()
-    {
-        // Esto solo imprime en la consola del navegador (F12)
-        Console.WriteLine("¡Hola desde el componente de C#!");
-    }
 }
