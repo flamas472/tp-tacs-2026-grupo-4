@@ -1,7 +1,7 @@
 @using Figuritas.Shared.Model
 
 
-<MudCard Style="max-width: 280px;">
+<MudCard Style="max-width: 280px; cursor: pointer;" @onclick="HandleCardClick">
     <MudCardMedia Image="@sticker.ImageUrl" Alt="@sticker.Description" Style="width: 100%; height: auto; aspect-ratio: 5 / 6.5; object-fit: cover;" />
     <MudCardContent>
         <MudText class="text-sm" Color="Color.Secondary">@sticker.Number.ToString("D3")</MudText>
@@ -16,4 +16,13 @@
 @code {
     [Parameter] [EditorRequired] public Sticker sticker { get; set; }
 
+    [Parameter] public EventCallback<Sticker> OnStickerClick { get; set; }
+
+    private async Task HandleCardClick()
+    {
+        if (OnStickerClick.HasDelegate)
+        {
+            await OnStickerClick.InvokeAsync(sticker);
+        }
+    }
 }
