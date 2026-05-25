@@ -143,7 +143,7 @@ public class UserService(
         var exchange = _exchangeRepo.GetById(exchangeId);
         if (exchange == null) 
             throw new ArgumentException("Exchange not found");
-        if(exchange.User1ID != raterId || exchange.User2ID != raterId)
+        if(exchange.ProponentID != raterId || exchange.ProposedID != raterId)
             throw new ArgumentException("User did not participate in the exchange");
 
         var rate = new Rate
@@ -154,15 +154,15 @@ public class UserService(
             RaterID = raterId
         };
 
-        if(exchange.User1ID == raterId)
+        if(exchange.ProponentID == raterId)
         {
-            var user2 = _userRepo.GetById(exchange.User2ID); // El usuario a ratear es el otro que participó del intercambio
+            var user2 = _userRepo.GetById(exchange.ProposedID); // El usuario a ratear es el otro que participó del intercambio
             user2.Ratings.Add(rate);
             _userRepo.Update(user2);
         }
         else
         {
-            var user1 = _userRepo.GetById(exchange.User1ID); // El usuario a ratear es el otro que participó del intercambio
+            var user1 = _userRepo.GetById(exchange.ProponentID); // El usuario a ratear es el otro que participó del intercambio
             user1.Ratings.Add(rate);
             _userRepo.Update(user1);
         }
