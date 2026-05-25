@@ -11,7 +11,7 @@ public class CategoryRepository
     {
         Add(new Category { Description = "Jugador" });
         Add(new Category { Description = "Escudo" });
-        Add(new Category { Description = "Estadio" });
+        Add(new Category { Description = "Formacion" });
     }
 
     public List<Category> GetAll()

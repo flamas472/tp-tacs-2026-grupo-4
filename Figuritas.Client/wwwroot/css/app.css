@@ -108,3 +108,53 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+
+/* Personalizadas */
+.text-sm {
+    font-size: 11px; /* Celular */
+}
+@media (min-width: 600px) {
+    .text-sm { font-size: 12px; } /* Tablet */
+}
+@media (min-width: 960px) {
+    .text-sm { font-size: 13px; } /* Monitor */
+}
+
+.text-md {
+    font-size: 13px; /* Celular */
+    line-height: 1.2;
+}
+@media (min-width: 600px) {
+    .text-md { font-size: 15px; } /* Tablet */
+}
+@media (min-width: 960px) {
+    .text-md { font-size: 16px; } /* Monitor */
+}
+
+.text-lg {
+    font-size: 16px; /* Celular */
+    font-weight: bold;
+}
+@media (min-width: 600px) {
+    .text-lg { font-size: 18px; } /* Tablet */
+}
+@media (min-width: 960px) {
+    .text-lg { font-size: 20px; } /* Monitor */
+}
+
+.text-xl {
+    font-size: 18px; /* Celular */
+    font-weight: bold;
+}
+@media (min-width: 600px) {
+    .text-xl { font-size: 20px; } /* Tablet */
+}
+@media (min-width: 960px) {
+    .text-xl { font-size: 22px; } /* Monitor */
+}
+
+/* AUXILIAR: Negrita genérica por si querés combinar */
+.text-bold {
+    font-weight: bold;
+}

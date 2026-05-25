@@ -63,8 +63,12 @@ else
     <MudGrid GutterSize="3">
         @foreach (Sticker sticker in stickers)
         {
-            <MudItem xs="12" sm="6" md="4" lg="3">
-                <StickerComponent sticker="@sticker" @key="sticker.Id" />
+            <MudItem xs="6" sm="4" md="3" lg="2">
+                <StickerComponent
+                    sticker="@sticker"
+                    @key="sticker.Id"
+                    OnStickerClick="OnStickerClick"
+                />
             </MudItem>
         }
     </MudGrid>
@@ -91,7 +95,7 @@ else
         filtroCategory = value;
         await FetchStickers();
     }
-    
+
     private async Task FetchStickers()
     {
         mensajeFetch = "Cargando figuritas...";
@@ -99,14 +103,20 @@ else
         StateHasChanged(); // Forzamos a Blazor a actualizar la UI antes de hacer la petición
         ApiResponse<List<Sticker>> response = await StickerHttp.GetStickersAsync(
             page: 1,
-            pageSize: 20,
+            pageSize: 24,
             nationalTeam: filtroNationalTeam,
             category: filtroCategory
             );
-            
+
         if (response.Success)
         {
             stickers = response.Data;
+
+
+            if (stickers != null)
+            {
+                stickers = stickers.OrderBy(s => s.Id).ToList();
+            }
         }
         else
         {
@@ -120,7 +130,7 @@ else
         {
             var nationalTeamsTask = Http.GetAsync("api/NationalTeam");
             var categoryTask = Http.GetAsync("api/Category");
-            
+
             await Task.WhenAll(nationalTeamsTask, categoryTask);
 
             nationalTeams = await nationalTeamsTask.Result.ProcesarRespuesta<List<NationalTeam>>();
@@ -137,8 +147,8 @@ else
 
 
             await FetchStickers();
-            
-            
+
+
         }
         catch (Exception ex)
         {
@@ -147,5 +157,16 @@ else
             Console.WriteLine(mensajeFetch);
         }
     }
-    
+
+
+    private void OnStickerClick(Sticker clickedSticker)
+    {
+        @*
+            TODO: ACA ABRIR UN MODAL PARA OFRECER ACCIONES:
+                AGREGAR A FALTANTES
+                AGREGAR A REPETIDAS
+        *@
+        Console.WriteLine($"Se clickeó la figurita: {clickedSticker.Description}");
+        Console.WriteLine($"Pendiente: Abrir modal para agregar a faltantes o repetidas");
+    }
 }
