@@ -1,40 +1,50 @@
-using System.Collections.Concurrent;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
-// Repo for in-memory persistence of national teams.
 public class NationalTeamRepository
 {
-    private readonly ConcurrentBag<NationalTeam> NationalTeams = new();
-    private int nextId = 1;
+    private readonly IMongoCollection<NationalTeam> _nationalTeams;
+    private readonly IIdGenerator _idGenerator;
 
-    public NationalTeamRepository()
+    public NationalTeamRepository(MongoDbContext context, IIdGenerator idGenerator)
     {
-        Add(new NationalTeam { Description = "Argentina" });
-        Add(new NationalTeam { Description = "Francia" });
-        Add(new NationalTeam { Description = "Brasil" });
+        _nationalTeams = context.Collection<NationalTeam>("NationalTeams");
+        _idGenerator = idGenerator;
+        SeedDefaultNationalTeams();
     }
 
-        public void CreateIfNonExistent(NationalTeam nationalTeam)
+    private void SeedDefaultNationalTeams()
     {
-        if (!NationalTeams.Any(t => t.Equals(nationalTeam)))
+        CreateIfNonExistent(new NationalTeam { Description = "Argentina" });
+        CreateIfNonExistent(new NationalTeam { Description = "Francia" });
+        CreateIfNonExistent(new NationalTeam { Description = "Brasil" });
+    }
+
+    public void CreateIfNonExistent(NationalTeam nationalTeam)
+    {
+        if (_nationalTeams.Find(t => t.Description == nationalTeam.Description).Any())
         {
             return;
         }
+
         Add(nationalTeam);
     }
 
-    public NationalTeam? GetByDescription(string description) => NationalTeams.FirstOrDefault(t => t.Description.Equals(description, StringComparison.OrdinalIgnoreCase));
+    public NationalTeam? GetByDescription(string description)
+    {
+        return _nationalTeams.Find(_ => true).ToList().FirstOrDefault(t => t.Description.Equals(description, StringComparison.OrdinalIgnoreCase));
+    }
 
     public List<NationalTeam> GetAll()
     {
-        return NationalTeams.ToList();
+        return _nationalTeams.Find(_ => true).ToList();
     }
 
     public void Add(NationalTeam nationalTeam)
     {
-        nationalTeam.Id = Interlocked.Increment(ref nextId) - 1;
-        NationalTeams.Add(nationalTeam);
+        nationalTeam.Id = _idGenerator.GetNextId<NationalTeam>();
+        _nationalTeams.InsertOne(nationalTeam);
     }
 
-    public NationalTeam? GetById(int id) => NationalTeams.FirstOrDefault(a => a.Id == id);
+    public NationalTeam? GetById(int id) => _nationalTeams.Find(a => a.Id == id).FirstOrDefault();
 }
