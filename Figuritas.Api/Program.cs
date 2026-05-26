@@ -16,7 +16,6 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-
     var secretKey = builder.Configuration["Jwt:Key"] 
                 ?? throw new InvalidOperationException("Falta la configuración 'Jwt:Key' en appsettings.json");
 
@@ -29,8 +28,16 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => {
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter());
+    });
 
+builder.Services.AddSingleton<MongoDbContext>();
+builder.Services.AddSingleton<IIdGenerator, MongoIdGenerator>();
+
+// Inicializamos los services
 builder.Services.AddScoped<NationalTeamService>();
 builder.Services.AddScoped<TeamService>();
 builder.Services.AddScoped<CategoryService>();
@@ -40,28 +47,21 @@ builder.Services.AddScoped<StickerService>();
 builder.Services.AddScoped<ExchangeProposalService>();
 builder.Services.AddScoped<ExchangeService>();
 
-//TODO los repository deberan ser Scoped cuando no sea in-memory
-builder.Services.AddSingleton<ExchangeRepository>();
-builder.Services.AddSingleton<NationalTeamRepository>();
-builder.Services.AddSingleton<TeamRepository>();
-builder.Services.AddSingleton<StickerRepository>();
-builder.Services.AddSingleton<CategoryRepository>();
-builder.Services.AddSingleton<UserRepository>();
-builder.Services.AddSingleton<UserStickerRepository>();
-builder.Services.AddSingleton<ExchangeProposalRepository>();
-builder.Services.AddSingleton<AuctionRepository>();
-builder.Services.AddSingleton<AuctionOfferRepository>();
+// Inicializamos los repositorios
+builder.Services.AddScoped<ExchangeRepository>();
+builder.Services.AddScoped<NationalTeamRepository>();
+builder.Services.AddScoped<TeamRepository>();
+builder.Services.AddScoped<StickerRepository>();
+builder.Services.AddScoped<CategoryRepository>();
+builder.Services.AddScoped<UserRepository>();
+builder.Services.AddScoped<UserStickerRepository>();
+builder.Services.AddScoped<ExchangeProposalRepository>();
+builder.Services.AddScoped<AuctionRepository>();
+builder.Services.AddScoped<AuctionOfferRepository>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-// Para que al hacer un POST se puedan pasar los ENUM por su valor en texto en vez de su valor numérico.
-builder.Services.AddControllers()
-    .AddJsonOptions(options => {
-        options.JsonSerializerOptions.Converters.Add(
-            new JsonStringEnumConverter());
-    });
 
 builder.Services.AddCors(options =>
 {
@@ -74,6 +74,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Seed initial domain data in MongoDB.
+using (var scope = app.Services.CreateScope())
+{
+    SeedData.EnsureSeedData(scope.ServiceProvider);
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -93,8 +99,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
 app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseCors("BlazorLocalPolicy");
 

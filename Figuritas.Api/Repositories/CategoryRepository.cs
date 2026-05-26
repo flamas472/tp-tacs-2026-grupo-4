@@ -1,40 +1,47 @@
-using System.Collections.Concurrent;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
-// Repo for in-memory persistence of categories.
 public class CategoryRepository
 {
-    private readonly ConcurrentBag<Category> Categories = new();
-    private int nextId = 1;
+    private readonly IMongoCollection<Category> _categories;
+    private readonly IIdGenerator _idGenerator;
 
-    public CategoryRepository()
+    public CategoryRepository(MongoDbContext context, IIdGenerator idGenerator)
     {
-        Add(new Category { Description = "Jugador" });
-        Add(new Category { Description = "Escudo" });
-        Add(new Category { Description = "Estadio" });
+        _categories = context.Collection<Category>("Categories");
+        _idGenerator = idGenerator;
+        SeedDefaultCategories();
+    }
+
+    private void SeedDefaultCategories()
+    {
+        CreateIfNonExistent(new Category { Description = "Jugador" });
+        CreateIfNonExistent(new Category { Description = "Escudo" });
+        CreateIfNonExistent(new Category { Description = "Estadio" });
     }
 
     public List<Category> GetAll()
     {
-        return Categories.ToList();
+        return _categories.Find(_ => true).ToList();
     }
 
     public void Add(Category category)
     {
-        category.Id = Interlocked.Increment(ref nextId) - 1;
-        Categories.Add(category);
+        category.Id = _idGenerator.GetNextId<Category>();
+        _categories.InsertOne(category);
     }
 
     public void CreateIfNonExistent(Category category)
     {
-        if (!Categories.Any(t => t.Equals(category)))
+        if (_categories.Find(c => c.Description == category.Description).Any())
         {
             return;
         }
+
         Add(category);
     }
 
-    public Category? GetByDescription(string description) => Categories.FirstOrDefault(c => c.Description.Equals(description));
+    public Category? GetByDescription(string description) => _categories.Find(c => c.Description == description).FirstOrDefault();
 
-    public Category? GetById(int id) => Categories.FirstOrDefault(a => a.Id == id);
+    public Category? GetById(int id) => _categories.Find(c => c.Id == id).FirstOrDefault();
 }

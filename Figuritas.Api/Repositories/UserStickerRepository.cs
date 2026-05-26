@@ -1,66 +1,76 @@
-using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
-// Repo for in-memory persistence.
 public class UserStickerRepository
 {
-    private readonly ConcurrentBag<UserSticker> UserStickers = new();
-    private int nextId = 1;
+    private readonly IMongoCollection<UserSticker> _userStickers;
+    private readonly IIdGenerator _idGenerator;
+
+    public UserStickerRepository(MongoDbContext context, IIdGenerator idGenerator)
+    {
+        _userStickers = context.Collection<UserSticker>("UserStickers");
+        _idGenerator = idGenerator;
+    }
 
     public List<UserSticker> GetAll()
     {
-        
-        return UserStickers.ToList();
-    
+        return _userStickers.Find(_ => true).ToList();
     }
+
     public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null)
     {
-
-        if(page < 1 || pageSize < 1)
+        if (page < 1 || pageSize < 1)
         {
             throw new ArgumentException("Page and PageSize must be grater than 0");
         }
 
-        if(filter == null)
-        {
-            return UserStickers.Skip((page-1)*pageSize).Take(pageSize).ToList();
-        }
-
-        return UserStickers.Where(filter.Compile()).Skip((page-1)*pageSize).Take(pageSize).ToList();
-
+        var find = _userStickers.Find(filter ?? (_ => true));
+        return find.Skip((page - 1) * pageSize).Limit(pageSize).ToList();
     }
-
 
     public void Add(UserSticker userSticker)
     {
-        userSticker.Id = Interlocked.Increment(ref nextId) - 1;
-        UserStickers.Add(userSticker);
+        userSticker.Id = _idGenerator.GetNextId<UserSticker>();
+        _userStickers.InsertOne(userSticker);
     }
 
-    public UserSticker? GetById(int id) => UserStickers.FirstOrDefault(a => a.Id == id);
+    public UserSticker? GetById(int id) => _userStickers.Find(a => a.Id == id).FirstOrDefault();
 
-    public List<UserSticker> GetMultipleById(List<int> ids) => UserStickers.Where(us => ids.Contains(us.Id)).ToList();
+    public List<UserSticker> GetMultipleById(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id)).ToList();
 
     public bool Exists(UserSticker userSticker)
     {
-        return UserStickers.Any(us => us.Sticker.Equals(userSticker.Sticker) && us.UserId == userSticker.UserId);
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.UserId, userSticker.UserId),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Number, userSticker.Sticker.Number),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Description, userSticker.Sticker.Description),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Team, userSticker.Sticker.Team),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.NationalTeam, userSticker.Sticker.NationalTeam),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Category, userSticker.Sticker.Category)
+        );
+
+        return _userStickers.Find(filter).Any();
     }
 
     public void Update(UserSticker userSticker)
     {
-        var existingUserSticker = GetById(userSticker.Id);
-        if (existingUserSticker == null) throw new ArgumentException("UserSticker not found");
-
-        existingUserSticker.CanBeExchanged = userSticker.CanBeExchanged;
-        existingUserSticker.Quantity = userSticker.Quantity;
+        var result = _userStickers.ReplaceOne(us => us.Id == userSticker.Id, userSticker);
+        if (!result.IsAcknowledged || result.MatchedCount == 0)
+        {
+            throw new ArgumentException("UserSticker not found");
+        }
     }
 
     public void Delete(int userStickerId)
     {
-        var userSticker = GetById(userStickerId);
-        if (userSticker == null) throw new ArgumentException("UserSticker not found");
-        
-        userSticker.Active = false;
+        var result = _userStickers.UpdateOne(
+            us => us.Id == userStickerId,
+            Builders<UserSticker>.Update.Set(us => us.Active, false));
+
+        if (!result.IsAcknowledged || result.MatchedCount == 0)
+        {
+            throw new ArgumentException("UserSticker not found");
+        }
     }
 }

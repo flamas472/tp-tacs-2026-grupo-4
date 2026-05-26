@@ -1,18 +1,24 @@
-using System.Collections.Concurrent;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
 public class AuctionRepository
 {
-    private readonly ConcurrentBag<Auction> auctions = new();
-    private int nextId = 1;
+    private readonly IMongoCollection<Auction> _auctions;
+    private readonly IIdGenerator _idGenerator;
 
-    public List<Auction> GetAll() => auctions.ToList();
+    public AuctionRepository(MongoDbContext context, IIdGenerator idGenerator)
+    {
+        _auctions = context.Collection<Auction>("Auctions");
+        _idGenerator = idGenerator;
+    }
+
+    public List<Auction> GetAll() => _auctions.Find(_ => true).ToList();
 
     public void Add(Auction auction)
     {
-        auction.Id = Interlocked.Increment(ref nextId) - 1;
-        auctions.Add(auction);
+        auction.Id = _idGenerator.GetNextId<Auction>();
+        _auctions.InsertOne(auction);
     }
 
-    public Auction? GetById(int id) => auctions.FirstOrDefault(a => a.Id == id);
+    public Auction? GetById(int id) => _auctions.Find(a => a.Id == id).FirstOrDefault();
 }

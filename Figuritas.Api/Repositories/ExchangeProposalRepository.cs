@@ -1,47 +1,45 @@
-using System.Collections.Concurrent;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
-// Repo for in-memory persistence.
 public class ExchangeProposalRepository
 {
-    private readonly ConcurrentBag<ExchangeProposal> proposals = new();
-    private int nextId = 1;
+    private readonly IMongoCollection<ExchangeProposal> _proposals;
+    private readonly IIdGenerator _idGenerator;
+
+    public ExchangeProposalRepository(MongoDbContext context, IIdGenerator idGenerator)
+    {
+        _proposals = context.Collection<ExchangeProposal>("ExchangeProposals");
+        _idGenerator = idGenerator;
+    }
 
     public List<ExchangeProposal> GetAll()
     {
-        return proposals.ToList();
+        return _proposals.Find(_ => true).ToList();
     }
 
     public void Add(ExchangeProposal proposal)
     {
-        proposal.Id = Interlocked.Increment(ref nextId) - 1;
-        proposals.Add(proposal);
+        proposal.Id = _idGenerator.GetNextId<ExchangeProposal>();
+        _proposals.InsertOne(proposal);
     }
 
     public ExchangeProposal? GetById(int proposalId)
     {
-        return proposals.FirstOrDefault(p => p.Id == proposalId);
+        return _proposals.Find(p => p.Id == proposalId).FirstOrDefault();
     }
 
     public List<ExchangeProposal> GetAllUserSentProposals(int userId)
     {
-        return proposals.Where(p => p.ProponentID == userId).ToList();
+        return _proposals.Find(p => p.ProponentID == userId).ToList();
     }
 
     public List<ExchangeProposal> GetAllUserReceivedProposals(int userId)
     {
-        return proposals.Where(p => p.ProposedID == userId).ToList();
+        return _proposals.Find(p => p.ProposedID == userId).ToList();
     }
 
     public void Update(ExchangeProposal proposal)
     {
-        var existingProposal = GetById(proposal.Id);
-        if (existingProposal != null)
-        {
-            proposals.TryTake(out existingProposal);
-            proposals.Add(proposal);
-        }
+        _proposals.ReplaceOne(p => p.Id == proposal.Id, proposal);
     }
-
 }
-      

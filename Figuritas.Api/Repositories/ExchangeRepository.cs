@@ -1,25 +1,30 @@
-using System.Collections.Concurrent;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
-// Repo for in-memory persistence.
 public class ExchangeRepository
 {
-    private readonly ConcurrentBag<Exchange> exchanges = new();
-    private int nextId = 1;
+    private readonly IMongoCollection<Exchange> _exchanges;
+    private readonly IIdGenerator _idGenerator;
+
+    public ExchangeRepository(MongoDbContext context, IIdGenerator idGenerator)
+    {
+        _exchanges = context.Collection<Exchange>("Exchanges");
+        _idGenerator = idGenerator;
+    }
 
     public List<Exchange> GetAll()
     {
-        return exchanges.ToList();
+        return _exchanges.Find(_ => true).ToList();
     }
 
     public void Add(Exchange exchange)
     {
-        exchange.Id = Interlocked.Increment(ref nextId) - 1;
-        exchanges.Add(exchange);
+        exchange.Id = _idGenerator.GetNextId<Exchange>();
+        _exchanges.InsertOne(exchange);
     }
 
     public Exchange? GetById(int exchangeId)
     {
-        return exchanges.FirstOrDefault(e => e.Id == exchangeId);
+        return _exchanges.Find(e => e.Id == exchangeId).FirstOrDefault();
     }
 }

@@ -1,42 +1,51 @@
-using System.Collections.Concurrent;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
-// Repo for in-memory persistence of teams.
 public class TeamRepository
 {
-    private readonly ConcurrentBag<Team> Teams = new();
-    private int nextId = 1;
+    private readonly IMongoCollection<Team> _teams;
+    private readonly IIdGenerator _idGenerator;
 
-    public TeamRepository()
+    public TeamRepository(MongoDbContext context, IIdGenerator idGenerator)
     {
-        Teams.Add(new Team { Id = 0, Description = string.Empty });
-        Add(new Team { Description = "Boca" });
-        Add(new Team { Description = "River" });
-        Add(new Team { Description = "Morón" });
+        _teams = context.Collection<Team>("Teams");
+        _idGenerator = idGenerator;
+        SeedDefaultTeams();
     }
 
-    public Team? GetByDescription(string description) => Teams.FirstOrDefault(t => t.Description.Equals(description, StringComparison.OrdinalIgnoreCase));
-    
+    private void SeedDefaultTeams()
+    {
+        CreateIfNonExistent(new Team { Description = string.Empty });
+        CreateIfNonExistent(new Team { Description = "Boca" });
+        CreateIfNonExistent(new Team { Description = "River" });
+        CreateIfNonExistent(new Team { Description = "Morón" });
+    }
 
+    public Team? GetByDescription(string description)
+    {
+        return _teams.Find(_ => true).ToList().FirstOrDefault(t => t.Description.Equals(description, StringComparison.OrdinalIgnoreCase));
+    }
+    
     public List<Team> GetAll()
     {
-        return Teams.ToList();
+        return _teams.Find(_ => true).ToList();
     }
 
     public void Add(Team team)
     {
-        team.Id = Interlocked.Increment(ref nextId) - 1;
-        Teams.Add(team);
+        team.Id = _idGenerator.GetNextId<Team>();
+        _teams.InsertOne(team);
     }
 
     public void CreateIfNonExistent(Team team)
     {
-        if (!Teams.Any(t => t.Equals(team)))
+        if (_teams.Find(t => t.Description == team.Description).Any())
         {
             return;
         }
+
         Add(team);
     }
 
-    public Team? GetById(int id) => Teams.FirstOrDefault(a => a.Id == id);
+    public Team? GetById(int id) => _teams.Find(a => a.Id == id).FirstOrDefault();
 }

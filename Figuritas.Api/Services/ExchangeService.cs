@@ -20,8 +20,8 @@ public class ExchangeService
         var exchange = new Exchange
         {
             Id = 0,
-            ProponentID = proposal.ProponentID,
-            ProposedID = proposal.ProposedID,
+            User1ID = proposal.ProponentID,
+            User2ID = proposal.ProposedID,
             ProponentStickers = proposal.OfferedStickers,
             ProposedSticker = proposal.RequestedSticker,
             DateCompleted = DateTime.Now,
