@@ -67,7 +67,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("BlazorLocalPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5280") // permitir CORS solo para 5280 (puerto del cliente Blazor)
+        policy.WithOrigins("http://localhost:5280","http://localhost:5048") // permitir CORS
               .AllowAnyHeader()
               .AllowAnyMethod();
     });

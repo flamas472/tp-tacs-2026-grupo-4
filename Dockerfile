@@ -17,9 +17,6 @@ RUN dotnet restore
 # Copiamos todo el código fuente
 COPY . .
 
-# Instalar Node.js y npm para Tailwind en el cliente
-RUN apt-get update && apt-get install -y nodejs npm
-
 # Publicamos la API
 RUN dotnet publish Figuritas.Api/Figuritas.Api.csproj -c Release -o /app/out-api
 

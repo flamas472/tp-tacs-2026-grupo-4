@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Figuritas.Client;
 using Figuritas.Client.Requests;
+using MudBlazor.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -23,5 +24,6 @@ else
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseAddress) });
 builder.Services.AddScoped<StickerHttpClient>();
+builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();
