@@ -1,5 +1,6 @@
 using Figuritas.Api.Repositories;
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Intercambios;
 
 namespace Figuritas.Api.Services;
 
@@ -20,15 +21,16 @@ public class ExchangeService
         {
             ProponentID = proposal.ProponentID,
             ProposedID = proposal.ProposedID,
-            ProponentStickers = proposal.OfferedStickers,
-            ProposedSticker = proposal.RequestedSticker,
+            ProponentUserStickerIds = proposal.OfferedUserStickerIds,
+            ProposedUserStickerId = proposal.RequestedUserStickerId,
             DateCompleted = DateTime.UtcNow,
             ExchangeProposalID = proposal.Id
         };
 
         _exchangeRepo.Add(exchange);
 
-        foreach (var userSticker in proposal.OfferedStickers)
+        var offeredStickers = _inventoryRepo.GetMultipleById(proposal.OfferedUserStickerIds);
+        foreach (var userSticker in offeredStickers)
         {
             userSticker.Quantity -= 1;
             if (userSticker.Quantity <= 0)
@@ -37,12 +39,15 @@ public class ExchangeService
                 _inventoryRepo.Update(userSticker);
         }
 
-        var requested = proposal.RequestedSticker;
-        requested.Quantity -= 1;
-        if (requested.Quantity <= 0)
-            _inventoryRepo.Delete(requested.Id);
-        else
-            _inventoryRepo.Update(requested);
+        var requestedSticker = _inventoryRepo.GetById(proposal.RequestedUserStickerId);
+        if (requestedSticker != null)
+        {
+            requestedSticker.Quantity -= 1;
+            if (requestedSticker.Quantity <= 0)
+                _inventoryRepo.Delete(requestedSticker.Id);
+            else
+                _inventoryRepo.Update(requestedSticker);
+        }
 
         return exchange;
     }

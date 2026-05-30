@@ -1,4 +1,5 @@
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Intercambios;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 

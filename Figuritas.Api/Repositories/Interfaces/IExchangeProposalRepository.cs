@@ -1,4 +1,4 @@
-using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Intercambios;
 
 namespace Figuritas.Api.Repositories;
 

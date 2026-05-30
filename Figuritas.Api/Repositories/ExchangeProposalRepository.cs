@@ -1,4 +1,4 @@
-using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Intercambios;
 using MongoDB.Driver;
 
 namespace Figuritas.Api.Repositories;

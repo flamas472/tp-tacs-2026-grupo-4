@@ -1,14 +1,15 @@
 using Microsoft.AspNetCore.Mvc;
-using Figuritas.Shared.Model;
 using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Api.Services;
+using Figuritas.Shared.Model.Intercambios;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Figuritas.Api.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/exchange-proposals")]
 public class ExchangeProposalsController : ControllerBase
 {
     private readonly ExchangeProposalService _proposalService;
@@ -22,8 +23,17 @@ public class ExchangeProposalsController : ControllerBase
         _authService = authService;
     }
 
+    [HttpGet("{id}")]
+    public ActionResult<ExchangeProposalResponseDTO> GetExchangeProposalById(int id)
+    {
+        var dto = _proposalService.GetProposalDtoByID(id);
+        if (dto == null)
+            return NotFound("Proposal not found.");
+        return Ok(dto);
+    }
+
     [HttpGet("sent")]
-    public ActionResult<List<ExchangeProposal>> GetSentProposals()
+    public ActionResult<List<ExchangeProposalResponseDTO>> GetSentProposals()
     {
         var userId = _authService.GetUserIdFromToken(User);
         var proposals = _proposalService.GetAllSentProposals(userId);
@@ -31,7 +41,7 @@ public class ExchangeProposalsController : ControllerBase
     }
 
     [HttpGet("received")]
-    public ActionResult<List<ExchangeProposal>> GetReceivedProposals()
+    public ActionResult<List<ExchangeProposalResponseDTO>> GetReceivedProposals()
     {
         var userId = _authService.GetUserIdFromToken(User);
         var proposals = _proposalService.GetAllReceivedProposals(userId);
@@ -39,26 +49,21 @@ public class ExchangeProposalsController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<ExchangeProposal> PostExchangeProposal(PostExchangeProposalDTO exchangeProposalDTO)
+    public ActionResult<ExchangeProposalResponseDTO> PostExchangeProposal(PostExchangeProposalRequestDTO exchangeProposalDTO)
     {
         try
         {
             var proponentId = _authService.GetUserIdFromToken(User);
 
-            if (exchangeProposalDTO.ProposedUserID <= 0)
+            if (exchangeProposalDTO.ProposedUserId <= 0)
                 return BadRequest("Users must be valid.");
 
-            if (exchangeProposalDTO.OfferedStickersID.Any(id => id <= 0) || exchangeProposalDTO.RequestedStickerID <= 0)
+            if (exchangeProposalDTO.OfferedUserStickerIds == null || exchangeProposalDTO.OfferedUserStickerIds.Any(id => id <= 0) || exchangeProposalDTO.RequestedUserStickerId <= 0)
                 return BadRequest("Offered stickers and requested sticker must be valid.");
 
-            var proposal = _proposalService.CreateExchangeProposal(
-                proponentId,
-                exchangeProposalDTO.ProposedUserID,
-                exchangeProposalDTO.OfferedStickersID,
-                exchangeProposalDTO.RequestedStickerID
-            );
+            var responseDto = _proposalService.CreateExchangeProposal(proponentId, exchangeProposalDTO);
 
-            return CreatedAtAction(nameof(GetSentProposals), null, proposal);
+            return CreatedAtAction(nameof(GetExchangeProposalById), new { id = responseDto.Id }, responseDto);
         }
         catch (InvalidOperationException ex)
         {
@@ -87,9 +92,12 @@ public class ExchangeProposalsController : ControllerBase
             if (proposal.ProposedID != userId)
                 return BadRequest("Only the recipient can accept a proposal.");
 
+            if (proposal.State != ExchangeProposalState.Pending)
+                return BadRequest("Only pending proposals can be accepted.");
+
             var accepted = _proposalService.AcceptProposalAtomically(id);
 
-            var exchange = _exchangeService.CreateExchange(accepted);
+            _exchangeService.CreateExchange(accepted);
 
             return Ok();
         }
@@ -108,10 +116,12 @@ public class ExchangeProposalsController : ControllerBase
     {
         try
         {
-            var proposal = _proposalService.GetProposalByID(id);
+            if (id <= 0)
+                return BadRequest("Invalid proposal ID.");
 
-            if (id <= 0 || proposal == null || !proposal.IsValid())
-                return BadRequest("Proposal must be valid.");
+            var proposal = _proposalService.GetProposalByID(id);
+            if (proposal == null)
+                return NotFound("Proposal not found.");
 
             if (proposal.State != ExchangeProposalState.Pending)
                 return BadRequest("Only pending proposals can be rejected.");
@@ -135,10 +145,12 @@ public class ExchangeProposalsController : ControllerBase
     {
         try
         {
-            var proposal = _proposalService.GetProposalByID(id);
+            if (id <= 0)
+                return BadRequest("Invalid proposal ID.");
 
-            if (id <= 0 || proposal == null || !proposal.IsValid())
-                return BadRequest("Proposal must be valid.");
+            var proposal = _proposalService.GetProposalByID(id);
+            if (proposal == null)
+                return NotFound("Proposal not found.");
 
             if (proposal.State != ExchangeProposalState.Pending)
                 return BadRequest("Only pending proposals can be cancelled.");
