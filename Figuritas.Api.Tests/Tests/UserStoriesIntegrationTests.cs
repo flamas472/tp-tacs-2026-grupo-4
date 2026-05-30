@@ -12,7 +12,8 @@ namespace Figuritas.Api.Tests;
 /// Integration tests for User Stories of Delivery 1.
 /// Uses WebApplicationFactory to run the API in memory and test REST design.
 /// </summary>
-public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(nameof(IntegrationTestCollection))]
+public class UserStoriesIntegrationTests
 {
     private readonly HttpClient _client;
 

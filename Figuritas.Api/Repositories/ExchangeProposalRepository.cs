@@ -1,4 +1,4 @@
-using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Intercambios;
 using MongoDB.Driver;
 
 public class ExchangeProposalRepository
@@ -41,5 +41,20 @@ public class ExchangeProposalRepository
     public void Update(ExchangeProposal proposal)
     {
         _proposals.ReplaceOne(p => p.Id == proposal.Id, proposal);
+    }
+
+    public ExchangeProposal? AcceptAtomically(int proposalId)
+    {
+        var filter = Builders<ExchangeProposal>.Filter.And(
+            Builders<ExchangeProposal>.Filter.Eq(p => p.Id, proposalId),
+            Builders<ExchangeProposal>.Filter.Eq(p => p.State, ExchangeProposalState.Pending)
+        );
+        var update = Builders<ExchangeProposal>.Update
+            .Set(p => p.State, ExchangeProposalState.Accepted);
+        var options = new FindOneAndUpdateOptions<ExchangeProposal>
+        {
+            ReturnDocument = ReturnDocument.After
+        };
+        return _proposals.FindOneAndUpdate(filter, update, options);
     }
 }

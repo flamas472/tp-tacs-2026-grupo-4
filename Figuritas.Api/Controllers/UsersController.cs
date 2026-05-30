@@ -70,7 +70,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPatch("{userId}/stickers/{stickerId}")]
-    public ActionResult<UserSticker> PatchUserSticker(int userId, int userStickerId, PatchUserStickerDto patchDto)
+    public ActionResult<UserSticker> PatchUserSticker(int userId, int stickerId, PatchUserStickerDto patchDto)
     {
         try
         {
@@ -80,7 +80,7 @@ public class UsersController : ControllerBase
             if(patchDto.canBeExchanged == null && patchDto.quantity == null)
                 return BadRequest("Debe proporcionar al menos un campo para actualizar.");
             
-            var userSticker = _userService.UpdateUserSticker(userStickerId, patchDto.canBeExchanged, patchDto.quantity);
+            var userSticker = _userService.UpdateUserSticker(stickerId, patchDto.canBeExchanged, patchDto.quantity);
             return Ok(userSticker);
         }
         catch (ArgumentException ex)
@@ -90,11 +90,11 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{userId}/stickers/{stickerId}")]
-    public ActionResult<UserSticker> DeleteUserSticker(int userId, int userStickerId)
+    public ActionResult<UserSticker> DeleteUserSticker(int userId, int stickerId)
     {
         try
         {
-            _userService.DeleteUserSticker(userStickerId);
+            _userService.DeleteUserSticker(stickerId);
             return Ok();
         }
         catch (ArgumentException ex)
