@@ -28,4 +28,9 @@ public class User
         return MissingStickers.Any(s => s.Equals(sticker));
     }
 
+    public void RemoveMissingSticker(int stickerId)
+    {
+        MissingStickers.RemoveAll(s => s.Id == stickerId);
+    }
+
 }

@@ -6,43 +6,32 @@
 
 <MudDialog>
     <DialogContent>
-        <div class="dialog-sticker-preview">
-            <StickerComponent Sticker="Sticker" />
-        </div>
+        <StickerDialogContent Sticker="Sticker" FeedbackMsg="feedbackMsg" FeedbackSuccess="feedbackSuccess">
+            <div class="action-mode-selector">
+                <MudButton Variant="@(modoRepetida ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.ContentCopy"
+                           Class="action-mode-btn"
+                           OnClick="@(() => { modoRepetida = true; feedbackMsg = null; })">
+                    Repetida
+                </MudButton>
+                <MudButton Variant="@(!modoRepetida ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.BookmarkAdd"
+                           Class="action-mode-btn"
+                           OnClick="@(() => { modoRepetida = false; feedbackMsg = null; })">
+                    Faltante
+                </MudButton>
+            </div>
 
-        <div class="action-mode-selector">
-            <MudButton Variant="@(modoRepetida ? Variant.Filled : Variant.Outlined)"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.ContentCopy"
-                       Class="action-mode-btn"
-                       OnClick="@(() => { modoRepetida = true; feedbackMsg = null; })">
-                Repetida
-            </MudButton>
-            <MudButton Variant="@(!modoRepetida ? Variant.Filled : Variant.Outlined)"
-                       Color="Color.Secondary"
-                       StartIcon="@Icons.Material.Filled.BookmarkAdd"
-                       Class="action-mode-btn"
-                       OnClick="@(() => { modoRepetida = false; feedbackMsg = null; })">
-                Faltante
-            </MudButton>
-        </div>
-
-        @if (modoRepetida)
-        {
-            <MudCheckBox @bind-Value="canBeExchanged"
-                         Label="Disponible para intercambio"
-                         Color="Color.Primary"
-                         Class="mt-1" />
-        }
-
-        @if (feedbackMsg is not null)
-        {
-            <MudAlert Severity="@(feedbackSuccess ? Severity.Success : Severity.Error)"
-                      Dense="true"
-                      Class="mt-3">
-                @feedbackMsg
-            </MudAlert>
-        }
+            @if (modoRepetida)
+            {
+                <MudCheckBox @bind-Value="canBeExchanged"
+                             Label="Disponible para intercambio"
+                             Color="Color.Primary"
+                             Class="mt-1" />
+            }
+        </StickerDialogContent>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cancelar</MudButton>

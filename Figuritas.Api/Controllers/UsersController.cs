@@ -104,6 +104,39 @@ public class UsersController : ControllerBase
     }
    
 
+    [HttpGet("{userId}/missing-stickers")]
+    public ActionResult<List<Sticker>> GetMissingStickers(
+        int userId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 24,
+        [FromQuery] string? nationalTeam = null,
+        [FromQuery] string? category = null)
+    {
+        try
+        {
+            var stickers = _userService.GetMissingStickers(userId, page, pageSize, nationalTeam, category);
+            return Ok(stickers);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpDelete("{userId}/missing-stickers/{stickerId}")]
+    public ActionResult DeleteMissingSticker(int userId, int stickerId)
+    {
+        try
+        {
+            _userService.RemoveMissingSticker(userId, stickerId);
+            return Ok();
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
     //* ENDPOINT_US10
     [HttpGet("{userID}/ratings")]
     public ActionResult<List<Rate>> GetUserRatings(int userID)

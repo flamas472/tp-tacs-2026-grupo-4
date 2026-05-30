@@ -38,4 +38,18 @@ public class StickerService(
         return;
     }
 
+    // Retorna el sticker canónico del repositorio (con Id e ImageUrl correctos).
+    // Si ya existe, devuelve el objeto guardado; si no, lo crea y lo devuelve.
+    public Sticker GetOrCreate(Sticker sticker)
+    {
+        var existing = _stickerRepo.FindOne(s => s.Equals(sticker));
+        if (existing != null) return existing;
+
+        _teamRepo.CreateIfNonExistent(new Team { Description = sticker.Team });
+        _nationalTeamRepo.CreateIfNonExistent(new NationalTeam { Description = sticker.NationalTeam });
+        _categoryRepo.CreateIfNonExistent(new Category { Description = sticker.Team });
+        _stickerRepo.Add(sticker);
+        return sticker;
+    }
+
 }

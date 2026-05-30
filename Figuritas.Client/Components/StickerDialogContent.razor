@@ -1,0 +1,23 @@
+@using Figuritas.Shared.Model
+
+<div class="dialog-sticker-preview">
+    <StickerComponent Sticker="Sticker" />
+</div>
+
+@ChildContent
+
+@if (FeedbackMsg is not null)
+{
+    <MudAlert Severity="@(FeedbackSuccess ? Severity.Success : Severity.Error)"
+              Dense="true"
+              Class="mt-3">
+        @FeedbackMsg
+    </MudAlert>
+}
+
+@code {
+    [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
+    [Parameter] public string? FeedbackMsg { get; set; }
+    [Parameter] public bool FeedbackSuccess { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

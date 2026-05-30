@@ -80,12 +80,10 @@ public class UserService(
         if (user == null) throw new ArgumentException("User not found");
         if (user.HasMissingSticker(missingSticker)) throw new ArgumentException("Missing sticker already registered");
 
-        _stickerService.CreateIfNonExistent(missingSticker);
+        var canonical = _stickerService.GetOrCreate(missingSticker);
+        user.AddMissingSticker(canonical);
 
-
-        user.AddMissingSticker(missingSticker);
-
-        return missingSticker;
+        return canonical;
     }
 
     public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
@@ -127,6 +125,32 @@ public class UserService(
     public void DeleteUserSticker(int userStickerId)
     {
         _inventoryRepo.Delete(userStickerId);
+    }
+
+    public List<Sticker> GetMissingStickers(int userId, int page, int pageSize, string? nationalTeam, string? category)
+    {
+        User? user = _userRepo.GetById(userId);
+        if (user == null) throw new ArgumentException("User not found");
+
+        var query = user.MissingStickers.AsEnumerable();
+
+        if (!string.IsNullOrEmpty(nationalTeam))
+            query = query.Where(s => s.NationalTeam == nationalTeam);
+        if (!string.IsNullOrEmpty(category))
+            query = query.Where(s => s.Category == category);
+
+        return query
+            .OrderBy(s => s.Number)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
+    }
+
+    public void RemoveMissingSticker(int userId, int stickerId)
+    {
+        User? user = _userRepo.GetById(userId);
+        if (user == null) throw new ArgumentException("User not found");
+        user.RemoveMissingSticker(stickerId);
     }
 
     public List<Rate> GetAllUserRatings(int userId)

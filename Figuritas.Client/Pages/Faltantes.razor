@@ -1,0 +1,161 @@
+@page "/faltantes"
+@using Figuritas.Client.Components
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.Model
+
+@inject IDialogService DialogService
+@inject UserHttpClient UserHttp
+@inject NationalTeamHttpClient NationalTeamHttp
+@inject CategoryHttpClient CategoryHttp
+
+<PageTitle>Mis figuritas faltantes</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Figuritas faltantes</MudText>
+
+<MudPaper Class="filters-panel" Elevation="1">
+    <p class="filters-title">Filtros</p>
+    <div class="filters-row">
+        <MudSelect T="string"
+                   Label="Selección"
+                   Value="@filtroNationalTeam"
+                   ValueChanged="OnFiltroNationalTeamChanged"
+                   Class="filter-select"
+                   Clearable="true">
+            <MudSelectItem Value="@(string.Empty)">Todas las selecciones</MudSelectItem>
+            @foreach (var nt in nationalTeams ?? new List<NationalTeam>())
+            {
+                <MudSelectItem Value="@nt.Description">@nt.Description</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudSelect T="string"
+                   Label="Categoría"
+                   Value="@filtroCategory"
+                   ValueChanged="OnFiltroCategoryChanged"
+                   Class="filter-select"
+                   Clearable="true">
+            <MudSelectItem Value="@(string.Empty)">Todas las categorías</MudSelectItem>
+            @foreach (var cat in categories ?? new List<Category>())
+            {
+                <MudSelectItem Value="@cat.Description">@cat.Description</MudSelectItem>
+            }
+        </MudSelect>
+    </div>
+</MudPaper>
+
+<StickerListComponent Stickers="@stickers"
+                      OnStickerClick="OnStickerClick"
+                      OnNextPage="HandleNextPage"
+                      OnPrevPage="HandlePrevPage"
+                      HasNextPage="@hasNextPage"
+                      HasPrevPage="@hasPrevPage"
+                      CurrentPage="@currentPage" />
+
+@code {
+    // TODO: reemplazar por el ID del usuario logueado cuando exista AuthStateService
+    private const int UserId = 1;
+    private const int PageSize = 24;
+
+    private List<Sticker>? stickers;
+    private List<NationalTeam>? nationalTeams;
+    private List<Category>? categories;
+
+    private string filtroNationalTeam = string.Empty;
+    private string filtroCategory = string.Empty;
+
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var ntTask = NationalTeamHttp.GetNationalTeamsAsync();
+        var catTask = CategoryHttp.GetCategoriesAsync();
+
+        await Task.WhenAll(ntTask, catTask);
+
+        if (ntTask.Result.Success)
+            nationalTeams = ntTask.Result.Data?.OrderBy(nt => nt.Description).ToList();
+
+        if (catTask.Result.Success)
+            categories = catTask.Result.Data?.OrderBy(c => c.Description).ToList();
+
+        await FetchStickers();
+    }
+
+    private async Task OnFiltroNationalTeamChanged(string value)
+    {
+        filtroNationalTeam = value;
+        currentPage = 1;
+        await FetchStickers();
+    }
+
+    private async Task OnFiltroCategoryChanged(string value)
+    {
+        filtroCategory = value;
+        currentPage = 1;
+        await FetchStickers();
+    }
+
+    private async Task HandleNextPage()
+    {
+        currentPage++;
+        await FetchStickers();
+    }
+
+    private async Task HandlePrevPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            await FetchStickers();
+        }
+    }
+
+    private async Task FetchStickers()
+    {
+        stickers = null;
+        StateHasChanged();
+
+        var response = await UserHttp.GetMissingStickersAsync(
+            userId: UserId,
+            page: currentPage,
+            pageSize: PageSize,
+            nationalTeam: filtroNationalTeam,
+            category: filtroCategory
+        );
+
+        if (response.Success)
+        {
+            stickers = response.Data ?? new List<Sticker>();
+            hasNextPage = stickers.Count == PageSize;
+        }
+        else
+        {
+            stickers = new List<Sticker>();
+            hasNextPage = false;
+            Console.WriteLine($"Error al cargar faltantes: {response.ErrorMessage}");
+        }
+    }
+
+    private async Task OnStickerClick(Sticker sticker)
+    {
+        var parameters = new DialogParameters<MissingStickerActionDialog>
+        {
+            { d => d.Sticker, sticker }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<MissingStickerActionDialog>(
+            $"#{sticker.Number:D3} — {sticker.Description}",
+            parameters, options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await FetchStickers();
+    }
+}

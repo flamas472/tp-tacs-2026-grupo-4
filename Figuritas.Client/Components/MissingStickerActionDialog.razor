@@ -1,0 +1,61 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Client.Requests
+
+@inject UserHttpClient UserHttp
+
+<MudDialog>
+    <DialogContent>
+        <StickerDialogContent Sticker="Sticker" FeedbackMsg="feedbackMsg" FeedbackSuccess="feedbackSuccess">
+            <MudText Typo="Typo.body2" Color="Color.Warning" Class="mt-1 mb-1">
+                ¿Eliminar esta figurita de tus faltantes?
+            </MudText>
+        </StickerDialogContent>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.BookmarkRemove"
+                   OnClick="HandleEliminar"
+                   Disabled="loading">
+            @if (loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Eliminar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
+
+    private bool loading = false;
+    private string? feedbackMsg = null;
+    private bool feedbackSuccess = false;
+
+    private async Task HandleEliminar()
+    {
+        loading = true;
+        feedbackMsg = null;
+
+        // TODO: reemplazar userId=1 por el ID del usuario logueado cuando exista AuthStateService
+        const int userId = 1;
+
+        var result = await UserHttp.DeleteMissingStickerAsync(userId, Sticker.Id);
+
+        feedbackSuccess = result.Success;
+        feedbackMsg = result.Success
+            ? "Figurita eliminada de tus faltantes."
+            : result.ErrorMessage ?? "Error al eliminar la figurita.";
+
+        loading = false;
+
+        if (feedbackSuccess)
+        {
+            await Task.Delay(1000);
+            MudDialog.Close();
+        }
+    }
+}

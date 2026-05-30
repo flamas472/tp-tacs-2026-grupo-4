@@ -19,7 +19,7 @@ else
     <div class="sticker-list">
         @foreach (var sticker in Stickers)
         {
-            <StickerComponent Sticker="@sticker" @key="sticker.Id" OnStickerClick="OnStickerClick" />
+            <StickerComponent Sticker="@sticker" @key="@($"{sticker.Id}_{sticker.Number}_{sticker.NationalTeam}")" OnStickerClick="OnStickerClick" />
         }
     </div>
 

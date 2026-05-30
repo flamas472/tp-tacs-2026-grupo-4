@@ -188,6 +188,46 @@ namespace Figuritas.Client.Requests
             }
         }
 
+        public async Task<ApiResponse<List<Sticker>>> GetMissingStickersAsync(
+            int userId, int page, int pageSize, string? nationalTeam = null, string? category = null)
+        {
+            try
+            {
+                var url = $"api/users/{userId}/missing-stickers?page={page}&pageSize={pageSize}";
+                if (!string.IsNullOrEmpty(nationalTeam)) url += $"&nationalTeam={Uri.EscapeDataString(nationalTeam)}";
+                if (!string.IsNullOrEmpty(category)) url += $"&category={Uri.EscapeDataString(category)}";
+
+                var response = await _http.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<List<Sticker>>();
+                    return ApiResponse<List<Sticker>>.Ok(data ?? new List<Sticker>());
+                }
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<List<Sticker>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<List<Sticker>>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        public async Task<ApiResponse<bool>> DeleteMissingStickerAsync(int userId, int stickerId)
+        {
+            try
+            {
+                var response = await _http.DeleteAsync($"api/users/{userId}/missing-stickers/{stickerId}");
+                if (response.IsSuccessStatusCode)
+                    return ApiResponse<bool>.Ok(true);
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<bool>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
         public async Task<ApiResponse<List<Rate>>> GetUserRatingsAsync(int userId)
         {
             try
