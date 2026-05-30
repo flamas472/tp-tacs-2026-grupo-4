@@ -13,11 +13,13 @@ public class MarketController : ControllerBase
 {
     private readonly UserService _userService;
     private readonly AuthService _authService;
+    private readonly SuggestionService _suggestionService;
 
-    public MarketController(UserService userService, AuthService authService)
+    public MarketController(UserService userService, AuthService authService, SuggestionService suggestionService)
     {
         _userService = userService;
         _authService = authService;
+        _suggestionService = suggestionService;
     }
 
     [HttpGet("stickers")]
@@ -26,5 +28,13 @@ public class MarketController : ControllerBase
         var callerUserId = _authService.GetUserIdFromToken(User);
         var results = _userService.SearchMarketStickers(queryParams, callerUserId);
         return Ok(results);
+    }
+
+    [HttpGet("suggestions")]
+    public async Task<ActionResult<List<ExchangeSuggestionResponseDTO>>> GetSuggestions([FromQuery] GetSuggestionsDTO queryParams)
+    {
+        var callerUserId = _authService.GetUserIdFromToken(User);
+        var suggestions = await _suggestionService.GetSuggestionsAsync(callerUserId, queryParams.Page, queryParams.PageSize);
+        return Ok(suggestions);
     }
 }

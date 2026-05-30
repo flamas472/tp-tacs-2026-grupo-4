@@ -5,7 +5,7 @@
 
 .claude
 CLAUDE.md
-ExplicacionCommits
+Explicaciones_commits
 
 # Ignorar el documento donde se encuentra el API KEY GEN
 appsettings.Development.json

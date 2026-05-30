@@ -8,5 +8,6 @@ public interface IUserRepository
     List<User> GetAll();
     void Add(User user);
     User? GetById(int userId);
+    List<User> GetByIds(List<int> ids);
     void Update(User user);
 }

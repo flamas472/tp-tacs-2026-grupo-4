@@ -34,7 +34,13 @@ public class UserRepository : IUserRepository
     {
         return _users.Find(u => u.Id == userId).FirstOrDefault();
     }
-     
+
+    public List<User> GetByIds(List<int> ids)
+    {
+        var filter = Builders<User>.Filter.In(u => u.Id, ids);
+        return _users.Find(filter).ToList();
+    }
+
     public void Update(User user)
     {
         var result = _users.ReplaceOne(u => u.Id == user.Id, user);

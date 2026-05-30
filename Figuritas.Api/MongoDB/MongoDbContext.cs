@@ -29,7 +29,6 @@ public class MongoDbContext
         RegisterClassMap<Rate>();
         RegisterClassMap<Exchange>();
         RegisterClassMap<ExchangeProposal>();
-        RegisterClassMap<ExchangeSuggestion>();
         RegisterClassMap<Auction>();
         RegisterClassMap<AuctionOffer>();
         RegisterClassMap<MissingSticker>();

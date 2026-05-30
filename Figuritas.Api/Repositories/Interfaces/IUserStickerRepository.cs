@@ -14,4 +14,6 @@ public interface IUserStickerRepository
     bool Exists(UserSticker userSticker);
     void Update(UserSticker userSticker);
     void Delete(int userStickerId);
+    List<UserSticker> GetByStickerIds(List<int> stickerIds, int excludeUserId);
+    List<UserSticker> GetByUserId(int userId);
 }

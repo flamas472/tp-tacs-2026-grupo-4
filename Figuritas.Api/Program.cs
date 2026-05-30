@@ -48,6 +48,7 @@ builder.Services.AddScoped<StickerService>();
 builder.Services.AddScoped<ExchangeProposalService>();
 builder.Services.AddScoped<ExchangeService>();
 builder.Services.AddScoped<AuctionService>();
+builder.Services.AddScoped<SuggestionService>();
 
 // Register repositories with interface mappings
 builder.Services.AddScoped<IExchangeRepository, ExchangeRepository>();

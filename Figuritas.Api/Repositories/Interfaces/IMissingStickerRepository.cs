@@ -9,4 +9,6 @@ public interface IMissingStickerRepository
     Task<bool> ExistsAsync(int userId, int stickerId);
     Task<bool> DeleteAsync(int userId, int stickerId);
     Task<MissingSticker?> GetByIdAsync(int id);
+    Task<List<int>> GetStickerIdsByUserIdAsync(int userId);
+    Task<List<MissingSticker>> GetByUserIdsAsync(List<int> userIds);
 }

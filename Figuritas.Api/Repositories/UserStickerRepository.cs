@@ -83,4 +83,19 @@ public class UserStickerRepository : IUserStickerRepository
             throw new ArgumentException("UserSticker not found");
         }
     }
+
+    public List<UserSticker> GetByStickerIds(List<int> stickerIds, int excludeUserId)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.In(us => us.Sticker.Id, stickerIds),
+            Builders<UserSticker>.Filter.Ne(us => us.UserId, excludeUserId),
+            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0),
+            Builders<UserSticker>.Filter.Eq(us => us.Active, true),
+            Builders<UserSticker>.Filter.Eq(us => us.CanBeDirectlyExchanged, true)
+        );
+        return _userStickers.Find(filter).ToList();
+    }
+
+    public List<UserSticker> GetByUserId(int userId) =>
+        _userStickers.Find(us => us.UserId == userId && us.Active).ToList();
 }

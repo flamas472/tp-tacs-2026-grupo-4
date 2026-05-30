@@ -34,4 +34,16 @@ public class MissingStickerRepository : IMissingStickerRepository
 
     public async Task<MissingSticker?> GetByIdAsync(int id) =>
         await _collection.Find(ms => ms.Id == id).FirstOrDefaultAsync();
+
+    public async Task<List<int>> GetStickerIdsByUserIdAsync(int userId)
+    {
+        var results = await _collection.Find(ms => ms.UserId == userId).ToListAsync();
+        return results.Select(ms => ms.StickerId).ToList();
+    }
+
+    public async Task<List<MissingSticker>> GetByUserIdsAsync(List<int> userIds)
+    {
+        var filter = Builders<MissingSticker>.Filter.In(ms => ms.UserId, userIds);
+        return await _collection.Find(filter).ToListAsync();
+    }
 }
