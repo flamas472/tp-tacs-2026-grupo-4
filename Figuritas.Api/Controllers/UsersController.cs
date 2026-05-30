@@ -1,6 +1,7 @@
 using Figuritas.Shared.Model;
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -51,24 +52,54 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("{userId}/missing-stickers")]
-    public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingStickerRequestDTO data)
+    public async Task<ActionResult<MissingSticker>> PostMissingSticker(int userId, PostMissingStickerRequestDTO data)
     {
         try
         {
             var authenticatedUserId = _authService.GetUserIdFromToken(User);
             if (authenticatedUserId != userId)
-                return StatusCode(403, "You can only register missing stickers for your own account.");
+                return StatusCode(403, "You can only manage your own missing stickers.");
 
-            var missingSticker = _userService.AddMissingStickerToUser(userId, data.StickerId);
-            return CreatedAtAction(nameof(GetUserStickers), new { userId = userId }, missingSticker);
+            var missingSticker = await _userService.AddMissingStickerToUser(userId, data.StickerId);
+            return CreatedAtAction(nameof(GetMissingStickers), new { userId = userId }, missingSticker);
         }
         catch (ArgumentException ex)
         {
             if (ex.Message.Equals("User not found")) return NotFound(ex.Message);
-            if (ex.Message.Equals("Sticker not found in catalog")) return NotFound(ex.Message);
             if (ex.Message.Equals("Missing sticker already registered")) return Conflict(ex.Message);
+            if (ex.Message.Equals("Sticker not found in catalog")) return NotFound(ex.Message);
             return StatusCode(500);
         }
+    }
+
+    [HttpGet("{userId}/missing-stickers")]
+    public async Task<ActionResult<List<MissingSticker>>> GetMissingStickers(int userId)
+    {
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != userId)
+            return StatusCode(403, "You can only view your own missing stickers.");
+
+        try
+        {
+            var missing = await _userService.GetMissingStickers(userId);
+            return Ok(missing);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpDelete("{userId}/missing-stickers/{stickerId}")]
+    public async Task<ActionResult> DeleteMissingSticker(int userId, int stickerId)
+    {
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != userId)
+            return StatusCode(403, "You can only manage your own missing stickers.");
+
+        var deleted = await _userService.RemoveMissingSticker(userId, stickerId);
+        if (!deleted) return NotFound("Missing sticker not found.");
+        return NoContent();
     }
 
     [HttpGet("{userId}/stickers")]
@@ -142,29 +173,49 @@ public class UsersController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet]
-    public ActionResult<List<User>> GetUsers()
+    public ActionResult<List<UserResponseDTO>> GetUsers()
     {
         var users = _userService.GetAllUsers();
-        return Ok(users);
+        var response = users.Select(u => new UserResponseDTO
+        {
+            Id = u.Id,
+            Username = u.Username,
+            IsAdmin = u.IsAdmin,
+            Reputation = u.Reputation
+        }).ToList();
+        return Ok(response);
     }
 
     [AllowAnonymous]
     [HttpGet("{id}")]
-    public ActionResult<User> GetUserById(int id)
+    public ActionResult<UserResponseDTO> GetUserById(int id)
     {
         var user = _userService.GetUserById(id);
         if (user == null) return NotFound("User not found.");
-        return Ok(user);
+        return Ok(new UserResponseDTO
+        {
+            Id = user.Id,
+            Username = user.Username,
+            IsAdmin = user.IsAdmin,
+            Reputation = user.Reputation
+        });
     }
 
     [AllowAnonymous]
     [HttpPost]
-    public ActionResult<User> PostUser(PostUserDTO userDTO)
+    public ActionResult<UserResponseDTO> PostUser(PostUserDTO userDTO)
     {
         try
         {
             var user = _userService.CreateUser(userDTO);
-            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
+            var response = new UserResponseDTO
+            {
+                Id = user.Id,
+                Username = user.Username,
+                IsAdmin = user.IsAdmin,
+                Reputation = user.Reputation
+            };
+            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, response);
         }
         catch (ArgumentException ex)
         {
@@ -173,7 +224,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPatch("{id}")]
-    public ActionResult<User> PatchUser(int id, PatchUserDTO patchDTO)
+    public ActionResult<UserResponseDTO> PatchUser(int id, PatchUserDTO patchDTO)
     {
         try
         {
@@ -181,7 +232,14 @@ public class UsersController : ControllerBase
                 return BadRequest("At least one field must be provided for update.");
 
             var user = _userService.UpdateUser(id, patchDTO);
-            return Ok(user);
+            var response = new UserResponseDTO
+            {
+                Id = user.Id,
+                Username = user.Username,
+                IsAdmin = user.IsAdmin,
+                Reputation = user.Reputation
+            };
+            return Ok(response);
         }
         catch (ArgumentException ex)
         {

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
@@ -15,12 +16,12 @@ namespace Figuritas.Api.Tests;
 /// Uses WebApplicationFactory to run the API in memory and test REST design.
 /// Requires a running MongoDB instance (same as the app).
 /// </summary>
-public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<Program>>
+public class UserStory01Tests : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
 
-    public UserStoriesIntegrationTests(WebApplicationFactory<Program> factory)
+    public UserStory01Tests(WebApplicationFactory<Program> factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -28,12 +29,12 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    private async Task<User> RegisterUserAsync(string username, string password)
+    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/users", dto);
         response.EnsureSuccessStatusCode();
-        var user = await response.Content.ReadFromJsonAsync<User>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var user = await response.Content.ReadFromJsonAsync<UserResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return user!;
     }
 
@@ -240,7 +241,7 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
     [Fact]
     public async Task US01_PostUserSticker_WithoutToken_Returns401()
     {
-        _client.DefaultRequestHeaders.Authorization = null;
+        var anonymousClient = _factory.CreateClient();
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var dto = new PostUserStickerRequestDTO
@@ -250,7 +251,7 @@ public class UserStoriesIntegrationTests : IClassFixture<WebApplicationFactory<P
             CanBeDirectlyExchanged = true,
             CanBeAuctioned = false
         };
-        var response = await _client.PostAsJsonAsync("/api/users/1/stickers", dto);
+        var response = await anonymousClient.PostAsJsonAsync("/api/users/1/stickers", dto);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }

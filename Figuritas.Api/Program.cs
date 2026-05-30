@@ -60,6 +60,7 @@ builder.Services.AddScoped<IUserStickerRepository, UserStickerRepository>();
 builder.Services.AddScoped<IExchangeProposalRepository, ExchangeProposalRepository>();
 builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IAuctionOfferRepository, AuctionOfferRepository>();
+builder.Services.AddScoped<IMissingStickerRepository, MissingStickerRepository>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();

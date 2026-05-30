@@ -32,24 +32,31 @@ public class MongoDbContext
         RegisterClassMap<ExchangeSuggestion>();
         RegisterClassMap<Auction>();
         RegisterClassMap<AuctionOffer>();
+        RegisterClassMap<MissingSticker>();
     }
+
+    private static readonly object _classMapLock = new();
 
     private static void RegisterClassMap<T>() where T : class
     {
         if (BsonClassMap.IsClassMapRegistered(typeof(T)))
-        {
             return;
-        }
 
-        BsonClassMap.RegisterClassMap<T>(cm =>
+        lock (_classMapLock)
         {
-            cm.AutoMap();
-            var idProperty = typeof(T).GetProperty("Id");
-            if (idProperty != null)
+            if (BsonClassMap.IsClassMapRegistered(typeof(T)))
+                return;
+
+            BsonClassMap.RegisterClassMap<T>(cm =>
             {
-                cm.MapIdMember(idProperty);
-            }
-            cm.SetIgnoreExtraElements(true);
-        });
+                cm.AutoMap();
+                var idProperty = typeof(T).GetProperty("Id");
+                if (idProperty != null)
+                {
+                    cm.MapIdMember(idProperty);
+                }
+                cm.SetIgnoreExtraElements(true);
+            });
+        }
     }
 }

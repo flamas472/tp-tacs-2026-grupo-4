@@ -11,13 +11,15 @@ public class UserService(
     IUserRepository userRepo,
     IUserStickerRepository inventoryRepo,
     StickerService stickerService,
-    IExchangeRepository exchangeRepo
+    IExchangeRepository exchangeRepo,
+    IMissingStickerRepository missingStickerRepo
     )
 {
     private readonly IUserStickerRepository _inventoryRepo = inventoryRepo;
     private readonly IUserRepository _userRepo = userRepo;
     private readonly StickerService _stickerService = stickerService;
     private readonly IExchangeRepository _exchangeRepo = exchangeRepo;
+    private readonly IMissingStickerRepository _missingStickerRepo = missingStickerRepo;
 
     public List<User> GetAllUsers() => _userRepo.GetAll();
 
@@ -73,20 +75,41 @@ public class UserService(
         return user;
     }
 
-    public Sticker AddMissingStickerToUser(int userId, int stickerId)
+    public async Task<MissingSticker> AddMissingStickerToUser(int userId, int stickerId)
     {
-        User? user = _userRepo.GetById(userId);
-        if (user == null) throw new ArgumentException("User not found");
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
 
         var sticker = _stickerService.GetById(stickerId);
-        if (sticker == null) throw new ArgumentException("Sticker not found in catalog");
+        if (sticker == null)
+            throw new ArgumentException("Sticker not found in catalog");
 
-        if (user.HasMissingSticker(sticker)) throw new ArgumentException("Missing sticker already registered");
+        if (await _missingStickerRepo.ExistsAsync(userId, stickerId))
+            throw new ArgumentException("Missing sticker already registered");
 
-        user.AddMissingSticker(sticker);
-        _userRepo.Update(user);
+        var missingSticker = new MissingSticker
+        {
+            UserId = userId,
+            StickerId = stickerId,
+            RegisteredAt = DateTime.UtcNow
+        };
 
-        return sticker;
+        await _missingStickerRepo.AddAsync(missingSticker);
+        return missingSticker;
+    }
+
+    public async Task<List<MissingSticker>> GetMissingStickers(int userId)
+    {
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
+        return await _missingStickerRepo.GetByUserIdAsync(userId);
+    }
+
+    public async Task<bool> RemoveMissingSticker(int userId, int stickerId)
+    {
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
+        return await _missingStickerRepo.DeleteAsync(userId, stickerId);
     }
 
     public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
