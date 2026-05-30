@@ -20,7 +20,7 @@ public class UserStickerRepository : IUserStickerRepository
         return _userStickers.Find(us => us.Active).ToList();
     }
 
-    public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null)
+    public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null, bool sortDescending = false)
     {
         if (page < 1 || pageSize < 1)
         {
@@ -32,7 +32,11 @@ public class UserStickerRepository : IUserStickerRepository
             ? Builders<UserSticker>.Filter.And(activeFilter, filter)
             : activeFilter;
 
-        return _userStickers.Find(combinedFilter).Skip((page - 1) * pageSize).Limit(pageSize).ToList();
+        var query = _userStickers.Find(combinedFilter);
+        if (sortDescending)
+            query = query.SortByDescending(us => us.Id);
+
+        return query.Skip((page - 1) * pageSize).Limit(pageSize).ToList();
     }
 
     public void Add(UserSticker userSticker)

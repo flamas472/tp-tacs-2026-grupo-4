@@ -6,7 +6,8 @@ namespace Figuritas.Api.Repositories;
 public interface IUserStickerRepository
 {
     List<UserSticker> GetAll();
-    List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null);
+    /// <param name="sortDescending">When true, results are sorted descending to surface the most recent market listings first.</param>
+    List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null, bool sortDescending = false);
     void Add(UserSticker userSticker);
     UserSticker? GetById(int id);
     List<UserSticker> GetMultipleById(List<int> ids);

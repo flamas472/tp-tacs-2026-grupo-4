@@ -2,6 +2,7 @@ using BCrypt.Net;
 using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
 using Figuritas.Shared.Utils;
 
@@ -153,6 +154,27 @@ public class UserService(
     {
         var filter = queryParams.ToPredicate();
         return _inventoryRepo.GetPaginated(queryParams.Page, queryParams.PageSize, filter);
+    }
+
+    public List<MarketStickerResponseDTO> SearchMarketStickers(GetMarketStickersDTO dto, int callerUserId)
+    {
+        var filter = dto.ToPredicate(callerUserId);
+        var userStickers = _inventoryRepo.GetPaginated(dto.Page, dto.PageSize, filter, sortDescending: true);
+
+        return userStickers.Select(us => new MarketStickerResponseDTO
+        {
+            UserStickerId = us.Id,
+            OwnerId = us.UserId,
+            StickerNumber = us.Sticker.Number,
+            StickerNationalTeam = us.Sticker.NationalTeam,
+            StickerTeam = us.Sticker.Team,
+            StickerCategory = us.Sticker.Category,
+            StickerDescription = us.Sticker.Description,
+            StickerImageUrl = us.Sticker.ImageUrl,
+            Quantity = us.Quantity,
+            CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
+            CanBeAuctioned = us.CanBeAuctioned
+        }).ToList();
     }
 
     public UserSticker UpdateUserSticker(int stickerId, bool? canBeDirectlyExchanged, bool? canBeAuctioned, int? quantity)
