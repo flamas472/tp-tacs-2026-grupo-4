@@ -24,7 +24,7 @@ public class ExchangeProposal
         if (OfferedStickers == null || OfferedStickers.Count() == 0 || RequestedSticker == null)
             return false;
 
-        if (OfferedStickers.Any(s => s.Active != true || s.CanBeExchanged != true))
+        if (OfferedStickers.Any(s => s.Active != true || s.CanBeDirectlyExchanged != true))
             return false;
 
         if (OfferedStickers.Any(s => s.UserId != ProponentID))

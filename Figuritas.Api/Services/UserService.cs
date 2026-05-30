@@ -1,6 +1,7 @@
 using BCrypt.Net;
 using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO;
+using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.Model;
 using Figuritas.Shared.Utils;
 
@@ -72,32 +73,43 @@ public class UserService(
         return user;
     }
 
-    public Sticker AddMissingStickerToUser(int userId, Sticker missingSticker)
+    public Sticker AddMissingStickerToUser(int userId, int stickerId)
     {
         User? user = _userRepo.GetById(userId);
-
         if (user == null) throw new ArgumentException("User not found");
-        if (user.HasMissingSticker(missingSticker)) throw new ArgumentException("Missing sticker already registered");
 
-        _stickerService.CreateIfNonExistent(missingSticker);
+        var sticker = _stickerService.GetById(stickerId);
+        if (sticker == null) throw new ArgumentException("Sticker not found in catalog");
 
-        user.AddMissingSticker(missingSticker);
+        if (user.HasMissingSticker(sticker)) throw new ArgumentException("Missing sticker already registered");
+
+        user.AddMissingSticker(sticker);
         _userRepo.Update(user);
 
-        return missingSticker;
+        return sticker;
     }
 
     public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
     {
-        if (!_userRepo.ExistsId(userId)) throw new ArgumentException("User not found");
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
 
-        Sticker sticker = data.Sticker.ToDomain();
+        var sticker = _stickerService.GetById(data.StickerId);
+        if (sticker == null)
+            throw new ArgumentException("Sticker not found in catalog");
 
-        _stickerService.CreateIfNonExistent(sticker);
+        var userSticker = new UserSticker
+        {
+            UserId = userId,
+            Sticker = sticker,
+            Quantity = data.Quantity,
+            CanBeDirectlyExchanged = data.CanBeDirectlyExchanged,
+            CanBeAuctioned = data.CanBeAuctioned,
+            Active = true
+        };
 
-        var userSticker = data.ToDomain(userId);
-
-        if (_inventoryRepo.Exists(userSticker)) throw new ArgumentException("Inventory already registered");
+        if (_inventoryRepo.Exists(userSticker))
+            throw new ArgumentException("Inventory already registered");
 
         _inventoryRepo.Add(userSticker);
 
@@ -106,20 +118,31 @@ public class UserService(
 
     public List<UserSticker> GetAllUserStickers() => _inventoryRepo.GetAll();
 
+    public UserSticker? GetUserStickerById(int userId, int stickerId)
+    {
+        var userSticker = _inventoryRepo.GetById(stickerId);
+        if (userSticker == null || userSticker.UserId != userId)
+            return null;
+        return userSticker;
+    }
+
     public List<UserSticker> SearchUserStickers(GetUserStickersDTO queryParams)
     {
         var filter = queryParams.ToPredicate();
         return _inventoryRepo.GetPaginated(queryParams.Page, queryParams.PageSize, filter);
     }
 
-    public UserSticker UpdateUserSticker(int stickerId, bool? canBeExchanged, int? quantity)
+    public UserSticker UpdateUserSticker(int stickerId, bool? canBeDirectlyExchanged, bool? canBeAuctioned, int? quantity)
     {
         var sticker = _inventoryRepo.GetById(stickerId);
         if (sticker == null)
             throw new ArgumentException("Sticker not found");
 
-        if (canBeExchanged.HasValue)
-            sticker.CanBeExchanged = canBeExchanged.Value;
+        if (canBeDirectlyExchanged.HasValue)
+            sticker.CanBeDirectlyExchanged = canBeDirectlyExchanged.Value;
+
+        if (canBeAuctioned.HasValue)
+            sticker.CanBeAuctioned = canBeAuctioned.Value;
 
         if (quantity.HasValue)
             sticker.Quantity = quantity.Value;

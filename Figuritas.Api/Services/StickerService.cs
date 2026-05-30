@@ -27,6 +27,11 @@ public class StickerService(
         return _stickerRepo.Get(filters.ToPredicate(), filters.Page, filters.PageSize).ToList();
     }
 
+    public Sticker? GetById(int id)
+    {
+        return _stickerRepo.GetById(id);
+    }
+
     public void CreateIfNonExistent(Sticker sticker)
     {
         if (_stickerRepo.Exists(sticker))

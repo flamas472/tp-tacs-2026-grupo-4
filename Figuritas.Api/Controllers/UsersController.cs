@@ -1,20 +1,24 @@
 using Figuritas.Shared.Model;
-using Figuritas.Shared.Utils;
 using Figuritas.Shared.DTO;
+using Figuritas.Shared.DTO.request;
 using Figuritas.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Figuritas.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class UsersController : ControllerBase
 {
     private readonly UserService _userService;
+    private readonly AuthService _authService;
 
-    public UsersController(UserService userService)
+    public UsersController(UserService userService, AuthService authService)
     {
         _userService = userService;
+        _authService = authService;
     }
 
     [HttpPost("{userId}/stickers")]
@@ -22,15 +26,28 @@ public class UsersController : ControllerBase
     {
         try
         {
+            var authenticatedUserId = _authService.GetUserIdFromToken(User);
+            if (authenticatedUserId != userId)
+                return StatusCode(403, "You can only publish stickers for your own account.");
+
             var userSticker = _userService.CreateUserSticker(userId, data);
-            return CreatedAtAction(nameof(GetUserStickers), new { userId = userId }, userSticker);
+            return CreatedAtAction(nameof(GetUserStickerById), new { userId = userId, stickerId = userSticker.Id }, userSticker);
         }
         catch (ArgumentException ex)
         {
             if (ex.Message.Equals("User not found")) return NotFound(ex.Message);
             if (ex.Message.Equals("Inventory already registered")) return Conflict(ex.Message);
+            if (ex.Message.Equals("Sticker not found in catalog")) return NotFound(ex.Message);
             return StatusCode(500);
         }
+    }
+
+    [HttpGet("{userId}/stickers/{stickerId}")]
+    public ActionResult<UserSticker> GetUserStickerById(int userId, int stickerId)
+    {
+        var userSticker = _userService.GetUserStickerById(userId, stickerId);
+        if (userSticker == null) return NotFound("Sticker not found in user inventory.");
+        return Ok(userSticker);
     }
 
     [HttpPost("{userId}/missing-stickers")]
@@ -38,13 +55,17 @@ public class UsersController : ControllerBase
     {
         try
         {
-            Sticker sticker = data.Sticker.ToDomain();
-            var missingSticker = _userService.AddMissingStickerToUser(userId, sticker);
+            var authenticatedUserId = _authService.GetUserIdFromToken(User);
+            if (authenticatedUserId != userId)
+                return StatusCode(403, "You can only register missing stickers for your own account.");
+
+            var missingSticker = _userService.AddMissingStickerToUser(userId, data.StickerId);
             return CreatedAtAction(nameof(GetUserStickers), new { userId = userId }, missingSticker);
         }
         catch (ArgumentException ex)
         {
             if (ex.Message.Equals("User not found")) return NotFound(ex.Message);
+            if (ex.Message.Equals("Sticker not found in catalog")) return NotFound(ex.Message);
             if (ex.Message.Equals("Missing sticker already registered")) return Conflict(ex.Message);
             return StatusCode(500);
         }
@@ -65,10 +86,10 @@ public class UsersController : ControllerBase
             if (patchDto.Quantity < 0)
                 return BadRequest("Quantity cannot be negative.");
 
-            if (patchDto.CanBeExchanged == null && patchDto.Quantity == null)
+            if (patchDto.CanBeDirectlyExchanged == null && patchDto.CanBeAuctioned == null && patchDto.Quantity == null)
                 return BadRequest("At least one field must be provided for update.");
 
-            var userSticker = _userService.UpdateUserSticker(stickerId, patchDto.CanBeExchanged, patchDto.Quantity);
+            var userSticker = _userService.UpdateUserSticker(stickerId, patchDto.CanBeDirectlyExchanged, patchDto.CanBeAuctioned, patchDto.Quantity);
             return Ok(userSticker);
         }
         catch (ArgumentException ex)
@@ -119,6 +140,7 @@ public class UsersController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public ActionResult<List<User>> GetUsers()
     {
@@ -126,6 +148,7 @@ public class UsersController : ControllerBase
         return Ok(users);
     }
 
+    [AllowAnonymous]
     [HttpGet("{id}")]
     public ActionResult<User> GetUserById(int id)
     {
@@ -134,6 +157,7 @@ public class UsersController : ControllerBase
         return Ok(user);
     }
 
+    [AllowAnonymous]
     [HttpPost]
     public ActionResult<User> PostUser(PostUserDTO userDTO)
     {

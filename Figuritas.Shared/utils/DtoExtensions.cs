@@ -6,24 +6,6 @@ namespace Figuritas.Shared.Utils;
 
 public static class DtoExtensions
 {
-    public static Sticker ToDomain(this StickerField dto) => new()
-        {
-            Number = dto.Number,
-            Description = dto.Description,
-            NationalTeam = dto.NationalTeam,
-            Team = dto.Team,
-            Category = dto.Category,
-        };
-
-
-    public static UserSticker ToDomain(this PostUserStickerRequestDTO dto, int userId) => new()
-        {
-            UserId = userId,
-            Sticker = ToDomain(dto.Sticker),
-            CanBeExchanged = dto.CanBeExchanged,
-            Quantity = dto.Quantity
-        };
-
     public static Func<Sticker, bool> ToPredicate(this GetStickersDTO dto) =>
         sticker =>
             (dto.Number == null || sticker.Number == dto.Number) &&
@@ -41,6 +23,7 @@ public static class DtoExtensions
             && (string.IsNullOrEmpty(dto.NationalTeam) || us.Sticker.NationalTeam.Contains(dto.NationalTeam))
             && (string.IsNullOrEmpty(dto.Category) || us.Sticker.Category.Contains(dto.Category))
             && (string.IsNullOrEmpty(dto.Description) || us.Sticker.Description.Contains(dto.Description))
-            && (dto.CanBeExchanged == null || us.CanBeExchanged == dto.CanBeExchanged);
+            && (dto.CanBeDirectlyExchanged == null || us.CanBeDirectlyExchanged == dto.CanBeDirectlyExchanged)
+            && (dto.CanBeAuctioned == null || us.CanBeAuctioned == dto.CanBeAuctioned);
     }
 }

@@ -36,6 +36,7 @@ public class AuctionService
         var userSticker = _userStickerRepo.GetById(dto.AuctionedStickerId);
         if (userSticker == null) throw new ArgumentException("Sticker not found in user inventory.");
         if (userSticker.UserId != userId) throw new ArgumentException("Sticker does not belong to the user.");
+        if (!userSticker.CanBeAuctioned) throw new ArgumentException("Sticker is not available for auction.");
 
         if (dto.StartDate >= dto.EndDate) throw new ArgumentException("Start date must be before end date.");
 
