@@ -1,0 +1,63 @@
+@using Figuritas.Shared.Model
+
+@if (Stickers == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando figuritas...</MudText>
+    </div>
+}
+else if (!Stickers.Any())
+{
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 3rem;" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">No se encontraron figuritas</MudText>
+    </div>
+}
+else
+{
+    <div class="sticker-list">
+        @foreach (var sticker in Stickers)
+        {
+            <StickerComponent Sticker="@sticker" @key="sticker.Id" OnStickerClick="OnStickerClick" />
+        }
+    </div>
+
+    <div class="sticker-pagination">
+        <MudTooltip Text="Página anterior">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Primary"
+                           Disabled="@(!HasPrevPage)"
+                           OnClick="OnPrevPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+
+        <MudText Typo="Typo.body1" Class="pagination-label">Página @CurrentPage</MudText>
+
+        <MudTooltip Text="Página siguiente">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Primary"
+                           Disabled="@(!HasNextPage)"
+                           OnClick="OnNextPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+    </div>
+}
+
+@code {
+    /// <summary>Lista de figuritas a mostrar. Null mientras carga.</summary>
+    [Parameter] [EditorRequired] public List<Sticker>? Stickers { get; set; }
+
+    /// <summary>Acción a ejecutar cuando el usuario hace click en una figurita.</summary>
+    [Parameter] [EditorRequired] public EventCallback<Sticker> OnStickerClick { get; set; }
+
+    /// <summary>Navega a la página siguiente y refresca Stickers.</summary>
+    [Parameter] [EditorRequired] public EventCallback OnNextPage { get; set; }
+
+    /// <summary>Navega a la página anterior y refresca Stickers.</summary>
+    [Parameter] [EditorRequired] public EventCallback OnPrevPage { get; set; }
+
+    [Parameter] public bool HasNextPage { get; set; }
+    [Parameter] public bool HasPrevPage { get; set; }
+    [Parameter] public int CurrentPage { get; set; } = 1;
+}

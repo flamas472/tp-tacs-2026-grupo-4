@@ -110,51 +110,163 @@ code {
 }
 
 
-/* Personalizadas */
-.text-sm {
-    font-size: 11px; /* Celular */
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIGURITAS — estilos globales de componentes
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Ancho responsivo de la tarjeta de figurita ───────────────────────────
+   Relación real: 5cm × 6.5cm → aspect-ratio 10/13
+   Gap del flex container: 12px  |  Padding de página: 16px c/lado (32px)
+   xs  360px  → 328px disponibles → 2 por fila → 140px
+   sm  600px  → 568px disponibles → 3 por fila → 170px
+       768px  → 736px disponibles → 4 por fila  (170×4 + 12×3 = 716 ✓)
+   md  960px  → 928px disponibles → 4 por fila → 195px
+   lg 1366px  →1334px disponibles → 6 por fila → 210px
+   xl 1920px  →1648px con drawer  → 6 por fila → 245px                    */
+:root {
+    --sticker-width: 140px;
 }
-@media (min-width: 600px) {
-    .text-sm { font-size: 12px; } /* Tablet */
-}
-@media (min-width: 960px) {
-    .text-sm { font-size: 13px; } /* Monitor */
+@media (min-width: 600px)  { :root { --sticker-width: 170px; } }
+@media (min-width: 960px)  { :root { --sticker-width: 195px; } }
+@media (min-width: 1280px) { :root { --sticker-width: 210px; } }
+@media (min-width: 1920px) { :root { --sticker-width: 245px; } }
+
+
+/* ─── StickerComponent ──────────────────────────────────────────────────── */
+.sticker-card {
+    width: var(--sticker-width);
+    cursor: pointer;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.text-md {
-    font-size: 13px; /* Celular */
-    line-height: 1.2;
-}
-@media (min-width: 600px) {
-    .text-md { font-size: 15px; } /* Tablet */
-}
-@media (min-width: 960px) {
-    .text-md { font-size: 16px; } /* Monitor */
+.sticker-card:hover {
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
 }
 
-.text-lg {
-    font-size: 16px; /* Celular */
-    font-weight: bold;
-}
-@media (min-width: 600px) {
-    .text-lg { font-size: 18px; } /* Tablet */
-}
-@media (min-width: 960px) {
-    .text-lg { font-size: 20px; } /* Monitor */
+.sticker-image-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 10 / 13;
+    overflow: hidden;
+    background-color: var(--mud-palette-background-gray);
 }
 
-.text-xl {
-    font-size: 18px; /* Celular */
-    font-weight: bold;
-}
-@media (min-width: 600px) {
-    .text-xl { font-size: 20px; } /* Tablet */
-}
-@media (min-width: 960px) {
-    .text-xl { font-size: 22px; } /* Monitor */
+.sticker-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
-/* AUXILIAR: Negrita genérica por si querés combinar */
-.text-bold {
-    font-weight: bold;
+.sticker-number-badge {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.08em;
+    backdrop-filter: blur(2px);
+}
+
+.sticker-info {
+    padding: 7px 9px 9px !important;
+}
+
+.sticker-description {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 3px;
+}
+
+.sticker-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+
+/* ─── StickerListComponent ──────────────────────────────────────────────── */
+.sticker-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.sticker-list-feedback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    width: 100%;
+}
+
+.sticker-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem 0 0.5rem;
+    gap: 0.25rem;
+}
+
+.pagination-label {
+    min-width: 6rem;
+    text-align: center;
+    font-weight: 500;
+}
+
+
+/* ─── Catálogo — panel de filtros ───────────────────────────────────────── */
+.filters-panel {
+    padding: 1.25rem 1.5rem 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+    border-left: 4px solid var(--mud-palette-primary);
+}
+
+.filters-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mud-palette-primary);
+    margin-bottom: 0.75rem;
+}
+
+.filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    align-items: flex-end;
+}
+
+.filter-select {
+    flex: 1;
+    min-width: 200px;
+}
+
+@media (min-width: 960px) {
+    .filters-panel {
+        padding: 1.5rem 2rem 1.75rem;
+    }
+
+    .filters-title {
+        font-size: 0.8rem;
+    }
+
+    .filter-select {
+        font-size: 1.05rem;
+    }
 }
