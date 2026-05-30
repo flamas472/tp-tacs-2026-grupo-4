@@ -7,6 +7,16 @@ public class UserRepository
     private readonly ConcurrentBag<User> users = [];
     private int nextId = 1;
 
+    public UserRepository()
+    {
+        Add(new User
+        {
+            Username = "DefaultUser",
+            HashedPassword = "default",
+            IsAdmin = true
+        });
+    }
+
     
     public bool ExistsId(int userId)
     {

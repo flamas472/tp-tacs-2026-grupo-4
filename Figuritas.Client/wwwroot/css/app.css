@@ -270,3 +270,23 @@ code {
         font-size: 1.05rem;
     }
 }
+
+
+/* ─── StickerActionDialog ───────────────────────────────────────────────── */
+.dialog-sticker-preview {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+}
+
+.action-mode-selector {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.action-mode-btn {
+    flex: 1;
+    text-transform: none !important;
+    border-radius: 8px;
+}

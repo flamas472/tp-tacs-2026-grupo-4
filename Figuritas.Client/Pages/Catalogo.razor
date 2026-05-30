@@ -3,6 +3,7 @@
 @using Figuritas.Client.Requests
 @using Figuritas.Shared.Model
 
+@inject IDialogService DialogService
 @inject StickerHttpClient StickerHttp
 @inject NationalTeamHttpClient NationalTeamHttp
 @inject CategoryHttpClient CategoryHttp
@@ -137,9 +138,20 @@
         }
     }
 
-    private void OnStickerClick(Sticker sticker)
+    private async Task OnStickerClick(Sticker sticker)
     {
-        // TODO: abrir modal con opciones: agregar a faltantes / agregar a repetidas
-        Console.WriteLine($"Figurita seleccionada: {sticker.Description}");
+        var parameters = new DialogParameters<StickerActionDialog>
+        {
+            { d => d.Sticker, sticker }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        await DialogService.ShowAsync<StickerActionDialog>(
+            $"#{sticker.Number:D3} — {sticker.Description}",
+            parameters, options);
     }
 }

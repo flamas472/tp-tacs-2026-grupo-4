@@ -1,0 +1,124 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO
+@using Figuritas.Client.Requests
+
+@inject UserHttpClient UserHttp
+
+<MudDialog>
+    <DialogContent>
+        <div class="dialog-sticker-preview">
+            <StickerComponent Sticker="Sticker" />
+        </div>
+
+        <div class="action-mode-selector">
+            <MudButton Variant="@(modoRepetida ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.ContentCopy"
+                       Class="action-mode-btn"
+                       OnClick="@(() => { modoRepetida = true; feedbackMsg = null; })">
+                Repetida
+            </MudButton>
+            <MudButton Variant="@(!modoRepetida ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.BookmarkAdd"
+                       Class="action-mode-btn"
+                       OnClick="@(() => { modoRepetida = false; feedbackMsg = null; })">
+                Faltante
+            </MudButton>
+        </div>
+
+        @if (modoRepetida)
+        {
+            <MudCheckBox @bind-Value="canBeExchanged"
+                         Label="Disponible para intercambio"
+                         Color="Color.Primary"
+                         Class="mt-1" />
+        }
+
+        @if (feedbackMsg is not null)
+        {
+            <MudAlert Severity="@(feedbackSuccess ? Severity.Success : Severity.Error)"
+                      Dense="true"
+                      Class="mt-3">
+                @feedbackMsg
+            </MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="HandleAgregar"
+                   Disabled="loading">
+            @if (loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Agregar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
+
+    private bool modoRepetida = true;
+    private bool canBeExchanged = true;
+    private bool loading = false;
+    private string? feedbackMsg = null;
+    private bool feedbackSuccess = false;
+
+    private async Task HandleAgregar()
+    {
+        loading = true;
+        feedbackMsg = null;
+
+        // TODO: reemplazar userId=1 por el ID del usuario logueado cuando exista AuthStateService
+        const int userId = 1;
+
+        var sf = new StickerField
+        {
+            Number = Sticker.Number,
+            NationalTeam = Sticker.NationalTeam,
+            Team = Sticker.Team,
+            Description = Sticker.Description,
+            Category = Sticker.Category
+        };
+
+        if (modoRepetida)
+        {
+            var result = await UserHttp.AddUserStickerAsync(userId, new PostUserStickerRequestDTO
+            {
+                Sticker = sf,
+                Quantity = 1,
+                CanBeExchanged = canBeExchanged
+            });
+
+            feedbackSuccess = result.Success;
+            feedbackMsg = result.Success
+                ? "Figurita agregada a tus repetidas."
+                : result.ErrorMessage ?? "Error al agregar la figurita.";
+        }
+        else
+        {
+            var result = await UserHttp.AddMissingStickerAsync(userId, new PostMissingStickerRequestDTO
+            {
+                Sticker = sf
+            });
+
+            feedbackSuccess = result.Success;
+            feedbackMsg = result.Success
+                ? "Figurita agregada a tus faltantes."
+                : result.ErrorMessage ?? "Error al agregar la figurita.";
+        }
+
+        loading = false;
+
+        if (feedbackSuccess)
+        {
+            await Task.Delay(1200);
+            MudDialog.Close();
+        }
+    }
+}
