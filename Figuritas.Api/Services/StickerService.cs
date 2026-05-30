@@ -25,17 +25,9 @@ public class StickerService(
         return _stickerRepo.Get(filters.ToPredicate(), filters.Page, filters.PageSize).ToList();
     }
 
-    public void CreateIfNonExistent(Sticker sticker)
+    public Sticker? GetStickerById(int id)
     {
-        if (_stickerRepo.Exists(sticker))
-        {
-            return;
-        }
-        _teamRepo.CreateIfNonExistent(new Team {Description=sticker.Team});
-        _nationalTeamRepo.CreateIfNonExistent(new NationalTeam {Description = sticker.NationalTeam});
-        _categoryRepo.CreateIfNonExistent(new Category {Description = sticker.Team});
-        _stickerRepo.Add(sticker);
-        return;
+        return _stickerRepo.GetById(id);
     }
 
 }

@@ -15,4 +15,6 @@ public class Exchange
     public required int ProponentID { get; set; }
 
     public required int ProposedID { get; set; }
+
+    public ExchangeStatus Status { get; set; } = ExchangeStatus.Pending;
 }

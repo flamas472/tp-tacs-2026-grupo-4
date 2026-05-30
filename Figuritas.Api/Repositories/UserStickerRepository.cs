@@ -18,6 +18,11 @@ public class UserStickerRepository
         return _userStickers.Find(_ => true).ToList();
     }
 
+    public List<UserSticker> GetByUserId(int userId)
+    {
+        return _userStickers.Find(us => us.UserId == userId).ToList();
+    }
+
     public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null)
     {
         if (page < 1 || pageSize < 1)

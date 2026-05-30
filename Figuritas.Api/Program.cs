@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Figuritas.Api.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -104,6 +105,7 @@ app.UseAuthorization();
 
 app.UseCors("BlazorLocalPolicy");
 
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 app.MapControllers();
 
 app.Run();

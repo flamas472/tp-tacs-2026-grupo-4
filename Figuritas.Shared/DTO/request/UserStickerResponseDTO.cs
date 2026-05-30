@@ -1,13 +1,13 @@
-namespace Figuritas.Shared.Model;
+using Figuritas.Shared.Model;
 
-public class UserSticker
+namespace Figuritas.Shared.DTO;
+
+public class UserStickerResponseDTO
 {
     public int Id { get; set; }
     public required Sticker Sticker { get; set; }
     public int UserId { get; set; }
-    
-    // CORREGIDO: Se reemplazó el booleano por el Enum explícito
-    public PublicationType PublicationMode { get; set; } 
+    public PublicationType PublicationMode { get; set; }
     public bool Active { get; set; }
     public int Quantity { get; set; }
 }

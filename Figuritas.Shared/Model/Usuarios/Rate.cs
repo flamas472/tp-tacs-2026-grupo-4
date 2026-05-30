@@ -9,7 +9,7 @@ public class Rate
     [Range(1, 10)]
     public required double Score {get; set; }
 
-    public required string Comment { get; set; }
+    public string? Comment { get; set; }
     
     public int ExchangeID {get; set; }
 

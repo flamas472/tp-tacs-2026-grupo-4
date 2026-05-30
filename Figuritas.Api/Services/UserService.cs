@@ -1,7 +1,8 @@
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
-using Figuritas.Shared.Utils;
-using Microsoft.AspNetCore.Http.HttpResults;
+using Figuritas.Shared.Exceptions;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Figuritas.Api.Services;
 
@@ -19,25 +20,25 @@ public class UserService(
 
     public List<User> GetAllUsers() => _userRepo.GetAll();
 
-    public User? GetUserById(int id) => _userRepo.GetById(id);
+    public User GetUserById(int id) 
+    {
+        var user = _userRepo.GetById(id);
+        return user ?? throw new EntityNotFoundException("User not found");
+    }
 
     public User CreateUser(PostUserDTO userDTO)
     {
-
-        var username = userDTO.Username;
-        var password = userDTO.Password;
-
-        if (string.IsNullOrWhiteSpace(username))
-            throw new ArgumentException("Username is required");
-        if (_userRepo.GetAll().Any(u => u.Username == username))
-            throw new ArgumentException("Username already exists");
-        if (string.IsNullOrWhiteSpace(password))
-            throw new ArgumentException("Password is required");
+        if (string.IsNullOrWhiteSpace(userDTO.Username))
+            throw new BusinessRuleException("Username is required");
+        if (_userRepo.GetAll().Any(u => u.Username == userDTO.Username))
+            throw new BusinessRuleException("Username already exists");
+        if (string.IsNullOrWhiteSpace(userDTO.Password))
+            throw new BusinessRuleException("Password is required");
 
         var user = new User
         {
-            Username = username,
-            HashedPassword = password, // TODO: Hashear la password
+            Username = userDTO.Username,
+            HashedPassword = HashPassword(userDTO.Password),
             IsAdmin = false
         };
 
@@ -47,75 +48,103 @@ public class UserService(
 
     public User UpdateUser(int userID, PatchUserDTO patchDTO)
     {
-        var user = _userRepo.GetById(userID);
-        if (user == null) 
-            throw new ArgumentException("User not found");
+        if (patchDTO.Username == null && patchDTO.Password == null)
+            throw new BusinessRuleException("Debe proporcionar al menos un campo para actualizar.");
 
-        // Solo actualizamos si el parámetro NO es nulo
+        var user = _userRepo.GetById(userID) ?? throw new EntityNotFoundException("User not found");
+
         if (patchDTO.Username != null) 
             user.Username = patchDTO.Username;
 
         if (patchDTO.Password != null) 
-            user.HashedPassword = patchDTO.Password; // TODO: Hashear la password
+            user.HashedPassword = HashPassword(patchDTO.Password); 
 
         _userRepo.Update(user);
         return user;
     }
 
-    public User? ValidateCredentials(PostUserDTO userDTO)
+    public List<Sticker> GetMissingStickers(int userId)
     {
-        var username = userDTO.Username;
-        var password = userDTO.Password;
-
-        var user = _userRepo.GetAll().FirstOrDefault(u => u.Username == username);
-        if (user == null || user.HashedPassword != password) // TODO: Hash de la clave
-            return null; // Credenciales inválidas
-        return user; // Credenciales válidas
+        var user = _userRepo.GetById(userId) ?? throw new EntityNotFoundException("User not found");
+        return user.MissingStickers;
     }
 
-    public Sticker AddMissingStickerToUser(int userId, Sticker missingSticker)
+    public void RemoveMissingSticker(int userId, int stickerId)
     {
-        User? user = _userRepo.GetById(userId);
+        var user = _userRepo.GetById(userId) ?? throw new EntityNotFoundException("User not found");
+        user.RemoveMissingSticker(stickerId);
+        _userRepo.Update(user);
+    }
+
+    public Sticker AddMissingStickerToUser(int userId, PostMissingStickerRequestDTO data)
+    {
+        var user = _userRepo.GetById(userId) ?? throw new EntityNotFoundException("User not found");
         
-        if (user == null) throw new ArgumentException("User not found");
-        if (user.HasMissingSticker(missingSticker)) throw new ArgumentException("Missing sticker already registered");
+        // El sticker ahora se asume precargado, lo buscamos en su repositorio
+        var missingSticker = _stickerService.GetStickerById(data.StickerID) ?? throw new EntityNotFoundException("Sticker not found in the global catalog");
 
-        _stickerService.CreateIfNonExistent(missingSticker);
-
+        if (user.HasMissingSticker(missingSticker)) 
+            throw new BusinessRuleException("Missing sticker already registered");
 
         user.AddMissingSticker(missingSticker);
+        _userRepo.Update(user);
 
         return missingSticker;
     }
 
     public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
     {
-        if(!_userRepo.ExistsId(userId)) throw new ArgumentException("User not found");
+        if (!_userRepo.ExistsId(userId)) throw new EntityNotFoundException("User not found");
+        
+        // Se asume precargado
+        var sticker = _stickerService.GetStickerById(data.StickerID) ?? throw new EntityNotFoundException("Sticker not found in the global catalog");
 
-        Sticker sticker = data.Sticker.ToDomain();
+        var userSticker = new UserSticker
+        {
+            UserId = userId,
+            Sticker = sticker,
+            PublicationMode = PublicationType.DirectExchange, // O el mapeo desde el DTO si lo tenés
+            Quantity = data.Quantity,
+            Active = true
+        };
 
-        _stickerService.CreateIfNonExistent(sticker);
-
-        var userSticker = data.ToDomain(userId);
-
-        if (_inventoryRepo.Exists(userSticker)) throw new ArgumentException("Inventory already registered");
+        if (_inventoryRepo.Exists(userSticker)) throw new BusinessRuleException("Inventory already registered");
 
         _inventoryRepo.Add(userSticker);
-
         return userSticker;
     }
 
-    public List<UserSticker> GetAllUserStickers() => _inventoryRepo.GetAll();
-
-    public UserSticker UpdateUserSticker(int stickerId, bool? canBeExchanged, int? quantity)
+    public List<UserStickerResponseDTO> GetUserStickersPaginated(int userId, int page, int pageSize)
     {
-        var sticker = _inventoryRepo.GetById(stickerId);
-        if (sticker == null) 
-            throw new ArgumentException("Sticker not found");
+        if (!_userRepo.ExistsId(userId)) throw new EntityNotFoundException("User not found");
+        if (page <= 0 || pageSize <= 0) throw new BusinessRuleException("Page and PageSize must be greater than zero.");
 
-        // Solo actualizamos si el parámetro NO es nulo
-        if (canBeExchanged.HasValue) 
-            sticker.CanBeExchanged = canBeExchanged.Value;
+        // Delegación de la paginación y el filtrado al repositorio de MongoDB
+        var pagedStickers = _inventoryRepo.GetPaginated(page, pageSize, us => us.UserId == userId && us.Quantity > 0);
+
+        return pagedStickers.Select(us => new UserStickerResponseDTO
+        {
+            Id = us.Id,
+            Sticker = us.Sticker,
+            UserId = us.UserId,
+            PublicationMode = us.PublicationMode,
+            Active = us.Active,
+            Quantity = us.Quantity
+        }).ToList();
+    }
+
+    public UserSticker UpdateUserSticker(int userStickerId, PublicationType? mode, int? quantity)
+    {
+        if (mode == null && quantity == null)
+            throw new BusinessRuleException("Debe proporcionar al menos un campo para actualizar.");
+
+        if (quantity.HasValue && quantity.Value < 0)
+            throw new BusinessRuleException("La cantidad ingresada no puede ser negativa.");
+
+        var sticker = _inventoryRepo.GetById(userStickerId) ?? throw new EntityNotFoundException("Sticker not found");
+
+        if (mode.HasValue) 
+            sticker.PublicationMode = mode.Value;
 
         if (quantity.HasValue) 
             sticker.Quantity = quantity.Value;
@@ -126,55 +155,71 @@ public class UserService(
 
     public void DeleteUserSticker(int userStickerId)
     {
+        var sticker = _inventoryRepo.GetById(userStickerId) ?? throw new EntityNotFoundException("Sticker not found");
         _inventoryRepo.Delete(userStickerId);
     }
 
     public List<Rate> GetAllUserRatings(int userId)
     {
-        User? user = _userRepo.GetById(userId);
-        if (user == null) throw new ArgumentException("User not found");
-
+        var user = _userRepo.GetById(userId) ?? throw new EntityNotFoundException("User not found");
         return user.Ratings;
     }
 
-    // TODO: Ver si se puede mejorar esta solución
     public Rate CreateUserRate(int exchangeId, PostRateDTO postRateDTO, int raterId)
     {
-        var exchange = _exchangeRepo.GetById(exchangeId);
-        if (exchange == null) 
-            throw new ArgumentException("Exchange not found");
-        if(exchange.ProponentID != raterId || exchange.ProposedID != raterId)
-            throw new ArgumentException("User did not participate in the exchange");
+    var exchange = _exchangeRepo.GetById(exchangeId) ?? throw new EntityNotFoundException("Exchange not found");
+    
+    // VALIDACIÓN CORREGIDA: Chequea contra el nuevo Enum
+    if (exchange.Status != ExchangeStatus.Completed) 
+        throw new BusinessRuleException("Cannot rate an incomplete exchange.");
 
-        var rate = new Rate
-        {
-            Score = postRateDTO.Score,
-            Comment = postRateDTO.Comment ?? string.Empty,
-            ExchangeID = exchangeId,
-            RaterID = raterId
-        };
+    if (exchange.ProponentID != raterId && exchange.ProposedID != raterId)
+        throw new BusinessRuleException("User did not participate in the exchange");
 
-        if(exchange.ProponentID == raterId)
-        {
-            var user2 = _userRepo.GetById(exchange.ProposedID); // El usuario a ratear es el otro que participó del intercambio
-            user2.Ratings.Add(rate);
-            _userRepo.Update(user2);
-        }
-        else
-        {
-            var user1 = _userRepo.GetById(exchange.ProponentID); // El usuario a ratear es el otro que participó del intercambio
-            user1.Ratings.Add(rate);
-            _userRepo.Update(user1);
-        }
+    int targetUserId = (exchange.ProponentID == raterId) ? exchange.ProposedID : exchange.ProponentID;
 
-        return rate;
-    }
+    if (raterId == targetUserId)
+        throw new BusinessRuleException("You cannot rate yourself.");
+
+    var rate = new Rate
+    {
+        Score = postRateDTO.Score,
+        Comment = postRateDTO.Comment ?? string.Empty,
+        ExchangeID = exchangeId,
+        RaterID = raterId
+    };
+
+    var targetUser = _userRepo.GetById(targetUserId) ?? throw new EntityNotFoundException("Target user not found");
+    targetUser.Ratings.Add(rate);
+    _userRepo.Update(targetUser);
+
+    return rate;
+    }   
 
     public double GetUserReputation(int userId)
     {
-        User? user = _userRepo.GetById(userId);
-        if (user == null) throw new ArgumentException("User not found");
-
+        var user = _userRepo.GetById(userId) ?? throw new EntityNotFoundException("User not found");
         return user.Reputation;
+    }
+
+    // Utilidad privada para el hasheo de claves nativo (SHA256)
+    private static string HashPassword(string password)
+    {
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(bytes);
+    }
+
+    public User? ValidateCredentials(PostUserDTO userDTO)
+    {
+        if (string.IsNullOrWhiteSpace(userDTO.Username) || string.IsNullOrWhiteSpace(userDTO.Password))
+            return null;
+
+        var user = _userRepo.GetAll().FirstOrDefault(u => u.Username == userDTO.Username);
+        
+        // Verificamos que exista y que el hash de la contraseña ingresada coincida con el guardado
+        if (user == null || user.HashedPassword != HashPassword(userDTO.Password))
+            return null; 
+            
+        return user; 
     }
 }

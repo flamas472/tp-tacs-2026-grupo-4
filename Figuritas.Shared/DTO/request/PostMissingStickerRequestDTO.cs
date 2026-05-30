@@ -4,6 +4,6 @@ namespace Figuritas.Shared.DTO;
 
 public class PostMissingStickerRequestDTO
 {
-    public required StickerField Sticker {get; set;}
+    public required int StickerID {get; set;}
 
 }
