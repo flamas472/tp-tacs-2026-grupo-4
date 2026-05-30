@@ -24,6 +24,15 @@ else
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseAddress) });
 builder.Services.AddScoped<StickerHttpClient>();
+builder.Services.AddScoped<AuthHttpClient>();
+builder.Services.AddScoped<UserHttpClient>();
+builder.Services.AddScoped<InventoryStickerHttpClient>();
+builder.Services.AddScoped<TeamHttpClient>();
+builder.Services.AddScoped<CategoryHttpClient>();
+builder.Services.AddScoped<NationalTeamHttpClient>();
+builder.Services.AddScoped<ExchangeHttpClient>();
+builder.Services.AddScoped<ExchangeProposalHttpClient>();
+builder.Services.AddScoped<AuctionHttpClient>();
 builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();

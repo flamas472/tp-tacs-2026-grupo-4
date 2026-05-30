@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Figuritas.Shared.Model;
+using Figuritas.Shared.DTO.request;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 
 namespace Figuritas.Api.Controllers;
 
@@ -23,7 +23,7 @@ public class ExchangeProposalsController : ControllerBase
         _authService = authService;
     }
 
-    [HttpGet("/sent")]
+    [HttpGet("sent")]
     public ActionResult<List<ExchangeProposal>> GetSentProposals()
     {
         var userId = _authService.GetUserIdFromToken(User);
@@ -31,7 +31,7 @@ public class ExchangeProposalsController : ControllerBase
         return Ok(proposals);
     }
 
-    [HttpGet("/received")]
+    [HttpGet("received")]
     public ActionResult<List<ExchangeProposal>> GetReceivedProposals()
     {
         var userId = _authService.GetUserIdFromToken(User);
@@ -153,15 +153,4 @@ public class ExchangeProposalsController : ControllerBase
             return NotFound(ex.Message);
         }
     }
-}
-
-public class PostExchangeProposalDTO
-{
-    public required List<int> OfferedStickersID { get; set; } 
-
-    public required int RequestedStickerID { get; set; } 
-
-    public required int ProponentUserID {get; set; }
-
-    public required int ProposedUserID {get; set; }
 }
