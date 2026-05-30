@@ -8,41 +8,31 @@ namespace Figuritas.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-
-// Endpoints: api/users
 public class UsersController : ControllerBase
 {
-
     private readonly UserService _userService;
-
 
     public UsersController(UserService userService)
     {
         _userService = userService;
     }
 
-
-    //* ENDPOINT_US01
     [HttpPost("{userId}/stickers")]
     public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerRequestDTO data)
     {
         try
         {
             var userSticker = _userService.CreateUserSticker(userId, data);
-
-            return CreatedAtAction( nameof(PostUserSticker), userSticker );
+            return CreatedAtAction(nameof(GetUserStickers), new { userId = userId }, userSticker);
         }
         catch (ArgumentException ex)
         {
-            if(ex.Message.Equals("User not found")) return NotFound(ex.Message);
-            if(ex.Message.Equals("Inventory already registered")) return Conflict(ex.Message);
-            
+            if (ex.Message.Equals("User not found")) return NotFound(ex.Message);
+            if (ex.Message.Equals("Inventory already registered")) return Conflict(ex.Message);
             return StatusCode(500);
         }
     }
 
-
-    //* ENDPOINT_US02
     [HttpPost("{userId}/missing-stickers")]
     public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingStickerRequestDTO data)
     {
@@ -50,18 +40,16 @@ public class UsersController : ControllerBase
         {
             Sticker sticker = data.Sticker.ToDomain();
             var missingSticker = _userService.AddMissingStickerToUser(userId, sticker);
-
-            return CreatedAtAction( nameof(PostMissingSticker), missingSticker );
+            return CreatedAtAction(nameof(GetUserStickers), new { userId = userId }, missingSticker);
         }
         catch (ArgumentException ex)
         {
-            if(ex.Message.Equals("User not found")) return NotFound(ex.Message);
-            if(ex.Message.Equals("Missing sticker already registered")) return Conflict(ex.Message);
+            if (ex.Message.Equals("User not found")) return NotFound(ex.Message);
+            if (ex.Message.Equals("Missing sticker already registered")) return Conflict(ex.Message);
             return StatusCode(500);
         }
-        
     }
-    
+
     [HttpGet("{userId}/stickers")]
     public ActionResult<List<UserSticker>> GetUserStickers(int userId)
     {
@@ -70,17 +58,17 @@ public class UsersController : ControllerBase
     }
 
     [HttpPatch("{userId}/stickers/{stickerId}")]
-    public ActionResult<UserSticker> PatchUserSticker(int userId, int userStickerId, PatchUserStickerDto patchDto)
+    public ActionResult<UserSticker> PatchUserSticker(int userId, int stickerId, PatchUserStickerDTO patchDto)
     {
         try
         {
-            if(patchDto.quantity < 0)
-                return BadRequest("La cantidad ingresada no puede ser negativa.");
+            if (patchDto.Quantity < 0)
+                return BadRequest("Quantity cannot be negative.");
 
-            if(patchDto.canBeExchanged == null && patchDto.quantity == null)
-                return BadRequest("Debe proporcionar al menos un campo para actualizar.");
-            
-            var userSticker = _userService.UpdateUserSticker(userStickerId, patchDto.canBeExchanged, patchDto.quantity);
+            if (patchDto.CanBeExchanged == null && patchDto.Quantity == null)
+                return BadRequest("At least one field must be provided for update.");
+
+            var userSticker = _userService.UpdateUserSticker(stickerId, patchDto.CanBeExchanged, patchDto.Quantity);
             return Ok(userSticker);
         }
         catch (ArgumentException ex)
@@ -90,11 +78,11 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{userId}/stickers/{stickerId}")]
-    public ActionResult<UserSticker> DeleteUserSticker(int userId, int userStickerId)
+    public ActionResult<UserSticker> DeleteUserSticker(int userId, int stickerId)
     {
         try
         {
-            _userService.DeleteUserSticker(userStickerId);
+            _userService.DeleteUserSticker(stickerId);
             return Ok();
         }
         catch (ArgumentException ex)
@@ -102,9 +90,7 @@ public class UsersController : ControllerBase
             return NotFound(ex.Message);
         }
     }
-   
 
-    //* ENDPOINT_US10
     [HttpGet("{userID}/ratings")]
     public ActionResult<List<Rate>> GetUserRatings(int userID)
     {
@@ -133,12 +119,19 @@ public class UsersController : ControllerBase
         }
     }
 
-    // Rutas REST para gestión de usuarios.
     [HttpGet]
     public ActionResult<List<User>> GetUsers()
     {
         var users = _userService.GetAllUsers();
         return Ok(users);
+    }
+
+    [HttpGet("{id}")]
+    public ActionResult<User> GetUserById(int id)
+    {
+        var user = _userService.GetUserById(id);
+        if (user == null) return NotFound("User not found.");
+        return Ok(user);
     }
 
     [HttpPost]
@@ -147,7 +140,7 @@ public class UsersController : ControllerBase
         try
         {
             var user = _userService.CreateUser(userDTO);
-            return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
+            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, user);
         }
         catch (ArgumentException ex)
         {
@@ -155,15 +148,15 @@ public class UsersController : ControllerBase
         }
     }
 
-    [HttpPatch("/{id}")]
-    public ActionResult<User> PatchUser(int userId, PatchUserDTO patchDTO)
+    [HttpPatch("{id}")]
+    public ActionResult<User> PatchUser(int id, PatchUserDTO patchDTO)
     {
         try
         {
-            if(patchDTO.Username == null && patchDTO.Password == null)
-                return BadRequest("Debe proporcionar al menos un campo para actualizar.");
-            
-            var user = _userService.UpdateUser(userId, patchDTO);
+            if (patchDTO.Username == null && patchDTO.Password == null)
+                return BadRequest("At least one field must be provided for update.");
+
+            var user = _userService.UpdateUser(id, patchDTO);
             return Ok(user);
         }
         catch (ArgumentException ex)
@@ -171,6 +164,4 @@ public class UsersController : ControllerBase
             return NotFound(ex.Message);
         }
     }
-
 }
-

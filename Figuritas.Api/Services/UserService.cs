@@ -1,21 +1,22 @@
+using BCrypt.Net;
+using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
 using Figuritas.Shared.Utils;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Figuritas.Api.Services;
 
 public class UserService(
-    UserRepository userRepo, 
-    UserStickerRepository inventoryRepo, 
+    IUserRepository userRepo,
+    IUserStickerRepository inventoryRepo,
     StickerService stickerService,
-    ExchangeRepository exchangeRepo
+    IExchangeRepository exchangeRepo
     )
 {
-    private readonly UserStickerRepository _inventoryRepo = inventoryRepo;
-    private readonly UserRepository _userRepo = userRepo;
+    private readonly IUserStickerRepository _inventoryRepo = inventoryRepo;
+    private readonly IUserRepository _userRepo = userRepo;
     private readonly StickerService _stickerService = stickerService;
-    private readonly ExchangeRepository _exchangeRepo = exchangeRepo;
+    private readonly IExchangeRepository _exchangeRepo = exchangeRepo;
 
     public List<User> GetAllUsers() => _userRepo.GetAll();
 
@@ -23,7 +24,6 @@ public class UserService(
 
     public User CreateUser(PostUserDTO userDTO)
     {
-
         var username = userDTO.Username;
         var password = userDTO.Password;
 
@@ -37,7 +37,7 @@ public class UserService(
         var user = new User
         {
             Username = username,
-            HashedPassword = password, // TODO: Hashear la password
+            HashedPassword = BCrypt.Net.BCrypt.HashPassword(password),
             IsAdmin = false
         };
 
@@ -48,15 +48,14 @@ public class UserService(
     public User UpdateUser(int userID, PatchUserDTO patchDTO)
     {
         var user = _userRepo.GetById(userID);
-        if (user == null) 
+        if (user == null)
             throw new ArgumentException("User not found");
 
-        // Solo actualizamos si el parámetro NO es nulo
-        if (patchDTO.Username != null) 
+        if (patchDTO.Username != null)
             user.Username = patchDTO.Username;
 
-        if (patchDTO.Password != null) 
-            user.HashedPassword = patchDTO.Password; // TODO: Hashear la password
+        if (patchDTO.Password != null)
+            user.HashedPassword = BCrypt.Net.BCrypt.HashPassword(patchDTO.Password);
 
         _userRepo.Update(user);
         return user;
@@ -68,29 +67,29 @@ public class UserService(
         var password = userDTO.Password;
 
         var user = _userRepo.GetAll().FirstOrDefault(u => u.Username == username);
-        if (user == null || user.HashedPassword != password) // TODO: Hash de la clave
-            return null; // Credenciales inválidas
-        return user; // Credenciales válidas
+        if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.HashedPassword))
+            return null;
+        return user;
     }
 
     public Sticker AddMissingStickerToUser(int userId, Sticker missingSticker)
     {
         User? user = _userRepo.GetById(userId);
-        
+
         if (user == null) throw new ArgumentException("User not found");
         if (user.HasMissingSticker(missingSticker)) throw new ArgumentException("Missing sticker already registered");
 
         _stickerService.CreateIfNonExistent(missingSticker);
 
-
         user.AddMissingSticker(missingSticker);
+        _userRepo.Update(user);
 
         return missingSticker;
     }
 
     public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
     {
-        if(!_userRepo.ExistsId(userId)) throw new ArgumentException("User not found");
+        if (!_userRepo.ExistsId(userId)) throw new ArgumentException("User not found");
 
         Sticker sticker = data.Sticker.ToDomain();
 
@@ -107,17 +106,22 @@ public class UserService(
 
     public List<UserSticker> GetAllUserStickers() => _inventoryRepo.GetAll();
 
+    public List<UserSticker> SearchUserStickers(GetUserStickersDTO queryParams)
+    {
+        var filter = queryParams.ToPredicate();
+        return _inventoryRepo.GetPaginated(queryParams.Page, queryParams.PageSize, filter);
+    }
+
     public UserSticker UpdateUserSticker(int stickerId, bool? canBeExchanged, int? quantity)
     {
         var sticker = _inventoryRepo.GetById(stickerId);
-        if (sticker == null) 
+        if (sticker == null)
             throw new ArgumentException("Sticker not found");
 
-        // Solo actualizamos si el parámetro NO es nulo
-        if (canBeExchanged.HasValue) 
+        if (canBeExchanged.HasValue)
             sticker.CanBeExchanged = canBeExchanged.Value;
 
-        if (quantity.HasValue) 
+        if (quantity.HasValue)
             sticker.Quantity = quantity.Value;
 
         _inventoryRepo.Update(sticker);
@@ -137,13 +141,12 @@ public class UserService(
         return user.Ratings;
     }
 
-    // TODO: Ver si se puede mejorar esta solución
     public Rate CreateUserRate(int exchangeId, PostRateDTO postRateDTO, int raterId)
     {
         var exchange = _exchangeRepo.GetById(exchangeId);
-        if (exchange == null) 
+        if (exchange == null)
             throw new ArgumentException("Exchange not found");
-        if(exchange.ProponentID != raterId || exchange.ProposedID != raterId)
+        if (exchange.ProponentID != raterId && exchange.ProposedID != raterId)
             throw new ArgumentException("User did not participate in the exchange");
 
         var rate = new Rate
@@ -154,15 +157,17 @@ public class UserService(
             RaterID = raterId
         };
 
-        if(exchange.ProponentID == raterId)
+        if (exchange.ProponentID == raterId)
         {
-            var user2 = _userRepo.GetById(exchange.ProposedID); // El usuario a ratear es el otro que participó del intercambio
+            var user2 = _userRepo.GetById(exchange.ProposedID)
+                ?? throw new ArgumentException("Rated user not found.");
             user2.Ratings.Add(rate);
             _userRepo.Update(user2);
         }
         else
         {
-            var user1 = _userRepo.GetById(exchange.ProponentID); // El usuario a ratear es el otro que participó del intercambio
+            var user1 = _userRepo.GetById(exchange.ProponentID)
+                ?? throw new ArgumentException("Rated user not found.");
             user1.Ratings.Add(rate);
             _userRepo.Update(user1);
         }

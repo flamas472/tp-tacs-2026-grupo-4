@@ -8,13 +8,10 @@ namespace Figuritas.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-
 public class ExchangeController : ControllerBase
 {
-
     private readonly UserService _userService;
     private readonly AuthService _authService;
-
 
     public ExchangeController(UserService userService, AuthService authService)
     {
@@ -22,8 +19,6 @@ public class ExchangeController : ControllerBase
         _authService = authService;
     }
 
-   
-    // ENDPOINT_US10
     [HttpPost("{exchangeID}/rate")]
     public ActionResult<Rate> PostUserRate(int exchangeID, PostRateDTO postRateDTO)
     {
@@ -31,13 +26,11 @@ public class ExchangeController : ControllerBase
         {
             var raterId = _authService.GetUserIdFromToken(User);
             var rate = _userService.CreateUserRate(exchangeID, postRateDTO, raterId);
-            return CreatedAtAction(nameof(PostUserRate), rate);
+            return Ok(rate);
         }
         catch (ArgumentException ex)
         {
             return NotFound(ex.Message);
         }
     }
-
 }
-

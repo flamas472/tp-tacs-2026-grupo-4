@@ -1,14 +1,14 @@
+using Figuritas.Api.Repositories;
 using Figuritas.Shared.Model;
 
 namespace Figuritas.Api.Services;
 
 public class ExchangeProposalService
 {
-    private readonly UserStickerRepository _inventoryRepo;
+    private readonly IUserStickerRepository _inventoryRepo;
+    private readonly IExchangeProposalRepository _exchangePropRepo;
 
-    private readonly ExchangeProposalRepository _exchangePropRepo;
-
-    public ExchangeProposalService(UserStickerRepository inventoryRepo, ExchangeProposalRepository exchangePropRepo)
+    public ExchangeProposalService(IUserStickerRepository inventoryRepo, IExchangeProposalRepository exchangePropRepo)
     {
         _inventoryRepo = inventoryRepo;
         _exchangePropRepo = exchangePropRepo;
@@ -18,13 +18,14 @@ public class ExchangeProposalService
     {
         var offered = offeredStickersID
             .Select(id => _inventoryRepo.GetById(id))
+            .Where(s => s != null)
+            .Select(s => s!)
             .ToList();
 
-        var requested = _inventoryRepo.GetById(requestedStickerID);   
+        var requested = _inventoryRepo.GetById(requestedStickerID)!;
 
         var proposal = new ExchangeProposal
         {
-            Id = 0,
             ProponentID = proponentID,
             ProposedID = proposedID,
             OfferedStickers = offered,
@@ -34,7 +35,7 @@ public class ExchangeProposalService
 
         if (!proposal.IsValid())
         {
-            return null;
+            throw new InvalidOperationException("Proposal is invalid: verify that offered stickers belong to the proponent, are active and exchangeable, and the requested sticker belongs to the proposed user.");
         }
 
         _exchangePropRepo.Add(proposal);
@@ -44,17 +45,15 @@ public class ExchangeProposalService
 
     public List<ExchangeProposal> GetAllSentProposals(int userID)
     {
-        return _exchangePropRepo.GetAllUserSentProposals(userID)
-                                .Where(p => p.State == ExchangeProposalState.Pending).ToList();
+        return _exchangePropRepo.GetAllUserSentProposals(userID);
     }
 
     public List<ExchangeProposal> GetAllReceivedProposals(int userID)
     {
-        return _exchangePropRepo.GetAllUserReceivedProposals(userID)
-                                .Where(p => p.State == ExchangeProposalState.Pending).ToList();
+        return _exchangePropRepo.GetAllUserReceivedProposals(userID);
     }
 
-    public ExchangeProposal GetProposalByID(int proposalID)
+    public ExchangeProposal? GetProposalByID(int proposalID)
     {
         return _exchangePropRepo.GetById(proposalID);
     }
@@ -63,12 +62,17 @@ public class ExchangeProposalService
     {
         var proposal = _exchangePropRepo.GetById(proposalID);
         if (proposal == null)
-            throw new ArgumentException("Propuesta no encontrada");
+            throw new ArgumentException("Proposal not found.");
 
         proposal.State = newState;
         _exchangePropRepo.Update(proposal);
     }
+
+    public ExchangeProposal AcceptProposalAtomically(int proposalId)
+    {
+        var accepted = _exchangePropRepo.AcceptAtomically(proposalId);
+        if (accepted == null)
+            throw new InvalidOperationException("Proposal not found or is no longer pending.");
+        return accepted;
+    }
 }
-
-
-

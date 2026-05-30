@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+.claude
+CLAUDE.md
+Explicaciones_Commits
+
 # Ignorar el documento donde se encuentra el API KEY GEN
 appsettings.Development.json
 

@@ -1,7 +1,9 @@
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class AuctionOfferRepository
+namespace Figuritas.Api.Repositories;
+
+public class AuctionOfferRepository : IAuctionOfferRepository
 {
     private readonly IMongoCollection<AuctionOffer> _offers;
     private readonly IIdGenerator _idGenerator;

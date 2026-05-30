@@ -1,8 +1,7 @@
 namespace Figuritas.Shared.DTO;
 
-public class PatchUserStickerDto
+public class PatchUserStickerDTO
 {
-    public bool? canBeExchanged { get; set; }
-
-    public int? quantity { get; set; }
+    public bool? CanBeExchanged { get; set; }
+    public int? Quantity { get; set; }
 }

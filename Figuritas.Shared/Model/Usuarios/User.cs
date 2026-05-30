@@ -13,10 +13,10 @@ public class User
 
     public List<Sticker> MissingStickers { get; set; } = [];
 
-    public List<Rate>? Ratings {get; set; }
+    public List<Rate> Ratings { get; set; } = [];
 
     [Range(1, 10)]
-    public double Reputation => Ratings?.Average(r => r.Score) ?? 0;
+    public double Reputation => Ratings.Count > 0 ? Ratings.Average(r => r.Score) : 0;
 
     public void AddMissingSticker(Sticker sticker)
     {

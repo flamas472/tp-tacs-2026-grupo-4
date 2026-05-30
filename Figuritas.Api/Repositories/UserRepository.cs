@@ -1,7 +1,9 @@
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class UserRepository
+namespace Figuritas.Api.Repositories;
+
+public class UserRepository : IUserRepository
 {
     private readonly IMongoCollection<User> _users;
     private readonly IIdGenerator _idGenerator;

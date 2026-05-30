@@ -1,23 +1,22 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using Figuritas.Api.Repositories;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Todo lo necesario para implementar los JWT
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication(options =>
 {
-    // Definimos que el esquema por defecto es JWT Bearer
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
-    var secretKey = builder.Configuration["Jwt:Key"] 
-                ?? throw new InvalidOperationException("Falta la configuración 'Jwt:Key' en appsettings.json");
+    var secretKey = builder.Configuration["Jwt:Key"]
+                ?? throw new InvalidOperationException("Missing 'Jwt:Key' configuration in appsettings.json");
 
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -29,7 +28,8 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddControllers()
-    .AddJsonOptions(options => {
+    .AddJsonOptions(options =>
+    {
         options.JsonSerializerOptions.Converters.Add(
             new JsonStringEnumConverter());
     });
@@ -37,7 +37,7 @@ builder.Services.AddControllers()
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddSingleton<IIdGenerator, MongoIdGenerator>();
 
-// Inicializamos los services
+// Register services
 builder.Services.AddScoped<NationalTeamService>();
 builder.Services.AddScoped<TeamService>();
 builder.Services.AddScoped<CategoryService>();
@@ -46,18 +46,19 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<StickerService>();
 builder.Services.AddScoped<ExchangeProposalService>();
 builder.Services.AddScoped<ExchangeService>();
+builder.Services.AddScoped<AuctionService>();
 
-// Inicializamos los repositorios
-builder.Services.AddScoped<ExchangeRepository>();
-builder.Services.AddScoped<NationalTeamRepository>();
-builder.Services.AddScoped<TeamRepository>();
-builder.Services.AddScoped<StickerRepository>();
-builder.Services.AddScoped<CategoryRepository>();
-builder.Services.AddScoped<UserRepository>();
-builder.Services.AddScoped<UserStickerRepository>();
-builder.Services.AddScoped<ExchangeProposalRepository>();
-builder.Services.AddScoped<AuctionRepository>();
-builder.Services.AddScoped<AuctionOfferRepository>();
+// Register repositories with interface mappings
+builder.Services.AddScoped<IExchangeRepository, ExchangeRepository>();
+builder.Services.AddScoped<INationalTeamRepository, NationalTeamRepository>();
+builder.Services.AddScoped<ITeamRepository, TeamRepository>();
+builder.Services.AddScoped<IStickerRepository, StickerRepository>();
+builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserStickerRepository, UserStickerRepository>();
+builder.Services.AddScoped<IExchangeProposalRepository, ExchangeProposalRepository>();
+builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
+builder.Services.AddScoped<IAuctionOfferRepository, AuctionOfferRepository>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -67,7 +68,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("BlazorLocalPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5280","http://localhost:5048") // permitir CORS
+        policy.WithOrigins("http://localhost:5280", "http://localhost:5048")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -75,25 +76,24 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Seed initial domain data in MongoDB.
 using (var scope = app.Services.CreateScope())
 {
     SeedData.EnsureSeedData(scope.ServiceProvider);
 }
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 
-    // Para que abra directo la vista en Swagger
-    app.Use(async (context , next) => {
-    if (context.Request.Path == "/") {
-        context.Response.Redirect("/swagger/index.html", permanent: false);
-        return;
-    }
-    await next();
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path == "/")
+        {
+            context.Response.Redirect("/swagger/index.html", permanent: false);
+            return;
+        }
+        await next();
     });
 }
 

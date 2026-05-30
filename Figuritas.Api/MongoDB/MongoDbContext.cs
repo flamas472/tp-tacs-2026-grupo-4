@@ -9,7 +9,7 @@ public class MongoDbContext
     public MongoDbContext(IConfiguration configuration)
     {
         var settings = configuration.GetSection("Mongo").Get<MongoDbSettings>()
-            ?? throw new InvalidOperationException("Falta la configuración 'Mongo' en appsettings.json");
+            ?? throw new InvalidOperationException("Missing 'Mongo' configuration in appsettings.json");
 
         var client = new MongoClient(settings.ConnectionString);
         _database = client.GetDatabase(settings.DatabaseName);

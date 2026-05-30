@@ -14,7 +14,7 @@ public class StickersController(StickerService stickerService) : ControllerBase
     private readonly StickerService _stickerService = stickerService;
 
     [HttpGet]
-    public ActionResult<List<Sticker>> GetStickers([FromQuery] GetStickersDto queryParams)
+    public ActionResult<List<Sticker>> GetStickers([FromQuery] GetStickersDTO queryParams)
     {
         if(queryParams.Page <= 0 || queryParams.PageSize <= 0)
         {

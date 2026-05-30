@@ -1,7 +1,7 @@
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
-using Figuritas.Shared.Utils;
 using Microsoft.AspNetCore.Mvc;
+using Figuritas.Api.Services;
 
 namespace Figuritas.Api.Controllers;
 
@@ -9,29 +9,26 @@ namespace Figuritas.Api.Controllers;
 [Route("api/[controller]")]
 public class InventoryStickersController : ControllerBase
 {
-    private readonly UserStickerRepository _inventoryRepo;
+    private readonly UserService _userService;
 
-    public InventoryStickersController(UserStickerRepository inventoryRepo)
+    public InventoryStickersController(UserService userService)
     {
-        _inventoryRepo = inventoryRepo;
+        _userService = userService;
     }
 
-
-    //* ENDPOINT_US03
     [HttpGet]
     public ActionResult<List<UserSticker>> SearchInventoryStickers(
-        [FromQuery] GetUserStickersDto queryParams
+        [FromQuery] GetUserStickersDTO queryParams
     )
     {
         try
         {
-            var filter = queryParams.ToPredicate();
-            var results = _inventoryRepo.GetPaginated(queryParams.Page, queryParams.PageSize, filter);
+            var results = _userService.SearchUserStickers(queryParams);
             return Ok(results);
         }
         catch (ArgumentException ex)
         {
-            if(ex.Message == "Page and PageSize must be grater than 0") return BadRequest(ex.Message);
+            if (ex.Message == "Page and PageSize must be greater than 0") return BadRequest(ex.Message);
             return StatusCode(500);
         }
     }

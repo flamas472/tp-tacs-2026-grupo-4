@@ -2,7 +2,9 @@ using System.Linq.Expressions;
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class UserStickerRepository
+namespace Figuritas.Api.Repositories;
+
+public class UserStickerRepository : IUserStickerRepository
 {
     private readonly IMongoCollection<UserSticker> _userStickers;
     private readonly IIdGenerator _idGenerator;
@@ -15,18 +17,22 @@ public class UserStickerRepository
 
     public List<UserSticker> GetAll()
     {
-        return _userStickers.Find(_ => true).ToList();
+        return _userStickers.Find(us => us.Active).ToList();
     }
 
     public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null)
     {
         if (page < 1 || pageSize < 1)
         {
-            throw new ArgumentException("Page and PageSize must be grater than 0");
+            throw new ArgumentException("Page and PageSize must be greater than 0");
         }
 
-        var find = _userStickers.Find(filter ?? (_ => true));
-        return find.Skip((page - 1) * pageSize).Limit(pageSize).ToList();
+        var activeFilter = Builders<UserSticker>.Filter.Eq(us => us.Active, true);
+        var combinedFilter = filter != null
+            ? Builders<UserSticker>.Filter.And(activeFilter, filter)
+            : activeFilter;
+
+        return _userStickers.Find(combinedFilter).Skip((page - 1) * pageSize).Limit(pageSize).ToList();
     }
 
     public void Add(UserSticker userSticker)
@@ -35,9 +41,9 @@ public class UserStickerRepository
         _userStickers.InsertOne(userSticker);
     }
 
-    public UserSticker? GetById(int id) => _userStickers.Find(a => a.Id == id).FirstOrDefault();
+    public UserSticker? GetById(int id) => _userStickers.Find(us => us.Id == id && us.Active).FirstOrDefault();
 
-    public List<UserSticker> GetMultipleById(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id)).ToList();
+    public List<UserSticker> GetMultipleById(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id) && us.Active).ToList();
 
     public bool Exists(UserSticker userSticker)
     {

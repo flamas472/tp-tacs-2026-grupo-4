@@ -1,7 +1,9 @@
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class ExchangeRepository
+namespace Figuritas.Api.Repositories;
+
+public class ExchangeRepository : IExchangeRepository
 {
     private readonly IMongoCollection<Exchange> _exchanges;
     private readonly IIdGenerator _idGenerator;

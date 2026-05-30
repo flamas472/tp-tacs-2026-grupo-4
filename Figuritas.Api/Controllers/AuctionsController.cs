@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Figuritas.Shared.Model;
 using Figuritas.Shared.DTO.request;
-using System.Security.Claims;
 using Figuritas.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Figuritas.Api.Controllers;
 
@@ -11,7 +11,6 @@ namespace Figuritas.Api.Controllers;
 public class AuctionsController : ControllerBase
 {
     private readonly AuctionService _auctionService;
-  
     private readonly AuthService _authService;
 
     public AuctionsController(AuctionService auctionService, AuthService authService)
@@ -49,6 +48,7 @@ public class AuctionsController : ControllerBase
         }
     }
 
+    [Authorize]
     [HttpPost]
     public ActionResult<Auction> PostAuction(PostAuctionDTO dto)
     {
@@ -56,7 +56,7 @@ public class AuctionsController : ControllerBase
         {
             var auctioneerId = _authService.GetUserIdFromToken(User);
             var auction = _auctionService.CreateAuction(auctioneerId, dto);
-            return CreatedAtAction(nameof(GetAuctions), new { id = auction.Id }, auction);
+            return CreatedAtAction(nameof(GetAuction), new { id = auction.Id }, auction);
         }
         catch (ArgumentException ex)
         {
@@ -64,7 +64,7 @@ public class AuctionsController : ControllerBase
         }
     }
 
-
+    [Authorize]
     [HttpPost("{auctionId}/offers")]
     public ActionResult<AuctionOffer> PostAuctionOffer(int auctionId, PostAuctionOfferDTO dto)
     {
@@ -72,11 +72,15 @@ public class AuctionsController : ControllerBase
         {
             var bidderId = _authService.GetUserIdFromToken(User);
             var offer = _auctionService.CreateOffer(bidderId, auctionId, dto);
-            return CreatedAtAction(nameof(GetAuctions), new { id = offer.Id }, offer);
+            return CreatedAtAction(nameof(GetAuction), new { id = auctionId }, offer);
         }
         catch (ArgumentException ex)
         {
             return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
     }
 }
