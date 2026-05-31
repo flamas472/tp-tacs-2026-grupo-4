@@ -175,6 +175,23 @@ code {
     backdrop-filter: blur(2px);
 }
 
+.sticker-quantity-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: var(--mud-palette-primary);
+    color: #ffffff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+    z-index: 1;
+    min-width: 22px;
+    text-align: center;
+    backdrop-filter: blur(2px);
+}
+
 .sticker-info {
     padding: 7px 9px 9px !important;
 }

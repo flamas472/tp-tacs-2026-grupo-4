@@ -1,0 +1,51 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Client.Models
+
+<MudDialog>
+    <DialogContent>
+        <StickerDialogContent Sticker="@Sticker" Quantity="@Quantity">
+            <MudCheckBox @bind-Value="canBeDirectlyExchanged"
+                         Label="Disponible para intercambio directo"
+                         Color="Color.Primary"
+                         Class="mt-2" />
+            <MudCheckBox @bind-Value="canBeAuctioned"
+                         Label="Disponible para subastar"
+                         Color="Color.Secondary"
+                         Class="mt-0" />
+        </StickerDialogContent>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="HandleGuardar">
+            Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
+    [Parameter] public int UserStickerId { get; set; }
+    [Parameter] public int Quantity { get; set; }
+    [Parameter] public bool InitialCanBeDirectlyExchanged { get; set; }
+    [Parameter] public bool InitialCanBeAuctioned { get; set; }
+
+    private bool canBeDirectlyExchanged;
+    private bool canBeAuctioned;
+
+    protected override void OnParametersSet()
+    {
+        canBeDirectlyExchanged = InitialCanBeDirectlyExchanged;
+        canBeAuctioned = InitialCanBeAuctioned;
+    }
+
+    private void HandleGuardar()
+    {
+        // TODO: llamar a PATCH /api/users/{userId}/stickers/{UserStickerId}
+        // con PatchUserStickerDTO { CanBeDirectlyExchanged = canBeDirectlyExchanged, CanBeAuctioned = canBeAuctioned }
+        MudDialog.Close();
+    }
+}

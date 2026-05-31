@@ -4,6 +4,10 @@
     <div class="sticker-image-container">
         <img src="@Sticker.ImageUrl" alt="@Sticker.Description" class="sticker-image" />
         <span class="sticker-number-badge">@Sticker.Number.ToString("D3")</span>
+        @if (Quantity > 0)
+        {
+            <span class="sticker-quantity-badge">@Quantity</span>
+        }
     </div>
     <MudCardContent Class="sticker-info">
         <MudText Typo="Typo.subtitle2" Class="sticker-description">@Sticker.Description</MudText>
@@ -15,8 +19,8 @@
 </MudCard>
 
 @code {
-    [Parameter] [EditorRequired] public Sticker Sticker { get; set; } = default!;
-
+    [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
+    [Parameter] public int Quantity { get; set; } = 0;
     [Parameter] public EventCallback<Sticker> OnStickerClick { get; set; }
 
     private async Task HandleCardClick()

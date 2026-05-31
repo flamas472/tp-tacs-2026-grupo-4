@@ -32,9 +32,13 @@
                 @if (modoRepetida)
                 {
                     <MudCheckBox @bind-Value="canBeExchanged"
-                                 Label="Disponible para intercambio"
+                                 Label="Disponible para intercambio directo"
                                  Color="Color.Primary"
                                  Class="mt-1" />
+                    <MudCheckBox @bind-Value="canBeAuctioned"
+                                 Label="Disponible para subastar"
+                                 Color="Color.Secondary"
+                                 Class="mt-0" />
                 }
             }
             else
@@ -78,6 +82,7 @@
 
     private bool modoRepetida = true;
     private bool canBeExchanged = true;
+    private bool canBeAuctioned = false;
     private bool loading = false;
     private string? feedbackMsg = null;
     private bool feedbackSuccess = false;
@@ -96,7 +101,7 @@
                 StickerId = Sticker.Id,
                 Quantity = 1,
                 CanBeDirectlyExchanged = canBeExchanged,
-                CanBeAuctioned = false
+                CanBeAuctioned = canBeAuctioned
             });
 
             feedbackSuccess = result.Success;
