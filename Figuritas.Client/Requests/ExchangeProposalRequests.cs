@@ -1,5 +1,5 @@
-using Figuritas.Shared.Model;
 using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Responses;
 using Figuritas.Client.Extensions;
 using System.Net.Http.Headers;
@@ -16,59 +16,59 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
-        public async Task<ApiResponse<List<ExchangeProposal>>> GetSentProposalsAsync(string authToken)
+        public async Task<ApiResponse<List<ExchangeProposalResponseDTO>>> GetSentProposalsAsync(string authToken)
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, "api/exchangeproposals/sent");
+                var request = new HttpRequestMessage(HttpMethod.Get, "api/exchange-proposals/sent");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
                 var response = await _http.SendAsync(request);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<List<ExchangeProposal>>();
-                    return ApiResponse<List<ExchangeProposal>>.Ok(data ?? new List<ExchangeProposal>());
+                    var data = await response.ProcesarRespuesta<List<ExchangeProposalResponseDTO>>();
+                    return ApiResponse<List<ExchangeProposalResponseDTO>>.Ok(data ?? new List<ExchangeProposalResponseDTO>());
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<ExchangeProposal>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<List<ExchangeProposal>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
-        public async Task<ApiResponse<List<ExchangeProposal>>> GetReceivedProposalsAsync(string authToken)
+        public async Task<ApiResponse<List<ExchangeProposalResponseDTO>>> GetReceivedProposalsAsync(string authToken)
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, "api/exchangeproposals/received");
+                var request = new HttpRequestMessage(HttpMethod.Get, "api/exchange-proposals/received");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
                 var response = await _http.SendAsync(request);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<List<ExchangeProposal>>();
-                    return ApiResponse<List<ExchangeProposal>>.Ok(data ?? new List<ExchangeProposal>());
+                    var data = await response.ProcesarRespuesta<List<ExchangeProposalResponseDTO>>();
+                    return ApiResponse<List<ExchangeProposalResponseDTO>>.Ok(data ?? new List<ExchangeProposalResponseDTO>());
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<ExchangeProposal>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<List<ExchangeProposal>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
-        public async Task<ApiResponse<ExchangeProposal>> CreateProposalAsync(PostExchangeProposalDTO dto, string authToken)
+        public async Task<ApiResponse<ExchangeProposalResponseDTO>> CreateProposalAsync(PostExchangeProposalRequestDTO dto, string authToken)
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, "api/exchangeproposals");
+                var request = new HttpRequestMessage(HttpMethod.Post, "api/exchange-proposals");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
                 request.Content = JsonContent.Create(dto);
 
@@ -76,18 +76,18 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<ExchangeProposal>();
+                    var data = await response.ProcesarRespuesta<ExchangeProposalResponseDTO>();
                     return data is not null
-                        ? ApiResponse<ExchangeProposal>.Ok(data)
-                        : ApiResponse<ExchangeProposal>.Fail("No se pudo leer la propuesta creada.");
+                        ? ApiResponse<ExchangeProposalResponseDTO>.Ok(data)
+                        : ApiResponse<ExchangeProposalResponseDTO>.Fail("No se pudo leer la propuesta creada.");
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<ExchangeProposal>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<ExchangeProposalResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<ExchangeProposal>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<ExchangeProposalResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
@@ -95,7 +95,7 @@ namespace Figuritas.Client.Requests
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, $"api/exchangeproposals/{id}/accept");
+                var request = new HttpRequestMessage(HttpMethod.Post, $"api/exchange-proposals/{id}/accept");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
                 var response = await _http.SendAsync(request);
@@ -116,7 +116,7 @@ namespace Figuritas.Client.Requests
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, $"api/exchangeproposals/{id}/reject");
+                var request = new HttpRequestMessage(HttpMethod.Post, $"api/exchange-proposals/{id}/reject");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
                 var response = await _http.SendAsync(request);
@@ -137,7 +137,7 @@ namespace Figuritas.Client.Requests
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, $"api/exchangeproposals/{id}/cancel");
+                var request = new HttpRequestMessage(HttpMethod.Post, $"api/exchange-proposals/{id}/cancel");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
                 var response = await _http.SendAsync(request);

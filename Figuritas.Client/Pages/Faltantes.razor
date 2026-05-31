@@ -1,10 +1,12 @@
 @page "/faltantes"
-@using Figuritas.Client.Components
+@attribute [Authorize]
 @using Figuritas.Client.Requests
 @using Figuritas.Shared.Model
 
 @inject IDialogService DialogService
+@inject AuthStateService AuthState
 @inject UserHttpClient UserHttp
+@inject StickerHttpClient StickerHttp
 @inject NationalTeamHttpClient NationalTeamHttp
 @inject CategoryHttpClient CategoryHttp
 
@@ -52,8 +54,6 @@
                       CurrentPage="@currentPage" />
 
 @code {
-    // TODO: reemplazar por el ID del usuario logueado cuando exista AuthStateService
-    private const int UserId = 1;
     private const int PageSize = 24;
 
     private List<Sticker>? stickers;
@@ -117,25 +117,46 @@
         stickers = null;
         StateHasChanged();
 
-        var response = await UserHttp.GetMissingStickersAsync(
-            userId: UserId,
-            page: currentPage,
-            pageSize: PageSize,
+        var missingResponse = await UserHttp.GetMissingStickersAsync(AuthState.UserId);
+        if (!missingResponse.Success || missingResponse.Data == null)
+        {
+            stickers = new List<Sticker>();
+            hasNextPage = false;
+            Console.WriteLine($"Error al cargar faltantes: {missingResponse.ErrorMessage}");
+            return;
+        }
+
+        var missingIds = missingResponse.Data.Select(m => m.StickerId).ToHashSet();
+        if (!missingIds.Any())
+        {
+            stickers = new List<Sticker>();
+            hasNextPage = false;
+            return;
+        }
+
+        // Obtiene el catálogo aplicando los filtros y luego cruza con los IDs faltantes
+        var catalogResponse = await StickerHttp.GetStickersAsync(
+            page: 1, pageSize: 500,
             nationalTeam: filtroNationalTeam,
             category: filtroCategory
         );
 
-        if (response.Success)
-        {
-            stickers = response.Data ?? new List<Sticker>();
-            hasNextPage = stickers.Count == PageSize;
-        }
-        else
+        if (!catalogResponse.Success)
         {
             stickers = new List<Sticker>();
             hasNextPage = false;
-            Console.WriteLine($"Error al cargar faltantes: {response.ErrorMessage}");
+            Console.WriteLine($"Error al cargar catálogo: {catalogResponse.ErrorMessage}");
+            return;
         }
+
+        var allFiltered = (catalogResponse.Data ?? new List<Sticker>())
+            .Where(s => missingIds.Contains(s.Id))
+            .OrderBy(s => s.Number)
+            .ToList();
+
+        var skip = (currentPage - 1) * PageSize;
+        stickers = allFiltered.Skip(skip).Take(PageSize).ToList();
+        hasNextPage = allFiltered.Count > skip + PageSize;
     }
 
     private async Task OnStickerClick(Sticker sticker)

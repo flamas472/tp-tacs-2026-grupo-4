@@ -2,10 +2,11 @@
 @using Figuritas.Client.Requests
 
 @inject UserHttpClient UserHttp
+@inject AuthStateService AuthState
 
 <MudDialog>
     <DialogContent>
-        <StickerDialogContent Sticker="Sticker" FeedbackMsg="feedbackMsg" FeedbackSuccess="feedbackSuccess">
+        <StickerDialogContent Sticker="@Sticker" FeedbackMsg="@feedbackMsg" FeedbackSuccess="@feedbackSuccess">
             <MudText Typo="Typo.body2" Color="Color.Warning" Class="mt-1 mb-1">
                 ¿Eliminar esta figurita de tus faltantes?
             </MudText>
@@ -40,10 +41,7 @@
         loading = true;
         feedbackMsg = null;
 
-        // TODO: reemplazar userId=1 por el ID del usuario logueado cuando exista AuthStateService
-        const int userId = 1;
-
-        var result = await UserHttp.DeleteMissingStickerAsync(userId, Sticker.Id);
+        var result = await UserHttp.DeleteMissingStickerAsync(AuthState.UserId, Sticker.Id);
 
         feedbackSuccess = result.Success;
         feedbackMsg = result.Success

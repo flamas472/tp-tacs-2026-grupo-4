@@ -1,56 +1,80 @@
 @using Figuritas.Shared.Model
 @using Figuritas.Shared.DTO
+@using Figuritas.Shared.DTO.request
 @using Figuritas.Client.Requests
 
 @inject UserHttpClient UserHttp
+@inject AuthStateService AuthState
+@inject NavigationManager Nav
 
 <MudDialog>
     <DialogContent>
-        <StickerDialogContent Sticker="Sticker" FeedbackMsg="feedbackMsg" FeedbackSuccess="feedbackSuccess">
-            <div class="action-mode-selector">
-                <MudButton Variant="@(modoRepetida ? Variant.Filled : Variant.Outlined)"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.ContentCopy"
-                           Class="action-mode-btn"
-                           OnClick="@(() => { modoRepetida = true; feedbackMsg = null; })">
-                    Repetida
-                </MudButton>
-                <MudButton Variant="@(!modoRepetida ? Variant.Filled : Variant.Outlined)"
-                           Color="Color.Secondary"
-                           StartIcon="@Icons.Material.Filled.BookmarkAdd"
-                           Class="action-mode-btn"
-                           OnClick="@(() => { modoRepetida = false; feedbackMsg = null; })">
-                    Faltante
-                </MudButton>
-            </div>
-
-            @if (modoRepetida)
+        <StickerDialogContent Sticker="@Sticker" FeedbackMsg="@feedbackMsg" FeedbackSuccess="@feedbackSuccess">
+            @if (IsAuthenticated)
             {
-                <MudCheckBox @bind-Value="canBeExchanged"
-                             Label="Disponible para intercambio"
-                             Color="Color.Primary"
-                             Class="mt-1" />
+                <div class="action-mode-selector">
+                    <MudButton Variant="@(modoRepetida ? Variant.Filled : Variant.Outlined)"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.ContentCopy"
+                               Class="action-mode-btn"
+                               OnClick="@(() => { modoRepetida = true; feedbackMsg = null; })">
+                        Repetida
+                    </MudButton>
+                    <MudButton Variant="@(!modoRepetida ? Variant.Filled : Variant.Outlined)"
+                               Color="Color.Secondary"
+                               StartIcon="@Icons.Material.Filled.BookmarkAdd"
+                               Class="action-mode-btn"
+                               OnClick="@(() => { modoRepetida = false; feedbackMsg = null; })">
+                        Faltante
+                    </MudButton>
+                </div>
+
+                @if (modoRepetida)
+                {
+                    <MudCheckBox @bind-Value="canBeExchanged"
+                                 Label="Disponible para intercambio"
+                                 Color="Color.Primary"
+                                 Class="mt-1" />
+                }
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1 mb-2">
+                    Iniciá sesión para gestionar tu colección.
+                </MudText>
             }
         </StickerDialogContent>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cancelar</MudButton>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   OnClick="HandleAgregar"
-                   Disabled="loading">
-            @if (loading)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-            }
-            Agregar
-        </MudButton>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cerrar</MudButton>
+        @if (IsAuthenticated)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="HandleAgregar"
+                       Disabled="loading">
+                @if (loading)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Agregar
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="@(() => { MudDialog.Cancel(); Nav.NavigateTo("/ingresar"); })">
+                Ir a Ingresar
+            </MudButton>
+        }
     </DialogActions>
 </MudDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
+    [Parameter] public bool IsAuthenticated { get; set; } = true;
 
     private bool modoRepetida = true;
     private bool canBeExchanged = true;
@@ -63,25 +87,16 @@
         loading = true;
         feedbackMsg = null;
 
-        // TODO: reemplazar userId=1 por el ID del usuario logueado cuando exista AuthStateService
-        const int userId = 1;
-
-        var sf = new StickerField
-        {
-            Number = Sticker.Number,
-            NationalTeam = Sticker.NationalTeam,
-            Team = Sticker.Team,
-            Description = Sticker.Description,
-            Category = Sticker.Category
-        };
+        var userId = AuthState.UserId;
 
         if (modoRepetida)
         {
             var result = await UserHttp.AddUserStickerAsync(userId, new PostUserStickerRequestDTO
             {
-                Sticker = sf,
+                StickerId = Sticker.Id,
                 Quantity = 1,
-                CanBeExchanged = canBeExchanged
+                CanBeDirectlyExchanged = canBeExchanged,
+                CanBeAuctioned = false
             });
 
             feedbackSuccess = result.Success;
@@ -93,7 +108,7 @@
         {
             var result = await UserHttp.AddMissingStickerAsync(userId, new PostMissingStickerRequestDTO
             {
-                Sticker = sf
+                StickerId = Sticker.Id
             });
 
             feedbackSuccess = result.Success;

@@ -290,3 +290,41 @@ code {
     text-transform: none !important;
     border-radius: 8px;
 }
+
+
+/* ─── Ingresar page ─────────────────────────────────────────────────────── */
+.login-wrapper {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+}
+
+.login-header {
+    padding: 2rem 2rem 0;
+    text-align: center;
+}
+
+.password-requirements {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 6px;
+}
+
+.requirement {
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.15s;
+}
+
+.requirement.met   { color: var(--mud-palette-success); }
+.requirement.unmet { color: var(--mud-palette-text-secondary); }

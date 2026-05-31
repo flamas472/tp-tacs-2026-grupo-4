@@ -1,5 +1,5 @@
-using Figuritas.Shared.Model;
-using Figuritas.Shared.DTO;
+using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Responses;
 using Figuritas.Client.Extensions;
 using System.Net.Http.Headers;
@@ -16,11 +16,11 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
-        public async Task<ApiResponse<Rate>> RateExchangeAsync(int exchangeId, PostRateDTO dto, string authToken)
+        public async Task<ApiResponse<RatingResponseDTO>> CreateRatingAsync(PostRatingRequestDTO dto, string authToken)
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, $"api/exchange/{exchangeId}/rate");
+                var request = new HttpRequestMessage(HttpMethod.Post, "api/ratings");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
                 request.Content = JsonContent.Create(dto);
 
@@ -28,18 +28,18 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<Rate>();
+                    var data = await response.ProcesarRespuesta<RatingResponseDTO>();
                     return data is not null
-                        ? ApiResponse<Rate>.Ok(data)
-                        : ApiResponse<Rate>.Fail("No se pudo leer la calificación creada.");
+                        ? ApiResponse<RatingResponseDTO>.Ok(data)
+                        : ApiResponse<RatingResponseDTO>.Fail("No se pudo leer la calificación creada.");
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<Rate>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<RatingResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<Rate>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<RatingResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
     }

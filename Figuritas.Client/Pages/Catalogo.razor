@@ -1,9 +1,9 @@
 @page "/catalogo"
-@using Figuritas.Client.Components
 @using Figuritas.Client.Requests
 @using Figuritas.Shared.Model
 
 @inject IDialogService DialogService
+@inject AuthStateService AuthState
 @inject StickerHttpClient StickerHttp
 @inject NationalTeamHttpClient NationalTeamHttp
 @inject CategoryHttpClient CategoryHttp
@@ -142,7 +142,8 @@
     {
         var parameters = new DialogParameters<StickerActionDialog>
         {
-            { d => d.Sticker, sticker }
+            { d => d.Sticker, sticker },
+            { d => d.IsAuthenticated, AuthState.UserId != 0 }
         };
         var options = new DialogOptions
         {

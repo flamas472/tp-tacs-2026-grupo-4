@@ -1,5 +1,5 @@
-using Figuritas.Shared.Model;
 using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Responses;
 using Figuritas.Client.Extensions;
 using System.Net.Http.Headers;
@@ -16,7 +16,7 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
-        public async Task<ApiResponse<List<Auction>>> GetAuctionsAsync()
+        public async Task<ApiResponse<List<AuctionResponseDTO>>> GetAuctionsAsync()
         {
             try
             {
@@ -24,20 +24,20 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<List<Auction>>();
-                    return ApiResponse<List<Auction>>.Ok(data ?? new List<Auction>());
+                    var data = await response.ProcesarRespuesta<List<AuctionResponseDTO>>();
+                    return ApiResponse<List<AuctionResponseDTO>>.Ok(data ?? new List<AuctionResponseDTO>());
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<Auction>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<AuctionResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<List<Auction>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<AuctionResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
-        public async Task<ApiResponse<Auction>> GetAuctionAsync(int id)
+        public async Task<ApiResponse<AuctionResponseDTO>> GetAuctionAsync(int id)
         {
             try
             {
@@ -45,22 +45,22 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<Auction>();
+                    var data = await response.ProcesarRespuesta<AuctionResponseDTO>();
                     return data is not null
-                        ? ApiResponse<Auction>.Ok(data)
-                        : ApiResponse<Auction>.Fail("No se pudo leer la subasta.");
+                        ? ApiResponse<AuctionResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionResponseDTO>.Fail("No se pudo leer la subasta.");
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<Auction>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<Auction>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
-        public async Task<ApiResponse<Auction>> CreateAuctionAsync(PostAuctionDTO dto, string authToken)
+        public async Task<ApiResponse<AuctionResponseDTO>> CreateAuctionAsync(PostAuctionRequestDTO dto, string authToken)
         {
             try
             {
@@ -72,22 +72,22 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<Auction>();
+                    var data = await response.ProcesarRespuesta<AuctionResponseDTO>();
                     return data is not null
-                        ? ApiResponse<Auction>.Ok(data)
-                        : ApiResponse<Auction>.Fail("No se pudo leer la subasta creada.");
+                        ? ApiResponse<AuctionResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionResponseDTO>.Fail("No se pudo leer la subasta creada.");
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<Auction>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<Auction>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
-        public async Task<ApiResponse<AuctionOffer>> CreateOfferAsync(int auctionId, PostAuctionOfferDTO dto, string authToken)
+        public async Task<ApiResponse<AuctionOfferResponseDTO>> CreateOfferAsync(int auctionId, PostAuctionOfferRequestDTO dto, string authToken)
         {
             try
             {
@@ -99,18 +99,18 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<AuctionOffer>();
+                    var data = await response.ProcesarRespuesta<AuctionOfferResponseDTO>();
                     return data is not null
-                        ? ApiResponse<AuctionOffer>.Ok(data)
-                        : ApiResponse<AuctionOffer>.Fail("No se pudo leer la oferta creada.");
+                        ? ApiResponse<AuctionOfferResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionOfferResponseDTO>.Fail("No se pudo leer la oferta creada.");
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<AuctionOffer>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<AuctionOfferResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<AuctionOffer>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<AuctionOfferResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
     }

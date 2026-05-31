@@ -1,0 +1,189 @@
+@page "/ingresar"
+@using Figuritas.Shared.DTO
+
+@inject AuthStateService AuthState
+@inject NavigationManager Nav
+
+<PageTitle>Ingresar — Figuritas</PageTitle>
+
+<div class="login-wrapper">
+    <MudPaper Class="login-card" Elevation="4">
+        <div class="login-header">
+            <MudIcon Icon="@Icons.Material.Filled.Style" Size="Size.Large" Color="Color.Primary" />
+            <MudText Typo="Typo.h5" Class="mt-1">Figuritas</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">Gestioná tu colección</MudText>
+        </div>
+
+        <MudTabs @bind-ActivePanelIndex="_tabIndex" Rounded="true" Centered="true">
+
+            <!-- ── TAB: INGRESAR ──────────────────────────────── -->
+            <MudTabPanel Text="Ingresar">
+                @if (_loginError != null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_loginError</MudAlert>
+                }
+                <MudTextField @bind-Value="_loginUsername"
+                              Label="Usuario"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Person"
+                              FullWidth="true"
+                              Class="mb-3"
+                              Immediate="true" />
+                <MudTextField @bind-Value="_loginPassword"
+                              Label="Contraseña"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Password"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Lock"
+                              FullWidth="true"
+                              Class="mb-4"
+                              Immediate="true" />
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Size="Size.Large"
+                           OnClick="HandleLogin"
+                           Disabled="_loading">
+                    @if (_loading && _tabIndex == 0)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Ingresar
+                </MudButton>
+            </MudTabPanel>
+
+            <!-- ── TAB: REGISTRARSE ───────────────────────────── -->
+            <MudTabPanel Text="Registrarse">
+                @if (_registerError != null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_registerError</MudAlert>
+                }
+                <MudTextField @bind-Value="_registerUsername"
+                              Label="Usuario"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Person"
+                              FullWidth="true"
+                              Class="mb-3"
+                              Immediate="true" />
+                <MudTextField @bind-Value="_registerPassword"
+                              Label="Contraseña"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Password"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Lock"
+                              FullWidth="true"
+                              Immediate="true" />
+
+                <div class="password-requirements mb-3">
+                    <span class="@ReqClass(PwLen)">
+                        <MudIcon Icon="@ReqIcon(PwLen)" Size="Size.Small" />
+                        Más de 8 caracteres
+                    </span>
+                    <span class="@ReqClass(PwUpper)">
+                        <MudIcon Icon="@ReqIcon(PwUpper)" Size="Size.Small" />
+                        Al menos 1 mayúscula
+                    </span>
+                    <span class="@ReqClass(PwDigit)">
+                        <MudIcon Icon="@ReqIcon(PwDigit)" Size="Size.Small" />
+                        Al menos 1 número
+                    </span>
+                    <span class="@ReqClass(PwLower)">
+                        <MudIcon Icon="@ReqIcon(PwLower)" Size="Size.Small" />
+                        Al menos 1 letra minúscula
+                    </span>
+                </div>
+
+                <MudTextField @bind-Value="_registerConfirm"
+                              Label="Confirmar contraseña"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Password"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Lock"
+                              FullWidth="true"
+                              Class="mb-4"
+                              Immediate="true"
+                              Error="@ConfirmMismatch"
+                              ErrorText="Las contraseñas no coinciden" />
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Size="Size.Large"
+                           OnClick="HandleRegister"
+                           Disabled="_loading || !RegisterValid">
+                    @if (_loading && _tabIndex == 1)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Registrarse
+                </MudButton>
+            </MudTabPanel>
+        </MudTabs>
+    </MudPaper>
+</div>
+
+@code {
+    private int _tabIndex;
+    private bool _loading;
+
+    private string _loginUsername = "";
+    private string _loginPassword = "";
+    private string? _loginError;
+
+    private string _registerUsername = "";
+    private string _registerPassword = "";
+    private string _registerConfirm = "";
+    private string? _registerError;
+
+    private bool PwLen   => _registerPassword.Length > 8;
+    private bool PwUpper => _registerPassword.Any(char.IsUpper);
+    private bool PwDigit => _registerPassword.Any(char.IsDigit);
+    private bool PwLower => _registerPassword.Any(char.IsLower);
+    private bool PwValid => PwLen && PwUpper && PwDigit && PwLower;
+    private bool ConfirmMismatch => _registerConfirm.Length > 0 && _registerConfirm != _registerPassword;
+    private bool RegisterValid   => PwValid && _registerConfirm == _registerPassword
+                                    && !string.IsNullOrWhiteSpace(_registerUsername);
+
+    private static string ReqClass(bool met) => "requirement " + (met ? "met" : "unmet");
+    private static string ReqIcon(bool met)  => met
+        ? Icons.Material.Filled.CheckCircle
+        : Icons.Material.Outlined.RadioButtonUnchecked;
+
+    protected override void OnInitialized()
+    {
+        if (AuthState.UserId != 0)
+            Nav.NavigateTo("/");
+    }
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(_loginUsername) || string.IsNullOrWhiteSpace(_loginPassword))
+        {
+            _loginError = "Completá usuario y contraseña.";
+            return;
+        }
+        _loading = true;
+        _loginError = null;
+        var error = await AuthState.LoginAsync(_loginUsername, _loginPassword);
+        _loading = false;
+        if (error != null)
+            _loginError = error;
+        else
+            Nav.NavigateTo("/");
+    }
+
+    private async Task HandleRegister()
+    {
+        if (!RegisterValid) return;
+        _loading = true;
+        _registerError = null;
+        var error = await AuthState.RegisterAsync(_registerUsername, _registerPassword);
+        _loading = false;
+        if (error != null)
+            _registerError = error;
+        else
+            Nav.NavigateTo("/");
+    }
+}

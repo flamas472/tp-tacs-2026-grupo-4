@@ -1,4 +1,4 @@
-using Figuritas.Shared.Model;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Responses;
 using Figuritas.Client.Extensions;
 
@@ -13,22 +13,19 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
-        public async Task<ApiResponse<List<UserSticker>>> GetInventoryStickersAsync(
-            int page, int pageSize,
+        public async Task<ApiResponse<List<MarketStickerResponseDTO>>> GetMarketStickersAsync(
+            int page = 1,
+            int pageSize = 20,
             string? nationalTeam = null,
-            string? category = null,
-            bool? canBeExchanged = null)
+            string? category = null)
         {
-            string url = $"api/inventorystickers?Page={page}&PageSize={pageSize}";
+            string url = $"api/market/stickers?Page={page}&PageSize={pageSize}";
 
             if (!string.IsNullOrEmpty(nationalTeam))
-                url += $"&NationalTeam={nationalTeam}";
+                url += $"&NationalTeam={Uri.EscapeDataString(nationalTeam)}";
 
             if (!string.IsNullOrEmpty(category))
-                url += $"&Category={category}";
-
-            if (canBeExchanged.HasValue)
-                url += $"&CanBeExchanged={canBeExchanged.Value}";
+                url += $"&Category={Uri.EscapeDataString(category)}";
 
             try
             {
@@ -36,16 +33,16 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<List<UserSticker>>();
-                    return ApiResponse<List<UserSticker>>.Ok(data ?? new List<UserSticker>());
+                    var data = await response.ProcesarRespuesta<List<MarketStickerResponseDTO>>();
+                    return ApiResponse<List<MarketStickerResponseDTO>>.Ok(data ?? new List<MarketStickerResponseDTO>());
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<UserSticker>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<MarketStickerResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<List<UserSticker>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<MarketStickerResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
             }
         }
     }

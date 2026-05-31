@@ -16,9 +16,4 @@ public class User
     [Range(0, 5)]
     public double Reputation => Ratings.Count > 0 ? Ratings.Average(r => r.Stars) : 0;
 
-    public void RemoveMissingSticker(int stickerId)
-    {
-        MissingStickers.RemoveAll(s => s.Id == stickerId);
-    }
-
 }
