@@ -1,4 +1,4 @@
-namespace Figuritas.Shared.Model;
+namespace Figuritas.Shared.Model.Intercambios;
 
 public enum ExchangeProposalState {
     Pending,

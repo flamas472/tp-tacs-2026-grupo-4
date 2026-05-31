@@ -18,12 +18,6 @@ public class Sticker
 
     public bool Equals(Sticker sticker)
     {
-        return 
-            Category.Equals(sticker.Category)
-            && Description.Equals(sticker.Description)
-            && Number.Equals(sticker.Number)
-            && Team.Equals(sticker.Team)
-            && NationalTeam.Equals(sticker.NationalTeam);
-
+        return Id == sticker.Id;
     }
 }

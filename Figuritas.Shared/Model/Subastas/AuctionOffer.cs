@@ -4,9 +4,11 @@ public class AuctionOffer
 {
     public int Id { get; set; }
 
-    public required User Bidder { get; set; }
+    public int AuctionId { get; set; }
 
-    public required List<UserSticker> Offer { get; set; }
+    public int BidderId { get; set; }
 
-    public required Auction Auction { get; set; }
+    public List<int> OfferedUserStickerIds { get; set; } = new();
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

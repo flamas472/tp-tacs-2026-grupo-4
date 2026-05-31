@@ -1,17 +1,18 @@
 using Microsoft.AspNetCore.Mvc;
-using Figuritas.Shared.Model;
+using Microsoft.AspNetCore.Authorization;
 using Figuritas.Shared.DTO.request;
-using System.Security.Claims;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Api.Services;
+using Figuritas.Shared.Model;
 
 namespace Figuritas.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class AuctionsController : ControllerBase
 {
     private readonly AuctionService _auctionService;
-  
     private readonly AuthService _authService;
 
     public AuctionsController(AuctionService auctionService, AuthService authService)
@@ -21,62 +22,73 @@ public class AuctionsController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<List<Auction>> GetAuctions()
+    [AllowAnonymous]
+    public ActionResult<List<AuctionResponseDTO>> GetAuctions()
     {
-        try
-        {
-            var auctions = _auctionService.GetAuctions();
-            return Ok(auctions);
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        var auctions = _auctionService.GetAuctions();
+        return Ok(auctions);
     }
 
     [HttpGet("{id}")]
-    public ActionResult<Auction> GetAuction(int id)
+    [AllowAnonymous]
+    public ActionResult<AuctionResponseDTO> GetAuction(int id)
     {
-        try
-        {
-            var auction = _auctionService.GetAuction(id);
-            if (auction == null) return NotFound("Auction not found");
-            return Ok(auction);
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        var auction = _auctionService.GetAuction(id);
+        if (auction == null)
+            return NotFound("Auction not found.");
+        return Ok(auction);
     }
 
     [HttpPost]
-    public ActionResult<Auction> PostAuction(PostAuctionDTO dto)
+    public ActionResult<AuctionResponseDTO> PostAuction([FromBody] PostAuctionRequestDTO dto)
     {
         try
         {
-            var auctioneerId = _authService.GetUserIdFromToken(User);
-            var auction = _auctionService.CreateAuction(auctioneerId, dto);
-            return CreatedAtAction(nameof(GetAuctions), new { id = auction.Id }, auction);
+            var callerUserId = _authService.GetUserIdFromToken(User);
+            var auction = _auctionService.CreateAuction(callerUserId, dto);
+            return CreatedAtAction(nameof(GetAuction), new { id = auction.Id }, auction);
         }
-        catch (ArgumentException ex)
+        catch (InvalidOperationException ex)
         {
-            return NotFound(ex.Message);
+            return BadRequest(ex.Message);
         }
     }
 
+    [HttpPost("{id}/close")]
+    public async Task<ActionResult<AuctionResponseDTO>> CloseAuction(int id, [FromBody] CloseAuctionRequestDTO dto)
+    {
+        try
+        {
+            var callerUserId = _authService.GetUserIdFromToken(User);
+            var auction = await _auctionService.CloseAuction(id, dto.WinningOfferId, callerUserId);
+            return Ok(auction);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
 
     [HttpPost("{auctionId}/offers")]
-    public ActionResult<AuctionOffer> PostAuctionOffer(int auctionId, PostAuctionOfferDTO dto)
+    public ActionResult<AuctionOfferResponseDTO> PostAuctionOffer(int auctionId, [FromBody] PostAuctionOfferRequestDTO dto)
     {
         try
         {
             var bidderId = _authService.GetUserIdFromToken(User);
             var offer = _auctionService.CreateOffer(bidderId, auctionId, dto);
-            return CreatedAtAction(nameof(GetAuctions), new { id = offer.Id }, offer);
+            return CreatedAtAction(nameof(GetAuction), new { id = auctionId }, offer);
         }
-        catch (ArgumentException ex)
+        catch (KeyNotFoundException ex)
         {
             return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
     }
 }

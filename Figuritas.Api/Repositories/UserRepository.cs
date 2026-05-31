@@ -1,50 +1,52 @@
-using System.Collections.Concurrent;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
-// Repo for in-memory persistence.
-public class UserRepository
+namespace Figuritas.Api.Repositories;
+
+public class UserRepository : IUserRepository
 {
-    private readonly ConcurrentBag<User> users = [];
-    private int nextId = 1;
+    private readonly IMongoCollection<User> _users;
+    private readonly IIdGenerator _idGenerator;
 
-    public UserRepository()
+    public UserRepository(MongoDbContext context, IIdGenerator idGenerator)
     {
-        Add(new User
-        {
-            Username = "DefaultUser",
-            HashedPassword = "default",
-            IsAdmin = true
-        });
+        _users = context.Collection<User>("Users");
+        _idGenerator = idGenerator;
     }
 
-    
     public bool ExistsId(int userId)
     {
-        return users.Any(u => u.Id == userId);
+        return _users.Find(u => u.Id == userId).Any();
     }
 
     public List<User> GetAll()
     {
-        return users.ToList();
+        return _users.Find(_ => true).ToList();
     }
 
     public void Add(User user)
     {
-        user.Id = Interlocked.Increment(ref nextId) - 1;
-        users.Add(user);
+        user.Id = _idGenerator.GetNextId<User>();
+        _users.InsertOne(user);
     }
 
     public User? GetById(int userId)
     {
-        return users.FirstOrDefault(u => u.Id == userId);
+        return _users.Find(u => u.Id == userId).FirstOrDefault();
     }
-     
+
+    public List<User> GetByIds(List<int> ids)
+    {
+        var filter = Builders<User>.Filter.In(u => u.Id, ids);
+        return _users.Find(filter).ToList();
+    }
+
     public void Update(User user)
     {
-        var existingUser = GetById(user.Id);
-        if (existingUser == null) throw new ArgumentException("User not found");
-
-        existingUser.Username = user.Username;
-        existingUser.HashedPassword = user.HashedPassword;
+        var result = _users.ReplaceOne(u => u.Id == user.Id, user);
+        if (!result.IsAcknowledged || result.MatchedCount == 0)
+        {
+            throw new ArgumentException("User not found");
+        }
     }
 }

@@ -1,21 +1,27 @@
+using BCrypt.Net;
+using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO;
+using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
 using Figuritas.Shared.Utils;
-using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Figuritas.Api.Services;
 
+
 public class UserService(
-    UserRepository userRepo, 
-    UserStickerRepository inventoryRepo, 
+    IUserRepository userRepo,
+    IUserStickerRepository inventoryRepo,
     StickerService stickerService,
-    ExchangeRepository exchangeRepo
+    IExchangeRepository exchangeRepo,
+    IMissingStickerRepository missingStickerRepo
     )
 {
-    private readonly UserStickerRepository _inventoryRepo = inventoryRepo;
-    private readonly UserRepository _userRepo = userRepo;
+    private readonly IUserStickerRepository _inventoryRepo = inventoryRepo;
+    private readonly IUserRepository _userRepo = userRepo;
     private readonly StickerService _stickerService = stickerService;
-    private readonly ExchangeRepository _exchangeRepo = exchangeRepo;
+    private readonly IExchangeRepository _exchangeRepo = exchangeRepo;
+    private readonly IMissingStickerRepository _missingStickerRepo = missingStickerRepo;
 
     public List<User> GetAllUsers() => _userRepo.GetAll();
 
@@ -23,7 +29,6 @@ public class UserService(
 
     public User CreateUser(PostUserDTO userDTO)
     {
-
         var username = userDTO.Username;
         var password = userDTO.Password;
 
@@ -37,7 +42,7 @@ public class UserService(
         var user = new User
         {
             Username = username,
-            HashedPassword = password, // TODO: Hashear la password
+            HashedPassword = BCrypt.Net.BCrypt.HashPassword(password),
             IsAdmin = false
         };
 
@@ -48,15 +53,14 @@ public class UserService(
     public User UpdateUser(int userID, PatchUserDTO patchDTO)
     {
         var user = _userRepo.GetById(userID);
-        if (user == null) 
+        if (user == null)
             throw new ArgumentException("User not found");
 
-        // Solo actualizamos si el parámetro NO es nulo
-        if (patchDTO.Username != null) 
+        if (patchDTO.Username != null)
             user.Username = patchDTO.Username;
 
-        if (patchDTO.Password != null) 
-            user.HashedPassword = patchDTO.Password; // TODO: Hashear la password
+        if (patchDTO.Password != null)
+            user.HashedPassword = BCrypt.Net.BCrypt.HashPassword(patchDTO.Password);
 
         _userRepo.Update(user);
         return user;
@@ -68,54 +72,141 @@ public class UserService(
         var password = userDTO.Password;
 
         var user = _userRepo.GetAll().FirstOrDefault(u => u.Username == username);
-        if (user == null || user.HashedPassword != password) // TODO: Hash de la clave
-            return null; // Credenciales inválidas
-        return user; // Credenciales válidas
+        if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.HashedPassword))
+            return null;
+        return user;
     }
 
-    public Sticker AddMissingStickerToUser(int userId, Sticker missingSticker)
+    public async Task<MissingSticker> AddMissingStickerToUser(int userId, int stickerId)
     {
-        User? user = _userRepo.GetById(userId);
-        
-        if (user == null) throw new ArgumentException("User not found");
-        if (user.HasMissingSticker(missingSticker)) throw new ArgumentException("Missing sticker already registered");
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
 
-        var canonical = _stickerService.GetOrCreate(missingSticker);
-        user.AddMissingSticker(canonical);
+        var sticker = _stickerService.GetById(stickerId);
+        if (sticker == null)
+            throw new ArgumentException("Sticker not found in catalog");
 
-        return canonical;
+        if (await _missingStickerRepo.ExistsAsync(userId, stickerId))
+            throw new ArgumentException("Missing sticker already registered");
+
+        var missingSticker = new MissingSticker
+        {
+            UserId = userId,
+            StickerId = stickerId,
+            RegisteredAt = DateTime.UtcNow
+        };
+
+        await _missingStickerRepo.AddAsync(missingSticker);
+        return missingSticker;
+    }
+
+    public async Task<List<MissingSticker>> GetMissingStickers(int userId)
+    {
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
+        return await _missingStickerRepo.GetByUserIdAsync(userId);
+    }
+
+    public async Task<bool> RemoveMissingSticker(int userId, int stickerId)
+    {
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
+        return await _missingStickerRepo.DeleteAsync(userId, stickerId);
     }
 
     public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
     {
-        if(!_userRepo.ExistsId(userId)) throw new ArgumentException("User not found");
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
 
-        Sticker sticker = data.Sticker.ToDomain();
+        var sticker = _stickerService.GetById(data.StickerId);
+        if (sticker == null)
+            throw new ArgumentException("Sticker not found in catalog");
 
-        _stickerService.CreateIfNonExistent(sticker);
+        var userSticker = new UserSticker
+        {
+            UserId = userId,
+            Sticker = sticker,
+            Quantity = data.Quantity,
+            CanBeDirectlyExchanged = data.CanBeDirectlyExchanged,
+            CanBeAuctioned = data.CanBeAuctioned,
+            Active = true
+        };
 
-        var userSticker = data.ToDomain(userId);
-
-        if (_inventoryRepo.Exists(userSticker)) throw new ArgumentException("Inventory already registered");
+        if (_inventoryRepo.Exists(userSticker))
+            throw new ArgumentException("Inventory already registered");
 
         _inventoryRepo.Add(userSticker);
 
         return userSticker;
     }
 
+    public List<MyPublishedStickerResponseDTO> GetMyPublishedStickers(GetMyStickersDTO dto, int callerUserId)
+    {
+        return _inventoryRepo.GetByUserIdPaginated(callerUserId, dto.Page, dto.PageSize)
+            .Select(us => new MyPublishedStickerResponseDTO
+            {
+                StickerId = us.Id,
+                Number = us.Sticker.Number,
+                Team = us.Sticker.Team,
+                Player = us.Sticker.Description,
+                Quantity = us.Quantity,
+                CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
+                CanBeAuctioned = us.CanBeAuctioned
+            })
+            .ToList();
+    }
+
     public List<UserSticker> GetAllUserStickers() => _inventoryRepo.GetAll();
 
-    public UserSticker UpdateUserSticker(int stickerId, bool? canBeExchanged, int? quantity)
+    public UserSticker? GetUserStickerById(int userId, int stickerId)
+    {
+        var userSticker = _inventoryRepo.GetById(stickerId);
+        if (userSticker == null || userSticker.UserId != userId)
+            return null;
+        return userSticker;
+    }
+
+    public List<UserSticker> SearchUserStickers(GetUserStickersDTO queryParams)
+    {
+        var filter = queryParams.ToPredicate();
+        return _inventoryRepo.GetPaginated(queryParams.Page, queryParams.PageSize, filter);
+    }
+
+    public List<MarketStickerResponseDTO> SearchMarketStickers(GetMarketStickersDTO dto, int callerUserId)
+    {
+        var filter = dto.ToPredicate(callerUserId);
+        var userStickers = _inventoryRepo.GetPaginated(dto.Page, dto.PageSize, filter, sortDescending: true);
+
+        return userStickers.Select(us => new MarketStickerResponseDTO
+        {
+            UserStickerId = us.Id,
+            OwnerId = us.UserId,
+            StickerNumber = us.Sticker.Number,
+            StickerNationalTeam = us.Sticker.NationalTeam,
+            StickerTeam = us.Sticker.Team,
+            StickerCategory = us.Sticker.Category,
+            StickerDescription = us.Sticker.Description,
+            StickerImageUrl = us.Sticker.ImageUrl,
+            Quantity = us.Quantity,
+            CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
+            CanBeAuctioned = us.CanBeAuctioned
+        }).ToList();
+    }
+
+    public UserSticker UpdateUserSticker(int stickerId, bool? canBeDirectlyExchanged, bool? canBeAuctioned, int? quantity)
     {
         var sticker = _inventoryRepo.GetById(stickerId);
-        if (sticker == null) 
+        if (sticker == null)
             throw new ArgumentException("Sticker not found");
 
-        // Solo actualizamos si el parámetro NO es nulo
-        if (canBeExchanged.HasValue) 
-            sticker.CanBeExchanged = canBeExchanged.Value;
+        if (canBeDirectlyExchanged.HasValue)
+            sticker.CanBeDirectlyExchanged = canBeDirectlyExchanged.Value;
 
-        if (quantity.HasValue) 
+        if (canBeAuctioned.HasValue)
+            sticker.CanBeAuctioned = canBeAuctioned.Value;
+
+        if (quantity.HasValue)
             sticker.Quantity = quantity.Value;
 
         _inventoryRepo.Update(sticker);
@@ -127,69 +218,74 @@ public class UserService(
         _inventoryRepo.Delete(userStickerId);
     }
 
-    public List<Sticker> GetMissingStickers(int userId, int page, int pageSize, string? nationalTeam, string? category)
+    public List<RatingResponseDTO> GetAllUserRatings(int userId, int page, int pageSize)
     {
         User? user = _userRepo.GetById(userId);
         if (user == null) throw new ArgumentException("User not found");
 
-        var query = user.MissingStickers.AsEnumerable();
-
-        if (!string.IsNullOrEmpty(nationalTeam))
-            query = query.Where(s => s.NationalTeam == nationalTeam);
-        if (!string.IsNullOrEmpty(category))
-            query = query.Where(s => s.Category == category);
-
-        return query
-            .OrderBy(s => s.Number)
+        return user.Ratings
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .Select(r => new RatingResponseDTO
+            {
+                Id = r.Id,
+                ExchangeId = r.ExchangeId,
+                EvaluatorUserId = r.EvaluatorUserId,
+                TargetUserId = r.TargetUserId,
+                Stars = r.Stars,
+                Comment = r.Comment,
+                CreatedAt = r.CreatedAt
+            })
             .ToList();
     }
 
-    public void RemoveMissingSticker(int userId, int stickerId)
+    public Rate CreateUserRate(PostRatingRequestDTO dto, int raterId)
     {
-        User? user = _userRepo.GetById(userId);
-        if (user == null) throw new ArgumentException("User not found");
-        user.RemoveMissingSticker(stickerId);
-    }
+        // Guard 1: Anti-self-rating
+        if (raterId == dto.TargetUserId)
+            throw new ArgumentException("Self-rating is not allowed");
 
-    public List<Rate> GetAllUserRatings(int userId)
-    {
-        User? user = _userRepo.GetById(userId);
-        if (user == null) throw new ArgumentException("User not found");
+        var exchange = _exchangeRepo.GetById(dto.ExchangeId);
 
-        return user.Ratings;
-    }
-
-    // TODO: Ver si se puede mejorar esta solución
-    public Rate CreateUserRate(int exchangeId, PostRateDTO postRateDTO, int raterId)
-    {
-        var exchange = _exchangeRepo.GetById(exchangeId);
-        if (exchange == null) 
+        // Guard 2 (also covers not found): Exchange must exist
+        if (exchange == null)
             throw new ArgumentException("Exchange not found");
-        if(exchange.ProponentID != raterId || exchange.ProposedID != raterId)
-            throw new ArgumentException("User did not participate in the exchange");
+
+        // Guard 3 (state): Exchange entity only exists once a proposal has been accepted and
+        // the trade was completed — there is no State field because the record itself is proof
+        // of finalization. No additional state check is required; reaching this point means
+        // the exchange is finalized by definition.
+
+        // Guard 5: Rater must be a participant in the exchange
+        if (exchange.ProponentID != raterId && exchange.ProposedID != raterId)
+            throw new ArgumentException("Not participant");
+
+        // Guard 6: TargetUserId must be the other participant
+        var expectedTargetId = exchange.ProponentID == raterId ? exchange.ProposedID : exchange.ProponentID;
+        if (dto.TargetUserId != expectedTargetId)
+            throw new ArgumentException("Not participant");
+
+        var targetUser = _userRepo.GetById(dto.TargetUserId)
+            ?? throw new ArgumentException("Rated user not found");
+
+        // Guard 7: Anti-duplicate — one rating per rater per exchange
+        bool alreadyRated = targetUser.Ratings.Any(r =>
+            r.EvaluatorUserId == raterId && r.ExchangeId == dto.ExchangeId);
+        if (alreadyRated)
+            throw new ArgumentException("Already rated");
 
         var rate = new Rate
         {
-            Score = postRateDTO.Score,
-            Comment = postRateDTO.Comment ?? string.Empty,
-            ExchangeID = exchangeId,
-            RaterID = raterId
+            Stars = dto.Stars,
+            Comment = dto.Comment,
+            ExchangeId = dto.ExchangeId,
+            EvaluatorUserId = raterId,
+            TargetUserId = dto.TargetUserId,
+            CreatedAt = DateTime.UtcNow
         };
 
-        if(exchange.ProponentID == raterId)
-        {
-            var user2 = _userRepo.GetById(exchange.ProposedID); // El usuario a ratear es el otro que participó del intercambio
-            user2.Ratings.Add(rate);
-            _userRepo.Update(user2);
-        }
-        else
-        {
-            var user1 = _userRepo.GetById(exchange.ProponentID); // El usuario a ratear es el otro que participó del intercambio
-            user1.Ratings.Add(rate);
-            _userRepo.Update(user1);
-        }
+        targetUser.Ratings.Add(rate);
+        _userRepo.Update(targetUser);
 
         return rate;
     }

@@ -1,28 +1,35 @@
+using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.Model;
 using Figuritas.Shared.Utils;
+
 namespace Figuritas.Api.Services;
 
 public class StickerService(
-    StickerRepository stickerRepo,
-    CategoryRepository categoryRepo,
-    TeamRepository teamRepo,
-    NationalTeamRepository nationalTeamRepo
+    IStickerRepository stickerRepo,
+    ICategoryRepository categoryRepo,
+    ITeamRepository teamRepo,
+    INationalTeamRepository nationalTeamRepo
     )
 {
-    private readonly StickerRepository _stickerRepo = stickerRepo;
-    private readonly CategoryRepository _categoryRepo = categoryRepo;
-    private readonly TeamRepository _teamRepo = teamRepo;
-    private readonly NationalTeamRepository _nationalTeamRepo = nationalTeamRepo;
+    private readonly IStickerRepository _stickerRepo = stickerRepo;
+    private readonly ICategoryRepository _categoryRepo = categoryRepo;
+    private readonly ITeamRepository _teamRepo = teamRepo;
+    private readonly INationalTeamRepository _nationalTeamRepo = nationalTeamRepo;
 
     public List<Sticker> GetAllStickers()
     {
         return _stickerRepo.GetAll();
     }
 
-    public List<Sticker> Get(GetStickersDto filters)
+    public List<Sticker> Get(GetStickersDTO filters)
     {
         return _stickerRepo.Get(filters.ToPredicate(), filters.Page, filters.PageSize).ToList();
+    }
+
+    public Sticker? GetById(int id)
+    {
+        return _stickerRepo.GetById(id);
     }
 
     public void CreateIfNonExistent(Sticker sticker)
@@ -31,25 +38,9 @@ public class StickerService(
         {
             return;
         }
-        _teamRepo.CreateIfNonExistent(new Team {Description=sticker.Team});
-        _nationalTeamRepo.CreateIfNonExistent(new NationalTeam {Description = sticker.NationalTeam});
-        _categoryRepo.CreateIfNonExistent(new Category {Description = sticker.Team});
-        _stickerRepo.Add(sticker);
-        return;
-    }
-
-    // Retorna el sticker canónico del repositorio (con Id e ImageUrl correctos).
-    // Si ya existe, devuelve el objeto guardado; si no, lo crea y lo devuelve.
-    public Sticker GetOrCreate(Sticker sticker)
-    {
-        var existing = _stickerRepo.FindOne(s => s.Equals(sticker));
-        if (existing != null) return existing;
-
         _teamRepo.CreateIfNonExistent(new Team { Description = sticker.Team });
         _nationalTeamRepo.CreateIfNonExistent(new NationalTeam { Description = sticker.NationalTeam });
-        _categoryRepo.CreateIfNonExistent(new Category { Description = sticker.Team });
+        _categoryRepo.CreateIfNonExistent(new Category { Description = sticker.Category });
         _stickerRepo.Add(sticker);
-        return sticker;
     }
-
 }

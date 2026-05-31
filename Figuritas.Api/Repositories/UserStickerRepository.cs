@@ -1,66 +1,119 @@
-using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
-// Repo for in-memory persistence.
-public class UserStickerRepository
+namespace Figuritas.Api.Repositories;
+
+public class UserStickerRepository : IUserStickerRepository
 {
-    private readonly ConcurrentBag<UserSticker> UserStickers = new();
-    private int nextId = 1;
+    private readonly IMongoCollection<UserSticker> _userStickers;
+    private readonly IIdGenerator _idGenerator;
+
+    public UserStickerRepository(MongoDbContext context, IIdGenerator idGenerator)
+    {
+        _userStickers = context.Collection<UserSticker>("UserStickers");
+        _idGenerator = idGenerator;
+    }
 
     public List<UserSticker> GetAll()
     {
-        
-        return UserStickers.ToList();
-    
+        return _userStickers.Find(us => us.Active).ToList();
     }
-    public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null)
+
+    public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null, bool sortDescending = false)
     {
-
-        if(page < 1 || pageSize < 1)
+        if (page < 1 || pageSize < 1)
         {
-            throw new ArgumentException("Page and PageSize must be grater than 0");
+            throw new ArgumentException("Page and PageSize must be greater than 0");
         }
 
-        if(filter == null)
-        {
-            return UserStickers.Skip((page-1)*pageSize).Take(pageSize).ToList();
-        }
+        var activeFilter = Builders<UserSticker>.Filter.Eq(us => us.Active, true);
+        var combinedFilter = filter != null
+            ? Builders<UserSticker>.Filter.And(activeFilter, filter)
+            : activeFilter;
 
-        return UserStickers.Where(filter.Compile()).Skip((page-1)*pageSize).Take(pageSize).ToList();
+        var query = _userStickers.Find(combinedFilter);
+        if (sortDescending)
+            query = query.SortByDescending(us => us.Id);
 
+        return query.Skip((page - 1) * pageSize).Limit(pageSize).ToList();
     }
-
 
     public void Add(UserSticker userSticker)
     {
-        userSticker.Id = Interlocked.Increment(ref nextId) - 1;
-        UserStickers.Add(userSticker);
+        userSticker.Id = _idGenerator.GetNextId<UserSticker>();
+        _userStickers.InsertOne(userSticker);
     }
 
-    public UserSticker? GetById(int id) => UserStickers.FirstOrDefault(a => a.Id == id);
+    public UserSticker? GetById(int id) => _userStickers.Find(us => us.Id == id && us.Active).FirstOrDefault();
 
-    public List<UserSticker> GetMultipleById(List<int> ids) => UserStickers.Where(us => ids.Contains(us.Id)).ToList();
+    public UserSticker? GetByIdIncludingInactive(int id) => _userStickers.Find(us => us.Id == id).FirstOrDefault();
+
+    public List<UserSticker> GetMultipleById(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id) && us.Active).ToList();
+
+    public List<UserSticker> GetMultipleByIdIncludingInactive(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id)).ToList();
 
     public bool Exists(UserSticker userSticker)
     {
-        return UserStickers.Any(us => us.Sticker.Equals(userSticker.Sticker) && us.UserId == userSticker.UserId);
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.UserId, userSticker.UserId),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Number, userSticker.Sticker.Number),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Description, userSticker.Sticker.Description),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Team, userSticker.Sticker.Team),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.NationalTeam, userSticker.Sticker.NationalTeam),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Category, userSticker.Sticker.Category)
+        );
+
+        return _userStickers.Find(filter).Any();
     }
 
     public void Update(UserSticker userSticker)
     {
-        var existingUserSticker = GetById(userSticker.Id);
-        if (existingUserSticker == null) throw new ArgumentException("UserSticker not found");
-
-        existingUserSticker.CanBeExchanged = userSticker.CanBeExchanged;
-        existingUserSticker.Quantity = userSticker.Quantity;
+        var result = _userStickers.ReplaceOne(us => us.Id == userSticker.Id, userSticker);
+        if (!result.IsAcknowledged || result.MatchedCount == 0)
+        {
+            throw new ArgumentException("UserSticker not found");
+        }
     }
 
     public void Delete(int userStickerId)
     {
-        var userSticker = GetById(userStickerId);
-        if (userSticker == null) throw new ArgumentException("UserSticker not found");
-        
-        userSticker.Active = false;
+        var result = _userStickers.UpdateOne(
+            us => us.Id == userStickerId,
+            Builders<UserSticker>.Update.Set(us => us.Active, false));
+
+        if (!result.IsAcknowledged || result.MatchedCount == 0)
+        {
+            throw new ArgumentException("UserSticker not found");
+        }
+    }
+
+    public List<UserSticker> GetByStickerIds(List<int> stickerIds, int excludeUserId)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.In(us => us.Sticker.Id, stickerIds),
+            Builders<UserSticker>.Filter.Ne(us => us.UserId, excludeUserId),
+            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0),
+            Builders<UserSticker>.Filter.Eq(us => us.Active, true),
+            Builders<UserSticker>.Filter.Eq(us => us.CanBeDirectlyExchanged, true)
+        );
+        return _userStickers.Find(filter).ToList();
+    }
+
+    public List<UserSticker> GetByUserId(int userId) =>
+        _userStickers.Find(us => us.UserId == userId && us.Active).ToList();
+
+    public List<UserSticker> GetByUserIdPaginated(int userId, int page, int pageSize)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.UserId, userId),
+            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0),
+            Builders<UserSticker>.Filter.Eq(us => us.Active, true)
+        );
+
+        return _userStickers.Find(filter)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .ToList();
     }
 }

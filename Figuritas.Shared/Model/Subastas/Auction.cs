@@ -1,18 +1,22 @@
+using Figuritas.Shared.Model.Subastas;
+
 namespace Figuritas.Shared.Model;
 
 public class Auction
 {
     public int Id { get; set; }
 
-    public required User Auctioneer { get; set; }
+    public int AuctioneerId { get; set; }
 
-    public DateTime StartDate { get; set; }
+    public int UserStickerId { get; set; }
 
-    public DateTime EndDate { get; set; }
+    public List<int> MinimumOfferStickerIds { get; set; } = new();
 
-    public required List<Sticker> MinimumOffer { get; set; }
+    public AuctionStatus Status { get; set; } = AuctionStatus.Active;
 
-    public required UserSticker AuctionedSticker { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public AuctionOffer? BestCurrentOffer { get; set; }
+    public DateTime EndsAt { get; set; }
+
+    public int? BestCurrentOfferId { get; set; }
 }

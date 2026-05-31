@@ -1,12 +1,13 @@
+using Figuritas.Api.Repositories;
 using Figuritas.Shared.Model;
 
 namespace Figuritas.Api.Services;
 
 public class CategoryService
 {
-    private readonly CategoryRepository _categoryRepository;
+    private readonly ICategoryRepository _categoryRepository;
 
-    public CategoryService(CategoryRepository categoryRepository)
+    public CategoryService(ICategoryRepository categoryRepository)
     {
         _categoryRepository = categoryRepository;
     }
