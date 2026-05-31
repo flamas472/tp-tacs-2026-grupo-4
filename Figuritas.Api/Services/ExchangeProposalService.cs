@@ -65,16 +65,22 @@ public class ExchangeProposalService
         return MapToResponseDto(proposal);
     }
 
-    public List<ExchangeProposalResponseDTO> GetAllSentProposals(int userID)
+    public List<ExchangeProposalResponseDTO> GetAllSentProposals(int userID, GetMyProposalsDTO? dto = null)
     {
-        return _exchangePropRepo.GetAllUserSentProposals(userID, ExchangeProposalState.Pending)
+        int page = dto?.Page ?? 1;
+        int pageSize = dto?.PageSize ?? 20;
+
+        return _exchangePropRepo.GetAllUserSentProposals(userID, dto?.State, page, pageSize)
                                 .Select(MapToResponseDto)
                                 .ToList();
     }
 
-    public List<ExchangeProposalResponseDTO> GetAllReceivedProposals(int userID)
+    public List<ExchangeProposalResponseDTO> GetAllReceivedProposals(int userID, GetMyProposalsDTO? dto = null)
     {
-        return _exchangePropRepo.GetAllUserReceivedProposals(userID, ExchangeProposalState.Pending)
+        int page = dto?.Page ?? 1;
+        int pageSize = dto?.PageSize ?? 20;
+
+        return _exchangePropRepo.GetAllUserReceivedProposals(userID, dto?.State, page, pageSize)
                                 .Select(MapToResponseDto)
                                 .ToList();
     }

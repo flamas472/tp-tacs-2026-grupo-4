@@ -430,6 +430,45 @@ public class UserStory07Tests : IAsyncLifetime
         Assert.Equal(createdOffer.Id, finalAuction.BestCurrentOfferId);
     }
 
+    /// <summary>
+    /// Test 10: Puja con UserSticker del bidder con Quantity == 0 → HTTP 400.
+    /// </summary>
+    [Fact]
+    public async Task CreateOffer_BidderStickerWithZeroQuantity_Returns400BadRequest()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us07_qty0_a_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us07_qty0_b_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us07_qty0_a_{suffix}", "password123");
+        var tokenB = await LoginAsync($"us07_qty0_b_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(tokenB);
+
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+
+        // UserA creates the auction
+        var stickerA = await PublishUserStickerAsync(clientA, userA.Id, catalogStickers[0].Id);
+        var auction = await CreateAuctionAsync(clientA, stickerA.Id);
+
+        // UserB publishes a sticker with quantity=1 then patches it to 0
+        var stickerB = await PublishUserStickerAsync(clientB, userB.Id,
+            catalogStickers[1 % catalogStickers.Count].Id,
+            quantity: 1, canBeAuctioned: false, canBeDirectlyExchanged: true);
+
+        var patchDto = new { Quantity = 0 };
+        var patchResponse = await clientB.PatchAsJsonAsync($"/api/users/{userB.Id}/stickers/{stickerB.Id}", patchDto);
+        Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
+
+        var offerDto = new PostAuctionOfferRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerB.Id }
+        };
+
+        var response = await clientB.PostAsJsonAsync($"/api/auctions/{auction.Id}/offers", offerDto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
     public Task InitializeAsync() => Task.CompletedTask;

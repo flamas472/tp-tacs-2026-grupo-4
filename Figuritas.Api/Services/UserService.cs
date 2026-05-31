@@ -140,6 +140,22 @@ public class UserService(
         return userSticker;
     }
 
+    public List<MyPublishedStickerResponseDTO> GetMyPublishedStickers(GetMyStickersDTO dto, int callerUserId)
+    {
+        return _inventoryRepo.GetByUserIdPaginated(callerUserId, dto.Page, dto.PageSize)
+            .Select(us => new MyPublishedStickerResponseDTO
+            {
+                StickerId = us.Id,
+                Number = us.Sticker.Number,
+                Team = us.Sticker.Team,
+                Player = us.Sticker.Description,
+                Quantity = us.Quantity,
+                CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
+                CanBeAuctioned = us.CanBeAuctioned
+            })
+            .ToList();
+    }
+
     public List<UserSticker> GetAllUserStickers() => _inventoryRepo.GetAll();
 
     public UserSticker? GetUserStickerById(int userId, int stickerId)

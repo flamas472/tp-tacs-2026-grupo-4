@@ -22,6 +22,13 @@ public class AuctionService
         _offerRepo = offerRepo;
     }
 
+    public List<AuctionResponseDTO> GetMyAuctions(GetMyAuctionsDTO dto, int callerUserId)
+    {
+        return _auctionRepo.GetByAuctioneerId(callerUserId, AuctionStatus.Active.ToString(), dto.Page, dto.PageSize)
+                           .Select(MapToDto)
+                           .ToList();
+    }
+
     public List<AuctionResponseDTO> GetAuctions()
     {
         return _auctionRepo.GetAll().Select(MapToDto).ToList();

@@ -8,4 +8,5 @@ public interface IAuctionRepository
     void Add(Auction auction);
     Auction? GetById(int id);
     void Update(Auction auction);
+    List<Auction> GetByAuctioneerId(int auctioneerId, string? status, int page, int pageSize);
 }

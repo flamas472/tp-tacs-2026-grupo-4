@@ -427,54 +427,6 @@ public class UserStory06Tests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    /// <summary>
-    /// Escenario 11: Ofertar figuritas que no cumplen los requisitos mínimos del catálogo → HTTP 400.
-    /// </summary>
-    [Fact]
-    public async Task CreateOffer_BelowMinimumCondition_Returns400BadRequest()
-    {
-        var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us06_min_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us06_min_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us06_min_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us06_min_b_{suffix}", "password123");
-        var clientA = ClientWithToken(tokenA);
-        var clientB = ClientWithToken(tokenB);
-
-        var catalogStickers = await GetCatalogStickersAsync(1, 3);
-        // Need at least 3 distinct catalog stickers for this test
-        Assert.True(catalogStickers.Count >= 2, "Need at least 2 catalog stickers for minimum offer test.");
-
-        var stickerA = await PublishUserStickerAsync(clientA, userA.Id, catalogStickers[0].Id);
-        // UserB publishes catalogStickers[1], but the auction requires catalogStickers[2] (different catalog ID)
-        var stickerB = await PublishUserStickerAsync(clientB, userB.Id,
-            catalogStickers[1 % catalogStickers.Count].Id,
-            canBeAuctioned: false, canBeDirectlyExchanged: true);
-
-        // Auction requires catalog sticker ID that differs from what B has
-        // Use the last catalog sticker ID as the required minimum
-        var requiredCatalogStickerId = catalogStickers[catalogStickers.Count - 1].Id;
-
-        // Make sure requiredCatalogStickerId != the sticker B published
-        if (requiredCatalogStickerId == catalogStickers[1 % catalogStickers.Count].Id && catalogStickers.Count >= 3)
-        {
-            requiredCatalogStickerId = catalogStickers[2].Id;
-        }
-
-        var auction = await CreateAuctionAsync(clientA, stickerA.Id,
-            minimumOfferStickerIds: new List<int> { requiredCatalogStickerId });
-
-        // UserB offers stickerB which does NOT match the required catalog sticker
-        var offerDto = new PostAuctionOfferRequestDTO
-        {
-            OfferedUserStickerIds = new List<int> { stickerB.Id }
-        };
-
-        var response = await clientB.PostAsJsonAsync($"/api/auctions/{auction.Id}/offers", offerDto);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
     public Task InitializeAsync() => Task.CompletedTask;

@@ -16,4 +16,5 @@ public interface IUserStickerRepository
     void Delete(int userStickerId);
     List<UserSticker> GetByStickerIds(List<int> stickerIds, int excludeUserId);
     List<UserSticker> GetByUserId(int userId);
+    List<UserSticker> GetByUserIdPaginated(int userId, int page, int pageSize);
 }

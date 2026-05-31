@@ -103,9 +103,26 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("{userId}/stickers")]
-    public ActionResult<List<UserSticker>> GetUserStickers(int userId)
+    [Obsolete("Deprecated: use GET /api/dashboard/stickers for authenticated access to own sticker inventory.")]
+    public ActionResult<List<UserStickerResponseDTO>> GetUserStickers(int userId)
     {
-        var userStickers = _userService.GetAllUserStickers().FindAll(us => us.UserId == userId);
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != userId)
+            return StatusCode(StatusCodes.Status410Gone,
+                "This endpoint is deprecated. Use GET /api/dashboard/stickers to access your own sticker inventory.");
+
+        var userStickers = _userService.GetAllUserStickers()
+            .FindAll(us => us.UserId == userId)
+            .Select(us => new UserStickerResponseDTO
+            {
+                Id = us.Id,
+                UserId = us.UserId,
+                Quantity = us.Quantity,
+                CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
+                CanBeAuctioned = us.CanBeAuctioned,
+                Active = us.Active
+            })
+            .ToList();
         return Ok(userStickers);
     }
 

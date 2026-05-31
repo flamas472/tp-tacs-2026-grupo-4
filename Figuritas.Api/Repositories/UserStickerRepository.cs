@@ -98,4 +98,17 @@ public class UserStickerRepository : IUserStickerRepository
 
     public List<UserSticker> GetByUserId(int userId) =>
         _userStickers.Find(us => us.UserId == userId && us.Active).ToList();
+
+    public List<UserSticker> GetByUserIdPaginated(int userId, int page, int pageSize)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.UserId, userId),
+            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0)
+        );
+
+        return _userStickers.Find(filter)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .ToList();
+    }
 }
