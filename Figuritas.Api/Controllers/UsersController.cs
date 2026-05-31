@@ -5,6 +5,7 @@ using Figuritas.Shared.DTO.response;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 
 namespace Figuritas.Api.Controllers;
 
@@ -160,13 +161,17 @@ public class UsersController : ControllerBase
         }
     }
 
-    [HttpGet("{userID}/ratings")]
-    public ActionResult<List<Rate>> GetUserRatings(int userID)
+    /// <remarks>
+    /// Public by design: any authenticated user can view another user's rating history
+    /// to evaluate reputation before proposing a trade. No ownership check is applied.
+    /// </remarks>
+    [HttpGet("{userId}/ratings")]
+    public ActionResult<List<RatingResponseDTO>> GetUserRatings(int userId, [FromQuery] GetUserRatingsDTO dto)
     {
         try
         {
-            var userRatings = _userService.GetAllUserRatings(userID);
-            return Ok(userRatings);
+            var ratings = _userService.GetAllUserRatings(userId, dto.Page, dto.PageSize);
+            return Ok(ratings);
         }
         catch (ArgumentException ex)
         {
@@ -174,6 +179,7 @@ public class UsersController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("{userId}/reputation")]
     public ActionResult<double> GetUserReputation(int userId)
     {

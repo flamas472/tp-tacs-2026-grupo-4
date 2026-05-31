@@ -7,4 +7,5 @@ public interface IExchangeRepository
     List<Exchange> GetAll();
     void Add(Exchange exchange);
     Exchange? GetById(int exchangeId);
+    Exchange? GetByProposalId(int proposalId);
 }

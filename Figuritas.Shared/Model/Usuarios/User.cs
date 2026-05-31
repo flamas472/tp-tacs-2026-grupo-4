@@ -13,7 +13,7 @@ public class User
 
     public List<Rate> Ratings { get; set; } = [];
 
-    [Range(1, 10)]
-    public double Reputation => Ratings.Count > 0 ? Ratings.Average(r => r.Score) : 0;
+    [Range(0, 5)]
+    public double Reputation => Ratings.Count > 0 ? Ratings.Average(r => r.Stars) : 0;
 
 }

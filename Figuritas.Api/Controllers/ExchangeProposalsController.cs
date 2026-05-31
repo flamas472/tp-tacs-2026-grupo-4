@@ -145,6 +145,24 @@ public class ExchangeProposalsController : ControllerBase
         }
     }
 
+    [HttpGet("{id}/exchange")]
+    public ActionResult GetExchangeByProposalId(int id)
+    {
+        var proposal = _proposalService.GetProposalByID(id);
+        if (proposal == null)
+            return NotFound("Proposal not found.");
+
+        var callerId = _authService.GetUserIdFromToken(User);
+        if (callerId != proposal.ProponentID && callerId != proposal.ProposedID)
+            return StatusCode(403, "Access denied: you are not a participant in this proposal.");
+
+        var exchange = _exchangeService.GetByProposalId(id);
+        if (exchange == null)
+            return NotFound("Exchange not found for this proposal.");
+
+        return Ok(new { exchange.Id, exchange.ExchangeProposalID, exchange.ProponentID, exchange.ProposedID });
+    }
+
     [HttpPost("{id}/cancel")]
     public ActionResult CancelProposal(int id)
     {

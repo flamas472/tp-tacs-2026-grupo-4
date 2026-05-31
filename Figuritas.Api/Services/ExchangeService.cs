@@ -20,6 +20,11 @@ public class ExchangeService
         _missingStickerRepo = missingStickerRepo;
     }
 
+    public Exchange? GetByProposalId(int proposalId)
+    {
+        return _exchangeRepo.GetByProposalId(proposalId);
+    }
+
     public Exchange CreateExchange(ExchangeProposal proposal)
     {
         var exchange = new Exchange

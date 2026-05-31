@@ -8,6 +8,7 @@ using Figuritas.Shared.Utils;
 
 namespace Figuritas.Api.Services;
 
+
 public class UserService(
     IUserRepository userRepo,
     IUserStickerRepository inventoryRepo,
@@ -217,44 +218,74 @@ public class UserService(
         _inventoryRepo.Delete(userStickerId);
     }
 
-    public List<Rate> GetAllUserRatings(int userId)
+    public List<RatingResponseDTO> GetAllUserRatings(int userId, int page, int pageSize)
     {
         User? user = _userRepo.GetById(userId);
         if (user == null) throw new ArgumentException("User not found");
 
-        return user.Ratings;
+        return user.Ratings
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(r => new RatingResponseDTO
+            {
+                Id = r.Id,
+                ExchangeId = r.ExchangeId,
+                EvaluatorUserId = r.EvaluatorUserId,
+                TargetUserId = r.TargetUserId,
+                Stars = r.Stars,
+                Comment = r.Comment,
+                CreatedAt = r.CreatedAt
+            })
+            .ToList();
     }
 
-    public Rate CreateUserRate(int exchangeId, PostRateDTO postRateDTO, int raterId)
+    public Rate CreateUserRate(PostRatingRequestDTO dto, int raterId)
     {
-        var exchange = _exchangeRepo.GetById(exchangeId);
+        // Guard 1: Anti-self-rating
+        if (raterId == dto.TargetUserId)
+            throw new ArgumentException("Self-rating is not allowed");
+
+        var exchange = _exchangeRepo.GetById(dto.ExchangeId);
+
+        // Guard 2 (also covers not found): Exchange must exist
         if (exchange == null)
             throw new ArgumentException("Exchange not found");
+
+        // Guard 3 (state): Exchange entity only exists once a proposal has been accepted and
+        // the trade was completed — there is no State field because the record itself is proof
+        // of finalization. No additional state check is required; reaching this point means
+        // the exchange is finalized by definition.
+
+        // Guard 5: Rater must be a participant in the exchange
         if (exchange.ProponentID != raterId && exchange.ProposedID != raterId)
-            throw new ArgumentException("User did not participate in the exchange");
+            throw new ArgumentException("Not participant");
+
+        // Guard 6: TargetUserId must be the other participant
+        var expectedTargetId = exchange.ProponentID == raterId ? exchange.ProposedID : exchange.ProponentID;
+        if (dto.TargetUserId != expectedTargetId)
+            throw new ArgumentException("Not participant");
+
+        var targetUser = _userRepo.GetById(dto.TargetUserId)
+            ?? throw new ArgumentException("Rated user not found");
+
+        // Guard 7: Anti-duplicate — one rating per rater per exchange
+        bool alreadyRated = targetUser.Ratings.Any(r =>
+            r.EvaluatorUserId == raterId && r.ExchangeId == dto.ExchangeId);
+        if (alreadyRated)
+            throw new ArgumentException("Already rated");
 
         var rate = new Rate
         {
-            Score = postRateDTO.Score,
-            Comment = postRateDTO.Comment ?? string.Empty,
-            ExchangeID = exchangeId,
-            RaterID = raterId
+            Stars = dto.Stars,
+            Comment = dto.Comment,
+            ExchangeId = dto.ExchangeId,
+            EvaluatorUserId = raterId,
+            TargetUserId = dto.TargetUserId,
+            CreatedAt = DateTime.UtcNow
         };
 
-        if (exchange.ProponentID == raterId)
-        {
-            var user2 = _userRepo.GetById(exchange.ProposedID)
-                ?? throw new ArgumentException("Rated user not found.");
-            user2.Ratings.Add(rate);
-            _userRepo.Update(user2);
-        }
-        else
-        {
-            var user1 = _userRepo.GetById(exchange.ProponentID)
-                ?? throw new ArgumentException("Rated user not found.");
-            user1.Ratings.Add(rate);
-            _userRepo.Update(user1);
-        }
+        targetUser.Ratings.Add(rate);
+        _userRepo.Update(targetUser);
 
         return rate;
     }

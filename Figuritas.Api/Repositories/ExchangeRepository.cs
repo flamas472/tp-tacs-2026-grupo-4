@@ -29,4 +29,9 @@ public class ExchangeRepository : IExchangeRepository
     {
         return _exchanges.Find(e => e.Id == exchangeId).FirstOrDefault();
     }
+
+    public Exchange? GetByProposalId(int proposalId)
+    {
+        return _exchanges.Find(e => e.ExchangeProposalID == proposalId).FirstOrDefault();
+    }
 }

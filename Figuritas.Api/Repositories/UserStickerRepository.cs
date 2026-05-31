@@ -107,7 +107,8 @@ public class UserStickerRepository : IUserStickerRepository
     {
         var filter = Builders<UserSticker>.Filter.And(
             Builders<UserSticker>.Filter.Eq(us => us.UserId, userId),
-            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0)
+            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0),
+            Builders<UserSticker>.Filter.Eq(us => us.Active, true)
         );
 
         return _userStickers.Find(filter)
