@@ -11,15 +11,18 @@ public class AuctionService
     private readonly IUserStickerRepository _userStickerRepo;
     private readonly IAuctionRepository _auctionRepo;
     private readonly IAuctionOfferRepository _offerRepo;
+    private readonly IMissingStickerRepository _missingStickerRepo;
 
     public AuctionService(
         IUserStickerRepository userStickerRepo,
         IAuctionRepository auctionRepo,
-        IAuctionOfferRepository offerRepo)
+        IAuctionOfferRepository offerRepo,
+        IMissingStickerRepository missingStickerRepo)
     {
         _userStickerRepo = userStickerRepo;
         _auctionRepo = auctionRepo;
         _offerRepo = offerRepo;
+        _missingStickerRepo = missingStickerRepo;
     }
 
     public List<AuctionResponseDTO> GetMyAuctions(GetMyAuctionsDTO dto, int callerUserId)
@@ -127,6 +130,17 @@ public class AuctionService
             throw new InvalidOperationException(
                 $"Offer does not meet minimum requirements. Missing catalog sticker ID(s): {string.Join(", ", missingRequired)}");
 
+        // Reserve stock: decrement quantity for each offered sticker
+        foreach (var offeredUs in offeredUserStickers)
+        {
+            offeredUs.Quantity--;
+            if (offeredUs.Quantity <= 0)
+            {
+                offeredUs.Active = false;
+            }
+            _userStickerRepo.Update(offeredUs);
+        }
+
         var offer = new AuctionOffer
         {
             AuctionId = auctionId,
@@ -140,6 +154,133 @@ public class AuctionService
         _auctionRepo.Update(auction);
 
         return MapOfferToDto(offer);
+    }
+
+    public async Task<AuctionResponseDTO> CloseAuction(int auctionId, int? winningOfferId, int callerUserId)
+    {
+        var auction = _auctionRepo.GetById(auctionId);
+        if (auction == null)
+            throw new KeyNotFoundException("Auction not found.");
+
+        if (auction.Status != AuctionStatus.Active)
+            throw new InvalidOperationException("The auction is not active.");
+
+        if (auction.AuctioneerId != callerUserId)
+            throw new InvalidOperationException("Only the auctioneer can close their own auction.");
+
+        var allOffers = await _offerRepo.GetByAuctionIdAsync(auctionId);
+
+        if (winningOfferId == null || !allOffers.Any())
+        {
+            // No winner: return reserved stock of auctioned sticker to seller
+            var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
+            if (auctionedSticker != null)
+            {
+                auctionedSticker.Quantity++;
+                auctionedSticker.Active = true;
+                _userStickerRepo.Update(auctionedSticker);
+            }
+
+            // Return all bidders' reserved stickers
+            foreach (var offer in allOffers)
+            {
+                var bidderStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(offer.OfferedUserStickerIds);
+                foreach (var bidderSticker in bidderStickers)
+                {
+                    bidderSticker.Quantity++;
+                    bidderSticker.Active = true;
+                    _userStickerRepo.Update(bidderSticker);
+                }
+            }
+        }
+        else
+        {
+            // There is a winner
+            var winningOffer = allOffers.FirstOrDefault(o => o.Id == winningOfferId)
+                ?? throw new InvalidOperationException("The specified winning offer was not found for this auction.");
+
+            // Transfer auctioned sticker (reserved/inactive) to winner's inventory
+            var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
+            if (auctionedSticker != null)
+            {
+                var winnerExisting = _userStickerRepo.GetByUserId(winningOffer.BidderId)
+                    .FirstOrDefault(s => s.Sticker.Id == auctionedSticker.Sticker.Id);
+                if (winnerExisting != null)
+                {
+                    winnerExisting.Quantity++;
+                    winnerExisting.Active = true;
+                    _userStickerRepo.Update(winnerExisting);
+                }
+                else
+                {
+                    var newWinnerSticker = new UserSticker
+                    {
+                        Sticker = auctionedSticker.Sticker,
+                        UserId = winningOffer.BidderId,
+                        Quantity = 1,
+                        Active = true,
+                        CanBeDirectlyExchanged = false,
+                        CanBeAuctioned = false
+                    };
+                    _userStickerRepo.Add(newWinnerSticker);
+                }
+            }
+
+            // Transfer winning offer stickers (reserved/inactive) to auctioneer
+            var winningStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(winningOffer.OfferedUserStickerIds);
+            foreach (var winningSticker in winningStickers)
+            {
+                var auctioneerExisting = _userStickerRepo.GetByUserId(auction.AuctioneerId)
+                    .FirstOrDefault(s => s.Sticker.Id == winningSticker.Sticker.Id);
+                if (auctioneerExisting != null)
+                {
+                    auctioneerExisting.Quantity++;
+                    auctioneerExisting.Active = true;
+                    _userStickerRepo.Update(auctioneerExisting);
+                }
+                else
+                {
+                    var newAuctioneerSticker = new UserSticker
+                    {
+                        Sticker = winningSticker.Sticker,
+                        UserId = auction.AuctioneerId,
+                        Quantity = 1,
+                        Active = true,
+                        CanBeDirectlyExchanged = false,
+                        CanBeAuctioned = false
+                    };
+                    _userStickerRepo.Add(newAuctioneerSticker);
+                }
+            }
+
+            // Automation: clean up MissingStickers for winner and auctioneer
+            if (auctionedSticker != null)
+            {
+                await _missingStickerRepo.DeleteAsync(winningOffer.BidderId, auctionedSticker.Sticker.Id);
+            }
+            foreach (var winningSticker in winningStickers)
+            {
+                await _missingStickerRepo.DeleteAsync(auction.AuctioneerId, winningSticker.Sticker.Id);
+            }
+
+            // Return losing bidders' reserved stickers
+            var losingOffers = allOffers.Where(o => o.Id != winningOfferId).ToList();
+            foreach (var losingOffer in losingOffers)
+            {
+                var loserStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(losingOffer.OfferedUserStickerIds);
+                foreach (var loserSticker in loserStickers)
+                {
+                    loserSticker.Quantity++;
+                    loserSticker.Active = true;
+                    _userStickerRepo.Update(loserSticker);
+                }
+            }
+        }
+
+        auction.Status = AuctionStatus.Closed;
+        _auctionRepo.Update(auction);
+
+        return MapToDto(auction);
     }
 
     private static AuctionResponseDTO MapToDto(Auction auction) => new()

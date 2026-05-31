@@ -9,11 +9,16 @@ public class ExchangeProposalService
 {
     private readonly IUserStickerRepository _inventoryRepo;
     private readonly IExchangeProposalRepository _exchangePropRepo;
+    private readonly IMissingStickerRepository _missingStickerRepo;
 
-    public ExchangeProposalService(IUserStickerRepository inventoryRepo, IExchangeProposalRepository exchangePropRepo)
+    public ExchangeProposalService(
+        IUserStickerRepository inventoryRepo,
+        IExchangeProposalRepository exchangePropRepo,
+        IMissingStickerRepository missingStickerRepo)
     {
         _inventoryRepo = inventoryRepo;
         _exchangePropRepo = exchangePropRepo;
+        _missingStickerRepo = missingStickerRepo;
     }
 
     public ExchangeProposalResponseDTO CreateExchangeProposal(int callerUserId, PostExchangeProposalRequestDTO dto)
@@ -62,6 +67,17 @@ public class ExchangeProposalService
 
         _exchangePropRepo.Add(proposal);
 
+        // Reserve stock: decrement quantity for each offered sticker
+        foreach (var userSticker in offeredStickers)
+        {
+            userSticker.Quantity--;
+            if (userSticker.Quantity <= 0)
+            {
+                userSticker.Active = false;
+            }
+            _inventoryRepo.Update(userSticker);
+        }
+
         return MapToResponseDto(proposal);
     }
 
@@ -102,6 +118,19 @@ public class ExchangeProposalService
         var proposal = _exchangePropRepo.GetById(proposalID);
         if (proposal == null)
             throw new ArgumentException("Proposal not found.");
+
+        // Return stock to proponent when proposal is rejected or cancelled
+        if (newState == ExchangeProposalState.Rejected || newState == ExchangeProposalState.Cancelled)
+        {
+            // Use inclusive query to also find stickers that were deactivated by the reservation
+            var offeredStickers = _inventoryRepo.GetMultipleByIdIncludingInactive(proposal.OfferedUserStickerIds);
+            foreach (var userSticker in offeredStickers)
+            {
+                userSticker.Quantity++;
+                userSticker.Active = true;
+                _inventoryRepo.Update(userSticker);
+            }
+        }
 
         proposal.State = newState;
         _exchangePropRepo.Update(proposal);

@@ -10,7 +10,9 @@ public interface IUserStickerRepository
     List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null, bool sortDescending = false);
     void Add(UserSticker userSticker);
     UserSticker? GetById(int id);
+    UserSticker? GetByIdIncludingInactive(int id);
     List<UserSticker> GetMultipleById(List<int> ids);
+    List<UserSticker> GetMultipleByIdIncludingInactive(List<int> ids);
     bool Exists(UserSticker userSticker);
     void Update(UserSticker userSticker);
     void Delete(int userStickerId);

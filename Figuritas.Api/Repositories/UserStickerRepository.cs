@@ -47,7 +47,11 @@ public class UserStickerRepository : IUserStickerRepository
 
     public UserSticker? GetById(int id) => _userStickers.Find(us => us.Id == id && us.Active).FirstOrDefault();
 
+    public UserSticker? GetByIdIncludingInactive(int id) => _userStickers.Find(us => us.Id == id).FirstOrDefault();
+
     public List<UserSticker> GetMultipleById(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id) && us.Active).ToList();
+
+    public List<UserSticker> GetMultipleByIdIncludingInactive(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id)).ToList();
 
     public bool Exists(UserSticker userSticker)
     {

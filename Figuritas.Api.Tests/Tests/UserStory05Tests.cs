@@ -131,7 +131,8 @@ public class UserStory05Tests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Escenario 3: Sticker ofrecido con Quantity = 0 → 400 BadRequest.
+    /// Escenario 3: Sticker ofrecido con Quantity = 0 (pre-patched) → 400 BadRequest.
+    /// Además verifica que crear una propuesta válida descuenta el stock del sticker ofrecido.
     /// </summary>
     [Fact]
     public async Task US05_CreateProposal_OfferedStickerWithZeroQuantity_Returns400()
@@ -148,6 +149,7 @@ public class UserStory05Tests : IAsyncLifetime
         var stickerX = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id, quantity: 1);
         var stickerY = await PublishStickerAsync(clientB, userB.Id, catalogStickers[1 % catalogStickers.Count].Id);
 
+        // Patch to zero manually to verify that a sticker with Qty=0 cannot be offered
         var patchDto = new { Quantity = 0 };
         var patchResponse = await clientA.PatchAsJsonAsync($"/api/users/{userA.Id}/stickers/{stickerX.Id}", patchDto);
         Assert.Equal(HttpStatusCode.OK, patchResponse.StatusCode);
@@ -160,6 +162,47 @@ public class UserStory05Tests : IAsyncLifetime
         };
         var response = await clientA.PostAsJsonAsync("/api/exchange-proposals", dto);
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Escenario 3b: Crear propuesta válida descuenta el stock del sticker ofrecido automáticamente.
+    /// </summary>
+    [Fact]
+    public async Task US05_CreateProposal_ValidScenario_DecrementsOfferedStickerStock()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us05_res_a_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us05_res_b_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us05_res_a_{suffix}", "password123");
+        var tokenB = await LoginAsync($"us05_res_b_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(tokenB);
+
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+        // Publish with quantity=2 so after reservation Qty=1 remains
+        var stickerX = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id, quantity: 2);
+        var stickerY = await PublishStickerAsync(clientB, userB.Id, catalogStickers[1 % catalogStickers.Count].Id);
+
+        Assert.Equal(2, stickerX.Quantity);
+
+        var dto = new PostExchangeProposalRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerX.Id },
+            RequestedUserStickerId = stickerY.Id,
+            ProposedUserId = userB.Id
+        };
+        var createResponse = await clientA.PostAsJsonAsync("/api/exchange-proposals", dto);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        // Verify stock was decremented by reservation
+        var stickersResponse = await clientA.GetAsync($"/api/users/{userA.Id}/stickers");
+        Assert.Equal(HttpStatusCode.OK, stickersResponse.StatusCode);
+        var stickers = await stickersResponse.Content.ReadFromJsonAsync<List<UserStickerResponseDTO>>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(stickers);
+        var updatedX = stickers!.FirstOrDefault(s => s.Id == stickerX.Id);
+        Assert.NotNull(updatedX);
+        Assert.Equal(1, updatedX!.Quantity);
     }
 
     /// <summary>

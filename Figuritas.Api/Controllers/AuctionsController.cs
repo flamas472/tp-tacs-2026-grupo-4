@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Api.Services;
+using Figuritas.Shared.Model;
 
 namespace Figuritas.Api.Controllers;
 
@@ -46,6 +47,25 @@ public class AuctionsController : ControllerBase
             var callerUserId = _authService.GetUserIdFromToken(User);
             var auction = _auctionService.CreateAuction(callerUserId, dto);
             return CreatedAtAction(nameof(GetAuction), new { id = auction.Id }, auction);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{id}/close")]
+    public async Task<ActionResult<AuctionResponseDTO>> CloseAuction(int id, [FromBody] CloseAuctionRequestDTO dto)
+    {
+        try
+        {
+            var callerUserId = _authService.GetUserIdFromToken(User);
+            var auction = await _auctionService.CloseAuction(id, dto.WinningOfferId, callerUserId);
+            return Ok(auction);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
         }
         catch (InvalidOperationException ex)
         {

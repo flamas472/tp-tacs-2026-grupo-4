@@ -23,4 +23,10 @@ public class AuctionOfferRepository : IAuctionOfferRepository
     }
 
     public AuctionOffer? GetById(int id) => _offers.Find(o => o.Id == id).FirstOrDefault();
+
+    public async Task<List<AuctionOffer>> GetByAuctionIdAsync(int auctionId)
+    {
+        var filter = Builders<AuctionOffer>.Filter.Eq(o => o.AuctionId, auctionId);
+        return await _offers.Find(filter).ToListAsync();
+    }
 }
