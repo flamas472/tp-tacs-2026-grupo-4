@@ -1,98 +1,146 @@
 using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Subastas;
 
 namespace Figuritas.Api.Services;
 
 public class AuctionService
 {
     private readonly IUserStickerRepository _userStickerRepo;
-    private readonly IUserRepository _userRepository;
-    private readonly IStickerRepository _stickerRepo;
     private readonly IAuctionRepository _auctionRepo;
     private readonly IAuctionOfferRepository _offerRepo;
 
-    public AuctionService(IUserStickerRepository userStickerRepo, IUserRepository userRepo, IStickerRepository stickerRepo, IAuctionRepository auctionRepo, IAuctionOfferRepository offerRepo)
+    public AuctionService(
+        IUserStickerRepository userStickerRepo,
+        IAuctionRepository auctionRepo,
+        IAuctionOfferRepository offerRepo)
     {
         _userStickerRepo = userStickerRepo;
-        _userRepository = userRepo;
-        _stickerRepo = stickerRepo;
         _auctionRepo = auctionRepo;
         _offerRepo = offerRepo;
     }
 
-    public List<Auction> GetAuctions()
+    public List<AuctionResponseDTO> GetAuctions()
     {
-        return _auctionRepo.GetAll();
+        return _auctionRepo.GetAll().Select(MapToDto).ToList();
     }
 
-    public Auction? GetAuction(int id)
+    public AuctionResponseDTO? GetAuction(int id)
     {
-        return _auctionRepo.GetById(id);
+        var auction = _auctionRepo.GetById(id);
+        return auction == null ? null : MapToDto(auction);
     }
 
-    public Auction CreateAuction(int userId, PostAuctionDTO dto)
+    public AuctionResponseDTO CreateAuction(int callerUserId, PostAuctionRequestDTO dto)
     {
-        var userSticker = _userStickerRepo.GetById(dto.AuctionedStickerId);
-        if (userSticker == null) throw new ArgumentException("Sticker not found in user inventory.");
-        if (userSticker.UserId != userId) throw new ArgumentException("Sticker does not belong to the user.");
-        if (!userSticker.CanBeAuctioned) throw new ArgumentException("Sticker is not available for auction.");
+        var us = _userStickerRepo.GetById(dto.UserStickerId);
+        if (us == null)
+            throw new InvalidOperationException("UserSticker not found in inventory.");
 
-        if (dto.StartDate >= dto.EndDate) throw new ArgumentException("Start date must be before end date.");
+        if (us.UserId != callerUserId)
+            throw new InvalidOperationException("UserSticker does not belong to the caller.");
+
+        if (!us.CanBeAuctioned)
+            throw new InvalidOperationException("UserSticker is not available for auction.");
+
+        if (us.Quantity <= 0)
+            throw new InvalidOperationException("UserSticker has no available stock.");
+
+        if (dto.EndsAt <= DateTime.UtcNow)
+            throw new InvalidOperationException("EndsAt must be a future date.");
+
+        // Reserve one unit from stock
+        us.Quantity -= 1;
+        if (us.Quantity == 0)
+        {
+            us.Active = false;
+            us.CanBeAuctioned = false;
+            us.CanBeDirectlyExchanged = false;
+        }
+        _userStickerRepo.Update(us);
 
         var auction = new Auction
         {
-            Auctioneer = _userRepository.GetById(userId)!,
-            StartDate = dto.StartDate,
-            EndDate = dto.EndDate,
-            AuctionedSticker = userSticker,
-            MinimumOffer = dto.MinimumOfferStickerIds
-                .Select(id => _stickerRepo.GetById(id))
-                .Where(s => s != null)
-                .Select(s => s!)
-                .ToList()
+            AuctioneerId = callerUserId,
+            UserStickerId = dto.UserStickerId,
+            MinimumOfferStickerIds = dto.MinimumOfferStickerIds,
+            EndsAt = dto.EndsAt,
+            Status = AuctionStatus.Active
         };
 
         _auctionRepo.Add(auction);
 
-        return auction;
+        return MapToDto(auction);
     }
 
-    public AuctionOffer CreateOffer(int bidderId, int auctionId, PostAuctionOfferDTO dto)
+    public AuctionOfferResponseDTO CreateOffer(int bidderId, int auctionId, PostAuctionOfferRequestDTO dto)
     {
-        if (auctionId <= 0)
-            throw new ArgumentException("Invalid auction ID.");
-
         var auction = _auctionRepo.GetById(auctionId);
         if (auction == null)
             throw new KeyNotFoundException("Auction not found.");
 
-        if (DateTime.UtcNow > auction.EndDate)
+        if (DateTime.UtcNow > auction.EndsAt)
             throw new InvalidOperationException("The auction has already ended.");
 
-        var offeredUserStickers = _userStickerRepo.GetMultipleById(dto.UserStickerIds);
+        if (auction.Status != AuctionStatus.Active)
+            throw new InvalidOperationException("The auction is not active.");
 
-        var offeredStickerNumbers = offeredUserStickers.Select(us => us.Sticker.Number).ToHashSet();
-        var minimumNotMet = auction.MinimumOffer
-            .Where(required => !offeredStickerNumbers.Contains(required.Number))
+        var offeredUserStickers = _userStickerRepo.GetMultipleById(dto.OfferedUserStickerIds);
+
+        // Validate ownership and stock for each offered sticker
+        foreach (var offeredUs in offeredUserStickers)
+        {
+            if (offeredUs.UserId != bidderId)
+                throw new InvalidOperationException(
+                    $"UserSticker {offeredUs.Id} does not belong to the bidder.");
+
+            if (offeredUs.Quantity <= 0)
+                throw new InvalidOperationException(
+                    $"UserSticker {offeredUs.Id} has no available stock.");
+        }
+
+        // Validate minimum offer requirements: compare catalog sticker IDs
+        var offeredCatalogStickerIds = offeredUserStickers.Select(us => us.Sticker.Id).ToHashSet();
+        var missingRequired = auction.MinimumOfferStickerIds
+            .Where(requiredId => !offeredCatalogStickerIds.Contains(requiredId))
             .ToList();
 
-        if (minimumNotMet.Any())
+        if (missingRequired.Any())
             throw new InvalidOperationException(
-                $"Offer does not meet minimum requirements. Missing sticker(s): {string.Join(", ", minimumNotMet.Select(s => s.Number))}");
+                $"Offer does not meet minimum requirements. Missing catalog sticker ID(s): {string.Join(", ", missingRequired)}");
 
-        var bidder = _userRepository.GetById(bidderId);
-        if (bidder == null)
-            throw new ArgumentException("Bidder not found.");
-
-        var aucOffer = new AuctionOffer
+        var offer = new AuctionOffer
         {
-            Bidder = bidder,
-            Auction = auction,
-            Offer = offeredUserStickers
+            AuctionId = auctionId.ToString(),
+            BidderId = bidderId,
+            OfferedUserStickerIds = dto.OfferedUserStickerIds
         };
 
-        _offerRepo.Add(aucOffer);
-        return aucOffer;
+        _offerRepo.Add(offer);
+
+        return MapOfferToDto(offer);
     }
+
+    private static AuctionResponseDTO MapToDto(Auction auction) => new()
+    {
+        Id = auction.Id,
+        AuctioneerId = auction.AuctioneerId,
+        UserStickerId = auction.UserStickerId,
+        MinimumOfferStickerIds = auction.MinimumOfferStickerIds,
+        Status = auction.Status.ToString(),
+        CreatedAt = auction.CreatedAt,
+        EndsAt = auction.EndsAt,
+        BestCurrentOfferId = auction.BestCurrentOfferId
+    };
+
+    private static AuctionOfferResponseDTO MapOfferToDto(AuctionOffer offer) => new()
+    {
+        Id = offer.Id,
+        AuctionId = offer.AuctionId,
+        BidderId = offer.BidderId,
+        OfferedUserStickerIds = offer.OfferedUserStickerIds,
+        CreatedAt = offer.CreatedAt
+    };
 }

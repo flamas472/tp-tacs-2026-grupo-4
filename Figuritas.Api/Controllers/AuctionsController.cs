@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
-using Figuritas.Shared.Model;
-using Figuritas.Shared.DTO.request;
-using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Authorization;
+using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
+using Figuritas.Api.Services;
 
 namespace Figuritas.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class AuctionsController : ControllerBase
 {
     private readonly AuctionService _auctionService;
@@ -20,53 +21,40 @@ public class AuctionsController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<List<Auction>> GetAuctions()
+    [AllowAnonymous]
+    public ActionResult<List<AuctionResponseDTO>> GetAuctions()
     {
-        try
-        {
-            var auctions = _auctionService.GetAuctions();
-            return Ok(auctions);
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        var auctions = _auctionService.GetAuctions();
+        return Ok(auctions);
     }
 
     [HttpGet("{id}")]
-    public ActionResult<Auction> GetAuction(int id)
+    [AllowAnonymous]
+    public ActionResult<AuctionResponseDTO> GetAuction(int id)
     {
-        try
-        {
-            var auction = _auctionService.GetAuction(id);
-            if (auction == null) return NotFound("Auction not found");
-            return Ok(auction);
-        }
-        catch (ArgumentException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        var auction = _auctionService.GetAuction(id);
+        if (auction == null)
+            return NotFound("Auction not found.");
+        return Ok(auction);
     }
 
-    [Authorize]
     [HttpPost]
-    public ActionResult<Auction> PostAuction(PostAuctionDTO dto)
+    public ActionResult<AuctionResponseDTO> PostAuction([FromBody] PostAuctionRequestDTO dto)
     {
         try
         {
-            var auctioneerId = _authService.GetUserIdFromToken(User);
-            var auction = _auctionService.CreateAuction(auctioneerId, dto);
+            var callerUserId = _authService.GetUserIdFromToken(User);
+            var auction = _auctionService.CreateAuction(callerUserId, dto);
             return CreatedAtAction(nameof(GetAuction), new { id = auction.Id }, auction);
         }
-        catch (ArgumentException ex)
+        catch (InvalidOperationException ex)
         {
-            return NotFound(ex.Message);
+            return BadRequest(ex.Message);
         }
     }
 
-    [Authorize]
     [HttpPost("{auctionId}/offers")]
-    public ActionResult<AuctionOffer> PostAuctionOffer(int auctionId, PostAuctionOfferDTO dto)
+    public ActionResult<AuctionOfferResponseDTO> PostAuctionOffer(int auctionId, [FromBody] PostAuctionOfferRequestDTO dto)
     {
         try
         {
@@ -74,7 +62,7 @@ public class AuctionsController : ControllerBase
             var offer = _auctionService.CreateOffer(bidderId, auctionId, dto);
             return CreatedAtAction(nameof(GetAuction), new { id = auctionId }, offer);
         }
-        catch (ArgumentException ex)
+        catch (KeyNotFoundException ex)
         {
             return NotFound(ex.Message);
         }

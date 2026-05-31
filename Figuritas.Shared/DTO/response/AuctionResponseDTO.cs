@@ -1,22 +1,13 @@
-using Figuritas.Shared.Model.Subastas;
+namespace Figuritas.Shared.DTO.response;
 
-namespace Figuritas.Shared.Model;
-
-public class Auction
+public class AuctionResponseDTO
 {
     public int Id { get; set; }
-
     public int AuctioneerId { get; set; }
-
     public int UserStickerId { get; set; }
-
     public List<int> MinimumOfferStickerIds { get; set; } = new();
-
-    public AuctionStatus Status { get; set; } = AuctionStatus.Active;
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
     public DateTime EndsAt { get; set; }
-
     public string? BestCurrentOfferId { get; set; }
 }
