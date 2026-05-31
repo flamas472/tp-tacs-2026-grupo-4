@@ -153,5 +153,53 @@ namespace Figuritas.Client.Requests
                 return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
             }
         }
+
+        public async Task<ApiResponse<ExchangeProposalResponseDTO>> GetExchangeProposalByIdAsync(int id)
+        {
+            try
+            {
+                var response = await _http.GetAsync($"api/exchange-proposals/{id}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<ExchangeProposalResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<ExchangeProposalResponseDTO>.Ok(data)
+                        : ApiResponse<ExchangeProposalResponseDTO>.Fail("No se pudo leer la propuesta.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<ExchangeProposalResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<ExchangeProposalResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        public async Task<ApiResponse<ExchangeSummaryDTO>> GetExchangeByProposalIdAsync(int id)
+        {
+            try
+            {
+                var response = await _http.GetAsync($"api/exchange-proposals/{id}/exchange");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<ExchangeSummaryDTO>();
+                    return data is not null
+                        ? ApiResponse<ExchangeSummaryDTO>.Ok(data)
+                        : ApiResponse<ExchangeSummaryDTO>.Fail("No se pudo leer el intercambio.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<ExchangeSummaryDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<ExchangeSummaryDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
     }
+
+    public record ExchangeSummaryDTO(int Id, int ExchangeProposalID, int ProponentID, int ProposedID);
 }

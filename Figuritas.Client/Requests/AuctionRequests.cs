@@ -113,5 +113,28 @@ namespace Figuritas.Client.Requests
                 return ApiResponse<AuctionOfferResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
+
+        public async Task<ApiResponse<AuctionResponseDTO>> CloseAuctionAsync(int id, CloseAuctionRequestDTO dto)
+        {
+            try
+            {
+                var response = await _http.PostAsJsonAsync($"api/auctions/{id}/close", dto);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<AuctionResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<AuctionResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionResponseDTO>.Fail("No se pudo leer la subasta cerrada.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
     }
 }

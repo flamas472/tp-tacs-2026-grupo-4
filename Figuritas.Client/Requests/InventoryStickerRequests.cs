@@ -1,6 +1,7 @@
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Responses;
 using Figuritas.Client.Extensions;
+using System.Net.Http.Json;
 
 namespace Figuritas.Client.Requests
 {
@@ -43,6 +44,32 @@ namespace Figuritas.Client.Requests
             catch (Exception ex)
             {
                 return ApiResponse<List<MarketStickerResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        public async Task<ApiResponse<List<ExchangeSuggestionResponseDTO>>> GetSuggestionsAsync(
+            int page = 1, int pageSize = 20)
+        {
+            try
+            {
+                var response = await _http.GetAsync(
+                    $"api/market/suggestions?Page={page}&PageSize={pageSize}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<List<ExchangeSuggestionResponseDTO>>();
+                    return ApiResponse<List<ExchangeSuggestionResponseDTO>>.Ok(
+                        data ?? new List<ExchangeSuggestionResponseDTO>());
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<List<ExchangeSuggestionResponseDTO>>.Fail(
+                    $"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<List<ExchangeSuggestionResponseDTO>>.Fail(
+                    $"Error de conexión: {ex.Message}");
             }
         }
     }

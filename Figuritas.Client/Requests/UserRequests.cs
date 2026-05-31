@@ -252,6 +252,29 @@ namespace Figuritas.Client.Requests
             }
         }
 
+        public async Task<ApiResponse<UserResponseDTO>> GetUserByIdAsync(int id)
+        {
+            try
+            {
+                var response = await _http.GetAsync($"api/users/{id}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<UserResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<UserResponseDTO>.Ok(data)
+                        : ApiResponse<UserResponseDTO>.Fail("No se pudo leer el usuario.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<UserResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<UserResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
         public async Task<ApiResponse<double>> GetUserReputationAsync(int userId)
         {
             try
