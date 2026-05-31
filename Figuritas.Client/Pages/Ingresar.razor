@@ -18,6 +18,7 @@
 
             <!-- ── TAB: INGRESAR ──────────────────────────────── -->
             <MudTabPanel Text="Ingresar">
+                <div @onkeydown="@(async (e) => { if (e.Key == "Enter" && !_loading) await HandleLogin(); })">
                 @if (_loginError != null)
                 {
                     <MudAlert Severity="Severity.Error" Dense="true" Class="mb-3">@_loginError</MudAlert>
@@ -51,6 +52,7 @@
                     }
                     Ingresar
                 </MudButton>
+                </div>
             </MudTabPanel>
 
             <!-- ── TAB: REGISTRARSE ───────────────────────────── -->
