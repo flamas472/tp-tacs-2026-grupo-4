@@ -18,5 +18,5 @@ public class Auction
 
     public DateTime EndsAt { get; set; }
 
-    public string? BestCurrentOfferId { get; set; }
+    public int? BestCurrentOfferId { get; set; }
 }

@@ -9,5 +9,5 @@ public class AuctionResponseDTO
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime EndsAt { get; set; }
-    public string? BestCurrentOfferId { get; set; }
+    public int? BestCurrentOfferId { get; set; }
 }

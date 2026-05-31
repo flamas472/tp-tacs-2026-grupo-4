@@ -77,6 +77,9 @@ public class AuctionService
 
     public AuctionOfferResponseDTO CreateOffer(int bidderId, int auctionId, PostAuctionOfferRequestDTO dto)
     {
+        if (dto.OfferedUserStickerIds == null || dto.OfferedUserStickerIds.Count == 0)
+            throw new InvalidOperationException("Offered sticker list cannot be empty.");
+
         var auction = _auctionRepo.GetById(auctionId);
         if (auction == null)
             throw new KeyNotFoundException("Auction not found.");
@@ -87,7 +90,13 @@ public class AuctionService
         if (auction.Status != AuctionStatus.Active)
             throw new InvalidOperationException("The auction is not active.");
 
+        if (bidderId == auction.AuctioneerId)
+            throw new InvalidOperationException("The auctioneer cannot bid on their own auction.");
+
         var offeredUserStickers = _userStickerRepo.GetMultipleById(dto.OfferedUserStickerIds);
+
+        if (offeredUserStickers.Count != dto.OfferedUserStickerIds.Count)
+            throw new InvalidOperationException("One or more offered sticker IDs do not exist.");
 
         // Validate ownership and stock for each offered sticker
         foreach (var offeredUs in offeredUserStickers)
@@ -113,12 +122,15 @@ public class AuctionService
 
         var offer = new AuctionOffer
         {
-            AuctionId = auctionId.ToString(),
+            AuctionId = auctionId,
             BidderId = bidderId,
             OfferedUserStickerIds = dto.OfferedUserStickerIds
         };
 
         _offerRepo.Add(offer);
+
+        auction.BestCurrentOfferId = offer.Id;
+        _auctionRepo.Update(auction);
 
         return MapOfferToDto(offer);
     }

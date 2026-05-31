@@ -4,7 +4,7 @@ public class AuctionOffer
 {
     public int Id { get; set; }
 
-    public string AuctionId { get; set; } = string.Empty;
+    public int AuctionId { get; set; }
 
     public int BidderId { get; set; }
 

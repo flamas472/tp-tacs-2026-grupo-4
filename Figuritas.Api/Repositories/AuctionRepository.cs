@@ -23,4 +23,7 @@ public class AuctionRepository : IAuctionRepository
     }
 
     public Auction? GetById(int id) => _auctions.Find(a => a.Id == id).FirstOrDefault();
+
+    public void Update(Auction auction) =>
+        _auctions.ReplaceOne(a => a.Id == auction.Id, auction);
 }

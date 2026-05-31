@@ -7,4 +7,5 @@ public interface IAuctionRepository
     List<Auction> GetAll();
     void Add(Auction auction);
     Auction? GetById(int id);
+    void Update(Auction auction);
 }
