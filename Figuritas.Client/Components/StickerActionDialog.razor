@@ -1,44 +1,58 @@
 @using Figuritas.Shared.Model
 @using Figuritas.Shared.DTO
 @using Figuritas.Shared.DTO.request
+@using Figuritas.Shared.DTO.response
 @using Figuritas.Client.Requests
 
 @inject UserHttpClient UserHttp
+@inject DashboardHttpClient DashboardHttp
 @inject AuthStateService AuthState
 @inject NavigationManager Nav
 
 <MudDialog>
     <DialogContent>
-        <StickerDialogContent Sticker="@Sticker" FeedbackMsg="@feedbackMsg" FeedbackSuccess="@feedbackSuccess">
+        <StickerDialogContent Sticker="@Sticker"
+                              FeedbackMsg="@feedbackMsg"
+                              FeedbackSuccess="@feedbackSuccess"
+                              FeedbackSeverity="@feedbackSeverity">
             @if (IsAuthenticated)
             {
-                <div class="action-mode-selector">
-                    <MudButton Variant="@(modoRepetida ? Variant.Filled : Variant.Outlined)"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.ContentCopy"
-                               Class="action-mode-btn"
-                               OnClick="@(() => { modoRepetida = true; feedbackMsg = null; })">
-                        Repetida
-                    </MudButton>
-                    <MudButton Variant="@(!modoRepetida ? Variant.Filled : Variant.Outlined)"
-                               Color="Color.Secondary"
-                               StartIcon="@Icons.Material.Filled.BookmarkAdd"
-                               Class="action-mode-btn"
-                               OnClick="@(() => { modoRepetida = false; feedbackMsg = null; })">
-                        Faltante
-                    </MudButton>
-                </div>
-
-                @if (modoRepetida)
+                @if (initialLoading)
                 {
-                    <MudCheckBox @bind-Value="canBeExchanged"
-                                 Label="Disponible para intercambio directo"
-                                 Color="Color.Primary"
-                                 Class="mt-1" />
-                    <MudCheckBox @bind-Value="canBeAuctioned"
-                                 Label="Disponible para subastar"
-                                 Color="Color.Secondary"
-                                 Class="mt-0" />
+                    <div class="d-flex justify-center mt-2 mb-1">
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    </div>
+                }
+                else
+                {
+                    <div class="action-mode-selector">
+                        <MudButton Variant="@(modoRepetida ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.ContentCopy"
+                                   Class="action-mode-btn"
+                                   OnClick="@(() => { modoRepetida = true; feedbackMsg = null; })">
+                            Repetida
+                        </MudButton>
+                        <MudButton Variant="@(!modoRepetida ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Secondary"
+                                   StartIcon="@Icons.Material.Filled.BookmarkAdd"
+                                   Class="action-mode-btn"
+                                   OnClick="@(() => { modoRepetida = false; feedbackMsg = null; })">
+                            Faltante
+                        </MudButton>
+                    </div>
+
+                    @if (modoRepetida)
+                    {
+                        <MudCheckBox @bind-Value="canBeExchanged"
+                                     Label="Disponible para intercambio directo"
+                                     Color="Color.Primary"
+                                     Class="mt-1" />
+                        <MudCheckBox @bind-Value="canBeAuctioned"
+                                     Label="Disponible para subastar"
+                                     Color="Color.Secondary"
+                                     Class="mt-0" />
+                    }
                 }
             }
             else
@@ -56,7 +70,7 @@
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        OnClick="HandleAgregar"
-                       Disabled="loading">
+                       Disabled="loading || initialLoading">
                 @if (loading)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
@@ -84,43 +98,46 @@
     private bool canBeExchanged = true;
     private bool canBeAuctioned = false;
     private bool loading = false;
+    private bool initialLoading = false;
+    private MyPublishedStickerResponseDTO? cachedExisting = null;
     private string? feedbackMsg = null;
     private bool feedbackSuccess = false;
+    private Severity feedbackSeverity = Severity.Error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsAuthenticated)
+            await LoadExistingUserSticker();
+    }
+
+    private async Task LoadExistingUserSticker()
+    {
+        initialLoading = true;
+
+        var result = await DashboardHttp.GetMyStickersAsync(1, 100);
+        cachedExisting = result.Success
+            ? result.Data?.FirstOrDefault(s => s.Number == Sticker.Number)
+            : null;
+
+        // Pre-poblar: si ya la tiene, usar sus valores; si no, intercambio=true, subasta=false
+        canBeExchanged = cachedExisting?.CanBeDirectlyExchanged ?? true;
+        canBeAuctioned = cachedExisting?.CanBeAuctioned ?? false;
+
+        initialLoading = false;
+    }
 
     private async Task HandleAgregar()
     {
         loading = true;
         feedbackMsg = null;
+        feedbackSeverity = Severity.Error;
 
         var userId = AuthState.UserId;
 
         if (modoRepetida)
-        {
-            var result = await UserHttp.AddUserStickerAsync(userId, new PostUserStickerRequestDTO
-            {
-                StickerId = Sticker.Id,
-                Quantity = 1,
-                CanBeDirectlyExchanged = canBeExchanged,
-                CanBeAuctioned = canBeAuctioned
-            });
-
-            feedbackSuccess = result.Success;
-            feedbackMsg = result.Success
-                ? "Figurita agregada a tus repetidas."
-                : result.ErrorMessage ?? "Error al agregar la figurita.";
-        }
+            await HandleRepetida(userId);
         else
-        {
-            var result = await UserHttp.AddMissingStickerAsync(userId, new PostMissingStickerRequestDTO
-            {
-                StickerId = Sticker.Id
-            });
-
-            feedbackSuccess = result.Success;
-            feedbackMsg = result.Success
-                ? "Figurita agregada a tus faltantes."
-                : result.ErrorMessage ?? "Error al agregar la figurita.";
-        }
+            await HandleFaltante(userId);
 
         loading = false;
 
@@ -129,5 +146,67 @@
             await Task.Delay(1200);
             MudDialog.Close();
         }
+    }
+
+    private async Task HandleRepetida(int userId)
+    {
+        if (cachedExisting != null)
+        {
+            // Ya existe → PATCH: incrementar cantidad + actualizar booleanos
+            var patchResult = await UserHttp.UpdateUserStickerAsync(
+                userId, cachedExisting.StickerId,
+                new PatchUserStickerDTO
+                {
+                    CanBeDirectlyExchanged = canBeExchanged,
+                    CanBeAuctioned = canBeAuctioned,
+                    Quantity = cachedExisting.Quantity + 1
+                });
+
+            feedbackSuccess = patchResult.Success;
+            feedbackMsg = patchResult.Success
+                ? "Repetida actualizada correctamente."
+                : patchResult.ErrorMessage ?? "Error al actualizar la figurita.";
+        }
+        else
+        {
+            // No existe → POST
+            var postResult = await UserHttp.AddUserStickerAsync(userId, new PostUserStickerRequestDTO
+            {
+                StickerId = Sticker.Id,
+                Quantity = 1,
+                CanBeDirectlyExchanged = canBeExchanged,
+                CanBeAuctioned = canBeAuctioned
+            });
+
+            feedbackSuccess = postResult.Success;
+            feedbackMsg = postResult.Success
+                ? "Figurita agregada a tus repetidas."
+                : postResult.ErrorMessage ?? "Error al agregar la figurita.";
+        }
+    }
+
+    private async Task HandleFaltante(int userId)
+    {
+        var missingResult = await UserHttp.GetMissingStickersAsync(userId);
+        var alreadyExists = missingResult.Success
+            && (missingResult.Data?.Any(m => m.StickerId == Sticker.Id) ?? false);
+
+        if (alreadyExists)
+        {
+            feedbackSuccess = false;
+            feedbackSeverity = Severity.Warning;
+            feedbackMsg = "Esta figurita ya está en tus faltantes.";
+            return;
+        }
+
+        var postResult = await UserHttp.AddMissingStickerAsync(userId, new PostMissingStickerRequestDTO
+        {
+            StickerId = Sticker.Id
+        });
+
+        feedbackSuccess = postResult.Success;
+        feedbackMsg = postResult.Success
+            ? "Figurita agregada a tus faltantes."
+            : postResult.ErrorMessage ?? "Error al agregar la figurita.";
     }
 }

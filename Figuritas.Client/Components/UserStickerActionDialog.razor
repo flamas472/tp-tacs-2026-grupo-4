@@ -1,9 +1,17 @@
 @using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO
 @using Figuritas.Client.Models
+@using Figuritas.Client.Requests
+
+@inject AuthStateService AuthState
+@inject UserHttpClient UserHttp
 
 <MudDialog>
     <DialogContent>
-        <StickerDialogContent Sticker="@Sticker" Quantity="@Quantity">
+        <StickerDialogContent Sticker="@Sticker"
+                              Quantity="@Quantity"
+                              FeedbackMsg="@feedbackMsg"
+                              FeedbackSuccess="@feedbackSuccess">
             <MudCheckBox @bind-Value="canBeDirectlyExchanged"
                          Label="Disponible para intercambio directo"
                          Color="Color.Primary"
@@ -15,11 +23,16 @@
         </StickerDialogContent>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@(() => MudDialog.Cancel())">Cancelar</MudButton>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cancelar</MudButton>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Save"
-                   OnClick="HandleGuardar">
+                   OnClick="HandleGuardar"
+                   Disabled="loading">
+            @if (loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
             Guardar
         </MudButton>
     </DialogActions>
@@ -35,6 +48,9 @@
 
     private bool canBeDirectlyExchanged;
     private bool canBeAuctioned;
+    private bool loading = false;
+    private string? feedbackMsg = null;
+    private bool feedbackSuccess = false;
 
     protected override void OnParametersSet()
     {
@@ -42,10 +58,31 @@
         canBeAuctioned = InitialCanBeAuctioned;
     }
 
-    private void HandleGuardar()
+    private async Task HandleGuardar()
     {
-        // TODO: llamar a PATCH /api/users/{userId}/stickers/{UserStickerId}
-        // con PatchUserStickerDTO { CanBeDirectlyExchanged = canBeDirectlyExchanged, CanBeAuctioned = canBeAuctioned }
-        MudDialog.Close();
+        loading = true;
+        feedbackMsg = null;
+
+        var result = await UserHttp.UpdateUserStickerAsync(
+            AuthState.UserId,
+            UserStickerId,
+            new PatchUserStickerDTO
+            {
+                CanBeDirectlyExchanged = canBeDirectlyExchanged,
+                CanBeAuctioned = canBeAuctioned
+                // Quantity = null → la API no modifica la cantidad
+            });
+
+        loading = false;
+        feedbackSuccess = result.Success;
+        feedbackMsg = result.Success
+            ? "Configuración actualizada."
+            : result.ErrorMessage ?? "Error al guardar los cambios.";
+
+        if (feedbackSuccess)
+        {
+            await Task.Delay(1000);
+            MudDialog.Close();
+        }
     }
 }

@@ -117,8 +117,12 @@
             MaxWidth = MaxWidth.Small,
             FullWidth = true
         };
-        await DialogService.ShowAsync<UserStickerActionDialog>(
+        var dialog = await DialogService.ShowAsync<UserStickerActionDialog>(
             $"#{vm.Sticker.Number:D3} — {vm.Sticker.Description}",
             parameters, options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await LoadAll();
     }
 }
