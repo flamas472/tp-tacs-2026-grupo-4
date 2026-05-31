@@ -37,7 +37,7 @@ public class ExchangeProposalService
             if (sticker.Quantity <= 0)
                 throw new InvalidOperationException("All offered stickers must have quantity greater than zero.");
 
-            if (!sticker.CanBeExchanged)
+            if (!sticker.CanBeDirectlyExchanged)
                 throw new InvalidOperationException("All offered stickers must be available for direct exchange.");
         }
 
@@ -45,7 +45,10 @@ public class ExchangeProposalService
         if (requestedSticker == null)
             throw new InvalidOperationException("The requested sticker was not found.");
 
-        if (!requestedSticker.CanBeExchanged)
+        if (requestedSticker.UserId != dto.ProposedUserId)
+            throw new InvalidOperationException("The requested sticker does not belong to the proposed recipient.");
+
+        if (!requestedSticker.CanBeDirectlyExchanged)
             throw new InvalidOperationException("The requested sticker is not available for direct exchange.");
 
         var proposal = new ExchangeProposal
@@ -64,16 +67,14 @@ public class ExchangeProposalService
 
     public List<ExchangeProposalResponseDTO> GetAllSentProposals(int userID)
     {
-        return _exchangePropRepo.GetAllUserSentProposals(userID)
-                                .Where(p => p.State == ExchangeProposalState.Pending)
+        return _exchangePropRepo.GetAllUserSentProposals(userID, ExchangeProposalState.Pending)
                                 .Select(MapToResponseDto)
                                 .ToList();
     }
 
     public List<ExchangeProposalResponseDTO> GetAllReceivedProposals(int userID)
     {
-        return _exchangePropRepo.GetAllUserReceivedProposals(userID)
-                                .Where(p => p.State == ExchangeProposalState.Pending)
+        return _exchangePropRepo.GetAllUserReceivedProposals(userID, ExchangeProposalState.Pending)
                                 .Select(MapToResponseDto)
                                 .ToList();
     }

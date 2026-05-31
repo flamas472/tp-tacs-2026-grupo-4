@@ -15,7 +15,8 @@ namespace Figuritas.Api.Tests;
 /// Uses WebApplicationFactory to run the API in memory.
 /// Requires a running MongoDB instance (same as the app).
 /// </summary>
-public class UserStory03Tests : IClassFixture<WebApplicationFactory<Program>>
+[Collection(nameof(IntegrationTestCollection))]
+public class UserStory03Tests
 {
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;

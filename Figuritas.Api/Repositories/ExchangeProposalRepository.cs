@@ -30,14 +30,20 @@ public class ExchangeProposalRepository : IExchangeProposalRepository
         return _proposals.Find(p => p.Id == proposalId).FirstOrDefault();
     }
 
-    public List<ExchangeProposal> GetAllUserSentProposals(int userId)
+    public List<ExchangeProposal> GetAllUserSentProposals(int userId, ExchangeProposalState? state = null)
     {
-        return _proposals.Find(p => p.ProponentID == userId).ToList();
+        var filter = Builders<ExchangeProposal>.Filter.Eq(p => p.ProponentID, userId);
+        if (state.HasValue)
+            filter &= Builders<ExchangeProposal>.Filter.Eq(p => p.State, state.Value);
+        return _proposals.Find(filter).ToList();
     }
 
-    public List<ExchangeProposal> GetAllUserReceivedProposals(int userId)
+    public List<ExchangeProposal> GetAllUserReceivedProposals(int userId, ExchangeProposalState? state = null)
     {
-        return _proposals.Find(p => p.ProposedID == userId).ToList();
+        var filter = Builders<ExchangeProposal>.Filter.Eq(p => p.ProposedID, userId);
+        if (state.HasValue)
+            filter &= Builders<ExchangeProposal>.Filter.Eq(p => p.State, state.Value);
+        return _proposals.Find(filter).ToList();
     }
 
     public void Update(ExchangeProposal proposal)

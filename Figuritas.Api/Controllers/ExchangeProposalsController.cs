@@ -29,6 +29,11 @@ public class ExchangeProposalsController : ControllerBase
         var dto = _proposalService.GetProposalDtoByID(id);
         if (dto == null)
             return NotFound("Proposal not found.");
+
+        var callerId = _authService.GetUserIdFromToken(User);
+        if (callerId != dto.ProponentUserId && callerId != dto.ProposedUserId)
+            return StatusCode(403, "Access denied: you are not a participant in this proposal.");
+
         return Ok(dto);
     }
 
@@ -123,12 +128,12 @@ public class ExchangeProposalsController : ControllerBase
             if (proposal == null)
                 return NotFound("Proposal not found.");
 
-            if (proposal.State != ExchangeProposalState.Pending)
-                return BadRequest("Only pending proposals can be rejected.");
-
             var userId = _authService.GetUserIdFromToken(User);
             if (proposal.ProposedID != userId)
-                return BadRequest("Only the recipient can reject a proposal.");
+                return StatusCode(403, "Only the recipient can reject a proposal.");
+
+            if (proposal.State != ExchangeProposalState.Pending)
+                return BadRequest("Only pending proposals can be rejected.");
 
             _proposalService.ChangeProposalStatus(id, ExchangeProposalState.Rejected);
 
@@ -152,12 +157,12 @@ public class ExchangeProposalsController : ControllerBase
             if (proposal == null)
                 return NotFound("Proposal not found.");
 
-            if (proposal.State != ExchangeProposalState.Pending)
-                return BadRequest("Only pending proposals can be cancelled.");
-
             var userId = _authService.GetUserIdFromToken(User);
             if (proposal.ProponentID != userId)
-                return BadRequest("Only the proponent can cancel a proposal.");
+                return StatusCode(403, "Only the proponent can cancel a proposal.");
+
+            if (proposal.State != ExchangeProposalState.Pending)
+                return BadRequest("Only pending proposals can be cancelled.");
 
             _proposalService.ChangeProposalStatus(id, ExchangeProposalState.Cancelled);
 

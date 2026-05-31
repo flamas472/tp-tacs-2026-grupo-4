@@ -11,12 +11,12 @@ using Xunit;
 namespace Figuritas.Api.Tests;
 
 [Collection(nameof(IntegrationTestCollection))]
-public class UserStories05Tests : IAsyncLifetime
+public class UserStory05Tests : IAsyncLifetime
 {
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
 
-    public UserStories05Tests(WebApplicationFactory<Program> factory)
+    public UserStory05Tests(WebApplicationFactory<Program> factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -60,7 +60,7 @@ public class UserStories05Tests : IAsyncLifetime
         return client;
     }
 
-    private async Task<UserSticker> PublishStickerAsync(HttpClient authenticatedClient, int userId, int catalogStickerId, bool canBeDirectlyExchanged = true, int quantity = 2)
+    private async Task<UserStickerResponseDTO> PublishStickerAsync(HttpClient authenticatedClient, int userId, int catalogStickerId, bool canBeDirectlyExchanged = true, int quantity = 2)
     {
         var dto = new PostUserStickerRequestDTO
         {
@@ -71,7 +71,7 @@ public class UserStories05Tests : IAsyncLifetime
         };
         var response = await authenticatedClient.PostAsJsonAsync($"/api/users/{userId}/stickers", dto);
         response.EnsureSuccessStatusCode();
-        var created = await response.Content.ReadFromJsonAsync<UserSticker>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var created = await response.Content.ReadFromJsonAsync<UserStickerResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return created!;
     }
 
@@ -319,6 +319,222 @@ public class UserStories05Tests : IAsyncLifetime
         Assert.Equal(userB.Id, receivedProposal!.ProposedUserId);
         Assert.IsType<int>(receivedProposal.RequestedUserStickerId);
         Assert.IsType<List<int>>(receivedProposal.OfferedUserStickerIds);
+    }
+
+    /// <summary>
+    /// Escenario 9: GET /{id} por participante legítimo → 200 OK con DTO plano.
+    /// </summary>
+    [Fact]
+    public async Task US05_GetProposalById_ByParticipant_Returns200WithFlatDto()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us05_gbid_a_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us05_gbid_b_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us05_gbid_a_{suffix}", "password123");
+        var tokenB = await LoginAsync($"us05_gbid_b_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(tokenB);
+
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+        var stickerX = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id);
+        var stickerY = await PublishStickerAsync(clientB, userB.Id, catalogStickers[1 % catalogStickers.Count].Id);
+
+        var dto = new PostExchangeProposalRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerX.Id },
+            RequestedUserStickerId = stickerY.Id,
+            ProposedUserId = userB.Id
+        };
+        var createResponse = await clientA.PostAsJsonAsync("/api/exchange-proposals", dto);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(created);
+
+        // El proponente puede consultar
+        var getResponse = await clientA.GetAsync($"/api/exchange-proposals/{created!.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var result = await getResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(result);
+        Assert.Equal(created.Id, result!.Id);
+        Assert.Equal("Pending", result.State);
+        Assert.IsType<int>(result.RequestedUserStickerId);
+        Assert.IsType<List<int>>(result.OfferedUserStickerIds);
+
+        // El receptor también puede consultar
+        var getResponseB = await clientB.GetAsync($"/api/exchange-proposals/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponseB.StatusCode);
+    }
+
+    /// <summary>
+    /// Escenario 10: GET /{id} por usuario no participante → 403 Forbidden.
+    /// </summary>
+    [Fact]
+    public async Task US05_GetProposalById_ByNonParticipant_Returns403()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us05_403_a_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us05_403_b_{suffix}", "password123");
+        var userC = await RegisterUserAsync($"us05_403_c_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us05_403_a_{suffix}", "password123");
+        var tokenB = await LoginAsync($"us05_403_b_{suffix}", "password123");
+        var tokenC = await LoginAsync($"us05_403_c_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(tokenB);
+        var clientC = ClientWithToken(tokenC);
+
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+        var stickerX = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id);
+        var stickerY = await PublishStickerAsync(clientB, userB.Id, catalogStickers[1 % catalogStickers.Count].Id);
+
+        var dto = new PostExchangeProposalRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerX.Id },
+            RequestedUserStickerId = stickerY.Id,
+            ProposedUserId = userB.Id
+        };
+        var createResponse = await clientA.PostAsJsonAsync("/api/exchange-proposals", dto);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(created);
+
+        var getResponse = await clientC.GetAsync($"/api/exchange-proposals/{created!.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, getResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// Escenario 11: GET /{id} con ID inexistente → 404 NotFound.
+    /// </summary>
+    [Fact]
+    public async Task US05_GetProposalById_NonExistentId_Returns404()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us05_404_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us05_404_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+
+        var getResponse = await clientA.GetAsync("/api/exchange-proposals/999999999");
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// Escenario 12: Aceptar propuesta → 200 OK, estado "Accepted".
+    /// </summary>
+    [Fact]
+    public async Task AcceptProposal_WithValidData_ExecutesTradeSuccessfully()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us05_acc_a_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us05_acc_b_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us05_acc_a_{suffix}", "password123");
+        var tokenB = await LoginAsync($"us05_acc_b_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(tokenB);
+
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+        var stickerX = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id);
+        var stickerY = await PublishStickerAsync(clientB, userB.Id, catalogStickers[1 % catalogStickers.Count].Id);
+
+        var proposalDto = new PostExchangeProposalRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerX.Id },
+            RequestedUserStickerId = stickerY.Id,
+            ProposedUserId = userB.Id
+        };
+        var createResponse = await clientA.PostAsJsonAsync("/api/exchange-proposals", proposalDto);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(created);
+
+        // Usuario A es el receptor (ProposedUserId = userB, pero la propuesta es de A hacia B,
+        // entonces userB es el receptor — clientB acepta)
+        var acceptResponse = await clientB.PostAsync($"/api/exchange-proposals/{created!.Id}/accept", null);
+        Assert.Equal(HttpStatusCode.OK, acceptResponse.StatusCode);
+
+        var getResponse = await clientA.GetAsync($"/api/exchange-proposals/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var result = await getResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(result);
+        Assert.Equal("Accepted", result!.State);
+    }
+
+    /// <summary>
+    /// Escenario 13: Rechazar propuesta → 200 OK, estado "Rejected".
+    /// </summary>
+    [Fact]
+    public async Task RejectProposal_ByLegitimateRecipient_ChangesStateToRejected()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us05_rej_a_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us05_rej_b_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us05_rej_a_{suffix}", "password123");
+        var tokenB = await LoginAsync($"us05_rej_b_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(tokenB);
+
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+        var stickerX = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id);
+        var stickerY = await PublishStickerAsync(clientB, userB.Id, catalogStickers[1 % catalogStickers.Count].Id);
+
+        var proposalDto = new PostExchangeProposalRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerX.Id },
+            RequestedUserStickerId = stickerY.Id,
+            ProposedUserId = userB.Id
+        };
+        var createResponse = await clientA.PostAsJsonAsync("/api/exchange-proposals", proposalDto);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(created);
+
+        // userB es el receptor de la propuesta (ProposedID = userB.Id)
+        var rejectResponse = await clientB.PostAsync($"/api/exchange-proposals/{created!.Id}/reject", null);
+        Assert.Equal(HttpStatusCode.OK, rejectResponse.StatusCode);
+
+        var getResponse = await clientA.GetAsync($"/api/exchange-proposals/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var result = await getResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(result);
+        Assert.Equal("Rejected", result!.State);
+    }
+
+    /// <summary>
+    /// Escenario 14: Cancelar propuesta por el proponente → 200 OK, estado "Cancelled".
+    /// </summary>
+    [Fact]
+    public async Task CancelProposal_ByOriginalProponent_ChangesStateToCancelled()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us05_can_a_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us05_can_b_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us05_can_a_{suffix}", "password123");
+        var tokenB = await LoginAsync($"us05_can_b_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(tokenB);
+
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+        var stickerX = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id);
+        var stickerY = await PublishStickerAsync(clientB, userB.Id, catalogStickers[1 % catalogStickers.Count].Id);
+
+        var proposalDto = new PostExchangeProposalRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerX.Id },
+            RequestedUserStickerId = stickerY.Id,
+            ProposedUserId = userB.Id
+        };
+        var createResponse = await clientA.PostAsJsonAsync("/api/exchange-proposals", proposalDto);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(created);
+
+        // userA es el proponente (ProponentID = userA.Id)
+        var cancelResponse = await clientA.PostAsync($"/api/exchange-proposals/{created!.Id}/cancel", null);
+        Assert.Equal(HttpStatusCode.OK, cancelResponse.StatusCode);
+
+        var getResponse = await clientA.GetAsync($"/api/exchange-proposals/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var result = await getResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(result);
+        Assert.Equal("Cancelled", result!.State);
     }
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
