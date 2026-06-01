@@ -4,7 +4,7 @@ namespace Figuritas.Api.Repositories;
 
 public interface IAuctionRepository
 {
-    List<Auction> GetAll(int page = 1, int pageSize = 20);
+    List<Auction> GetAll(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null);
     void Add(Auction auction);
     Auction? GetById(int id);
     void Update(Auction auction);

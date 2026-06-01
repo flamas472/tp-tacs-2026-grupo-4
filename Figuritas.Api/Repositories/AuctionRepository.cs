@@ -40,12 +40,18 @@ public class AuctionRepository : IAuctionRepository
             new CreateIndexOptions { Name = "idx_auction_status_ends_at" }));
     }
 
-    public List<Auction> GetAll(int page = 1, int pageSize = 20) =>
-        _auctions.Find(_ => true)
+    public List<Auction> GetAll(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null)
+    {
+        var filter = excludeAuctioneerId.HasValue
+            ? Builders<Auction>.Filter.Ne(a => a.AuctioneerId, excludeAuctioneerId.Value)
+            : Builders<Auction>.Filter.Empty;
+
+        return _auctions.Find(filter)
             .SortByDescending(a => a.Id)
             .Skip((page - 1) * pageSize)
             .Limit(pageSize)
             .ToList();
+    }
 
     public void Add(Auction auction)
     {

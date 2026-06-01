@@ -10,4 +10,5 @@ public class AuctionResponseDTO
     public DateTime CreatedAt { get; set; }
     public DateTime EndsAt { get; set; }
     public int? BestCurrentOfferId { get; set; }
+    public int? UserSelectedBestOfferId { get; set; }
 }

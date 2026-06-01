@@ -28,12 +28,12 @@ public class AuctionsController : ControllerBase
     }
 
     [HttpGet]
-    [AllowAnonymous]
     public ActionResult<List<AuctionResponseDTO>> GetAuctions(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
         [FromQuery][Range(1, 100)] int pageSize = 20)
     {
-        var auctions = _auctionService.GetAuctions(page, pageSize);
+        var callerUserId = _authService.GetUserIdFromToken(User);
+        var auctions = _auctionService.GetAuctions(page, pageSize, excludeAuctioneerId: callerUserId);
         return Ok(auctions);
     }
 

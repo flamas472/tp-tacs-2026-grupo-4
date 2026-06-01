@@ -36,6 +36,16 @@ public class ExchangeProposalService
         if (dto.OfferedUserStickerIds == null || dto.OfferedUserStickerIds.Count == 0)
             throw new InvalidOperationException("At least one offered sticker is required.");
 
+        var duplicateIds = dto.OfferedUserStickerIds
+            .GroupBy(id => id)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicateIds.Any())
+            throw new InvalidOperationException(
+                $"Duplicate sticker IDs are not allowed in a single proposal. Repeated ID(s): {string.Join(", ", duplicateIds)}");
+
         var offeredStickers = _inventoryRepo.GetMultipleById(dto.OfferedUserStickerIds);
 
         if (offeredStickers.Count != dto.OfferedUserStickerIds.Count)

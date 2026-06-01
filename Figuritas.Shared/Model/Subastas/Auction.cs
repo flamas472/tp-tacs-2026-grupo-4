@@ -20,6 +20,13 @@ public class Auction
 
     public int? BestCurrentOfferId { get; set; }
 
+    /// <summary>
+    /// The offer ID explicitly selected by the auctioneer as the winner.
+    /// Populated only when the auctioneer manually designates a winning offer.
+    /// Null by default; does not affect the automatic closure logic.
+    /// </summary>
+    public int? UserSelectedBestOfferId { get; set; }
+
     // Deuda técnica aceptada: Campos de worker-coordination en la entidad Auction (mezcla de concern de infraestructura con dominio) — bajo riesgo, requiere refactor más amplio
     /// <summary>Marks that the AuctionEnding alert was already sent. Prevents duplicate worker notifications.</summary>
     public bool AuctionEndingNotificationSent { get; set; } = false;

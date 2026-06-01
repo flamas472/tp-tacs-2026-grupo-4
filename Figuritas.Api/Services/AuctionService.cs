@@ -35,9 +35,9 @@ public class AuctionService
                            .ToList();
     }
 
-    public List<AuctionResponseDTO> GetAuctions(int page = 1, int pageSize = 20)
+    public List<AuctionResponseDTO> GetAuctions(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null)
     {
-        return _auctionRepo.GetAll(page, pageSize).Select(MapToDto).ToList();
+        return _auctionRepo.GetAll(page, pageSize, excludeAuctioneerId).Select(MapToDto).ToList();
     }
 
     public AuctionResponseDTO? GetAuction(int id)
@@ -92,6 +92,16 @@ public class AuctionService
     {
         if (dto.OfferedUserStickerIds == null || dto.OfferedUserStickerIds.Count == 0)
             throw new InvalidOperationException("Offered sticker list cannot be empty.");
+
+        var duplicateIds = dto.OfferedUserStickerIds
+            .GroupBy(id => id)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicateIds.Any())
+            throw new InvalidOperationException(
+                $"Duplicate sticker IDs are not allowed in a single offer. Repeated ID(s): {string.Join(", ", duplicateIds)}");
 
         var auction = _auctionRepo.GetById(auctionId);
         if (auction == null)
@@ -353,7 +363,8 @@ public class AuctionService
         Status = auction.Status.ToString(),
         CreatedAt = auction.CreatedAt,
         EndsAt = auction.EndsAt,
-        BestCurrentOfferId = auction.BestCurrentOfferId
+        BestCurrentOfferId = auction.BestCurrentOfferId,
+        UserSelectedBestOfferId = auction.UserSelectedBestOfferId
     };
 
     private static AuctionOfferResponseDTO MapOfferToDto(AuctionOffer offer) => new()
