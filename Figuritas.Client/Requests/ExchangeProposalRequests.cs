@@ -20,7 +20,7 @@ namespace Figuritas.Client.Requests
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, "api/exchange-proposals/sent");
+                var request = new HttpRequestMessage(HttpMethod.Get, "api/dashboard/proposals/sent");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
                 var response = await _http.SendAsync(request);
@@ -44,7 +44,7 @@ namespace Figuritas.Client.Requests
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, "api/exchange-proposals/received");
+                var request = new HttpRequestMessage(HttpMethod.Get, "api/dashboard/proposals/received");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
 
                 var response = await _http.SendAsync(request);

@@ -105,7 +105,7 @@ namespace Figuritas.Client.Requests
             }
         }
 
-        public async Task<ApiResponse<UserSticker>> AddUserStickerAsync(int userId, PostUserStickerRequestDTO dto)
+        public async Task<ApiResponse<UserStickerResponseDTO>> AddUserStickerAsync(int userId, PostUserStickerRequestDTO dto)
         {
             try
             {
@@ -113,18 +113,18 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<UserSticker>();
+                    var data = await response.ProcesarRespuesta<UserStickerResponseDTO>();
                     return data is not null
-                        ? ApiResponse<UserSticker>.Ok(data)
-                        : ApiResponse<UserSticker>.Fail("No se pudo leer la figurita agregada.");
+                        ? ApiResponse<UserStickerResponseDTO>.Ok(data)
+                        : ApiResponse<UserStickerResponseDTO>.Fail("No se pudo leer la figurita agregada.");
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<UserSticker>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<UserStickerResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<UserSticker>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<UserStickerResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
