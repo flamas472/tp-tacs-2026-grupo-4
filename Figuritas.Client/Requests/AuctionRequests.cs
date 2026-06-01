@@ -136,5 +136,67 @@ namespace Figuritas.Client.Requests
                 return ApiResponse<AuctionResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
+
+        public async Task<ApiResponse<List<AuctionWatchlistResponseDTO>>> GetMyWatchlistAsync()
+        {
+            try
+            {
+                var response = await _http.GetAsync("api/auctions/watchlist");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<List<AuctionWatchlistResponseDTO>>();
+                    return ApiResponse<List<AuctionWatchlistResponseDTO>>.Ok(data ?? new List<AuctionWatchlistResponseDTO>());
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<List<AuctionWatchlistResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<List<AuctionWatchlistResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        public async Task<ApiResponse<AuctionWatchlistResponseDTO>> WatchAuctionAsync(int id)
+        {
+            try
+            {
+                var response = await _http.PostAsync($"api/auctions/{id}/watch", null);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<AuctionWatchlistResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<AuctionWatchlistResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionWatchlistResponseDTO>.Fail("No se pudo leer la entrada de watchlist.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<AuctionWatchlistResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AuctionWatchlistResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        public async Task<ApiResponse<bool>> UnwatchAuctionAsync(int id)
+        {
+            try
+            {
+                var response = await _http.DeleteAsync($"api/auctions/{id}/watch");
+
+                if (response.IsSuccessStatusCode)
+                    return ApiResponse<bool>.Ok(true);
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<bool>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
     }
 }

@@ -42,6 +42,7 @@ builder.Services.AddScoped<ExchangeHttpClient>();
 builder.Services.AddScoped<ExchangeProposalHttpClient>();
 builder.Services.AddScoped<AuctionHttpClient>();
 builder.Services.AddScoped<DashboardHttpClient>();
+builder.Services.AddScoped<AdminHttpClient>();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider>(p => p.GetRequiredService<AuthStateProvider>());
 builder.Services.AddScoped<AuthStateService>();
