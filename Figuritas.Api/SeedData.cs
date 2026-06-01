@@ -1,4 +1,5 @@
 using Figuritas.Api.Repositories;
+using Figuritas.Shared.Enums;
 using Figuritas.Shared.Model;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +11,7 @@ public static class SeedData
         var teamRepo = services.GetRequiredService<ITeamRepository>();
         var nationalTeamRepo = services.GetRequiredService<INationalTeamRepository>();
         var stickerRepo = services.GetRequiredService<IStickerRepository>();
+        var userRepo = services.GetRequiredService<IUserRepository>();
 
         categoryRepo.CreateIfNonExistent(new Category { Description = "Jugador" });
         categoryRepo.CreateIfNonExistent(new Category { Description = "Escudo" });
@@ -23,6 +25,18 @@ public static class SeedData
         nationalTeamRepo.CreateIfNonExistent(new NationalTeam { Description = "Argentina" });
         nationalTeamRepo.CreateIfNonExistent(new NationalTeam { Description = "Francia" });
         nationalTeamRepo.CreateIfNonExistent(new NationalTeam { Description = "Brasil" });
+
+        // Seed initial SuperAdmin — academic project, password security intentionally relaxed
+        const string superAdminUsername = "Ivanabete";
+        if (!userRepo.GetAll().Any(u => u.Username == superAdminUsername))
+        {
+            userRepo.Add(new User
+            {
+                Username = superAdminUsername,
+                HashedPassword = BCrypt.Net.BCrypt.HashPassword("figuritacs"),
+                Role = UserRole.SuperAdmin
+            });
+        }
 
         if (!stickerRepo.GetAll().Any())
         {

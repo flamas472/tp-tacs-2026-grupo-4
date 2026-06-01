@@ -65,4 +65,14 @@ public class ExchangeProposalRepository : IExchangeProposalRepository
         };
         return _proposals.FindOneAndUpdate(filter, update, options);
     }
+
+    public bool HasRecentProposal(int senderUserId, int windowSeconds)
+    {
+        var threshold = DateTime.UtcNow.AddSeconds(-windowSeconds);
+        var filter = Builders<ExchangeProposal>.Filter.And(
+            Builders<ExchangeProposal>.Filter.Eq(p => p.ProponentID, senderUserId),
+            Builders<ExchangeProposal>.Filter.Gt(p => p.CreatedAt, threshold)
+        );
+        return _proposals.CountDocuments(filter) > 0;
+    }
 }

@@ -55,6 +55,8 @@ builder.Services.AddScoped<AuctionService>();
 builder.Services.AddScoped<SuggestionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<AuctionWatchlistService>();
+builder.Services.AddScoped<AdminAnalyticsService>();
+builder.Services.AddScoped<AdminService>();
 builder.Services.AddHostedService<AuctionEndingWorker>();
 
 // Register repositories with interface mappings
@@ -71,6 +73,7 @@ builder.Services.AddScoped<IAuctionOfferRepository, AuctionOfferRepository>();
 builder.Services.AddScoped<IMissingStickerRepository, MissingStickerRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IAuctionWatchlistRepository, AuctionWatchlistRepository>();
+builder.Services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();

@@ -11,4 +11,10 @@ public interface IExchangeProposalRepository
     List<ExchangeProposal> GetAllUserReceivedProposals(int userId, ExchangeProposalState? state = null, int page = 1, int pageSize = 20);
     void Update(ExchangeProposal proposal);
     ExchangeProposal? AcceptAtomically(int proposalId);
+
+    /// <summary>
+    /// Returns true if the given sender submitted any proposal within the last <paramref name="windowSeconds"/> seconds.
+    /// Used by the rate-limiting guard to prevent automated burst submissions.
+    /// </summary>
+    bool HasRecentProposal(int senderUserId, int windowSeconds);
 }

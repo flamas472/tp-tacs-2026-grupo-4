@@ -12,17 +12,20 @@ public class ExchangeProposalService
     private readonly IExchangeProposalRepository _exchangePropRepo;
     private readonly IMissingStickerRepository _missingStickerRepo;
     private readonly INotificationService _notificationService;
+    private readonly int _rateLimitWindowSeconds;
 
     public ExchangeProposalService(
         IUserStickerRepository inventoryRepo,
         IExchangeProposalRepository exchangePropRepo,
         IMissingStickerRepository missingStickerRepo,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IConfiguration configuration)
     {
         _inventoryRepo = inventoryRepo;
         _exchangePropRepo = exchangePropRepo;
         _missingStickerRepo = missingStickerRepo;
         _notificationService = notificationService;
+        _rateLimitWindowSeconds = configuration.GetValue<int>("RateLimit:ExchangeProposalWindowSeconds", defaultValue: 3);
     }
 
     public async Task<ExchangeProposalResponseDTO> CreateExchangeProposalAsync(int callerUserId, PostExchangeProposalRequestDTO dto)
@@ -59,6 +62,9 @@ public class ExchangeProposalService
 
         if (!requestedSticker.CanBeDirectlyExchanged)
             throw new InvalidOperationException("The requested sticker is not available for direct exchange.");
+
+        if (_rateLimitWindowSeconds > 0 && _exchangePropRepo.HasRecentProposal(callerUserId, _rateLimitWindowSeconds))
+            throw new InvalidOperationException("Please wait a few seconds before submitting another exchange proposal.");
 
         var proposal = new ExchangeProposal
         {

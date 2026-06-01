@@ -33,10 +33,13 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            // Override only the database name; connection string comes from appsettings.json.
+            // Override the database name and disable the exchange proposal rate-limit guard
+            // so integration tests can create back-to-back proposals without triggering the
+            // chronological anti-spam check that is only meaningful in production traffic.
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Mongo:DatabaseName"] = TestDatabaseName
+                ["Mongo:DatabaseName"] = TestDatabaseName,
+                ["RateLimit:ExchangeProposalWindowSeconds"] = "0"
             });
         });
 

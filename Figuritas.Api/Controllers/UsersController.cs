@@ -220,7 +220,7 @@ public class UsersController : ControllerBase
         {
             Id = u.Id,
             Username = u.Username,
-            IsAdmin = u.IsAdmin,
+            Role = u.Role,
             Reputation = u.Reputation
         }).ToList();
         return Ok(response);
@@ -236,7 +236,7 @@ public class UsersController : ControllerBase
         {
             Id = user.Id,
             Username = user.Username,
-            IsAdmin = user.IsAdmin,
+            Role = user.Role,
             Reputation = user.Reputation
         });
     }
@@ -252,7 +252,7 @@ public class UsersController : ControllerBase
             {
                 Id = user.Id,
                 Username = user.Username,
-                IsAdmin = user.IsAdmin,
+                Role = user.Role,
                 Reputation = user.Reputation
             };
             return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, response);
@@ -276,7 +276,7 @@ public class UsersController : ControllerBase
             {
                 Id = user.Id,
                 Username = user.Username,
-                IsAdmin = user.IsAdmin,
+                Role = user.Role,
                 Reputation = user.Reputation
             };
             return Ok(response);

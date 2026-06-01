@@ -45,8 +45,7 @@ public class UserService(
         var user = new User
         {
             Username = username,
-            HashedPassword = BCrypt.Net.BCrypt.HashPassword(password),
-            IsAdmin = false
+            HashedPassword = BCrypt.Net.BCrypt.HashPassword(password)
         };
 
         _userRepo.Add(user);
