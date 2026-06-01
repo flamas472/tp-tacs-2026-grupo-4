@@ -44,7 +44,7 @@ public class AuthStateService
     // Registra y luego hace login automático. Retorna null si OK, o mensaje de error.
     public async Task<string?> RegisterAsync(string username, string password)
     {
-        var result = await _userHttp.CreateUserAsync(new PostUserDTO { Username = username, Password = password });
+        var result = await _authHttp.RegisterAsync(new PostUserDTO { Username = username, Password = password });
         if (!result.Success)
             return result.ErrorMessage ?? "Error al registrarse.";
 

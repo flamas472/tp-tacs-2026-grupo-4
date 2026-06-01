@@ -1,0 +1,71 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Client.Requests
+
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <StickerDialogContent Sticker="@AsSticker()"
+                              FeedbackMsg="@feedbackMsg"
+                              FeedbackSuccess="@feedbackSuccess">
+            @if (!MarketSticker.CanBeDirectlyExchanged)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    Esta figurita no está disponible para intercambio directo.
+                </MudText>
+            }
+        </StickerDialogContent>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())">Cerrar</MudButton>
+        @if (MarketSticker.CanBeDirectlyExchanged)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.SwapHoriz"
+                       OnClick="HandleProponer">
+                Proponer intercambio
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public MarketStickerResponseDTO MarketSticker { get; set; } = default!;
+
+    private string? feedbackMsg = null;
+    private bool feedbackSuccess = false;
+
+    private Sticker AsSticker() => new Sticker
+    {
+        Number = MarketSticker.StickerNumber,
+        Description = MarketSticker.StickerDescription,
+        NationalTeam = MarketSticker.StickerNationalTeam,
+        Team = MarketSticker.StickerTeam,
+        Category = MarketSticker.StickerCategory,
+        ImageUrl = MarketSticker.StickerImageUrl
+    };
+
+    private async Task HandleProponer()
+    {
+        var parameters = new DialogParameters<NewExchangeProposalComponent>
+        {
+            { c => c.MarketSticker, MarketSticker }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<NewExchangeProposalComponent>(
+            string.Empty, parameters, options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+            MudDialog.Close();
+    }
+}

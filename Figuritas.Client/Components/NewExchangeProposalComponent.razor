@@ -1,0 +1,111 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO.request
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Client.Models
+@using Figuritas.Client.Requests
+
+@inject ExchangeProposalHttpClient ProposalHttp
+@inject AuthStateService AuthState
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Proponer intercambio</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudPaper Class="auction-sticker-preview pa-3 mb-4" Elevation="0">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Figurita que querés obtener</MudText>
+            <div class="d-flex align-center gap-3 mt-1">
+                <img src="@MarketSticker.StickerImageUrl" class="auction-preview-img" alt="@MarketSticker.StickerDescription" />
+                <div>
+                    <MudText Typo="Typo.subtitle2">
+                        #@MarketSticker.StickerNumber.ToString("D3") — @MarketSticker.StickerDescription
+                    </MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @MarketSticker.StickerNationalTeam · @MarketSticker.StickerCategory
+                    </MudText>
+                </div>
+            </div>
+        </MudPaper>
+
+        <MudText Typo="Typo.subtitle2" Class="mb-1">Figuritas que ofrecés</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2" Style="font-size:0.8rem">
+            Seleccioná las figuritas de tu colección que darías a cambio.
+        </MudText>
+        <SelectedUserStickerListComponent SelectedStickers="@selectedStickers"
+                                          OnSelectionChanged="@OnStickersChanged" />
+
+        @if (feedbackMsg is not null)
+        {
+            <MudAlert Severity="@(feedbackSuccess ? Severity.Success : Severity.Error)"
+                      Dense="true" Class="mt-3">
+                @feedbackMsg
+            </MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="loading">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.SwapHoriz"
+                   OnClick="HandleSubmit"
+                   Disabled="loading">
+            @if (loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Enviar propuesta
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public MarketStickerResponseDTO MarketSticker { get; set; } = default!;
+
+    private List<UserStickerVm> selectedStickers = new();
+    private bool loading = false;
+    private string? feedbackMsg;
+    private bool feedbackSuccess = false;
+
+    private void OnStickersChanged(List<UserStickerVm> stickers) => selectedStickers = stickers;
+
+    private async Task HandleSubmit()
+    {
+        feedbackMsg = null;
+
+        if (!selectedStickers.Any())
+        {
+            feedbackMsg = "Seleccioná al menos una figurita para ofrecer.";
+            return;
+        }
+
+        loading = true;
+
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var dto = new PostExchangeProposalRequestDTO
+        {
+            RequestedUserStickerId = MarketSticker.UserStickerId,
+            ProposedUserId = MarketSticker.OwnerId,
+            OfferedUserStickerIds = selectedStickers.Select(vm => vm.UserStickerId).ToList()
+        };
+
+        var result = await ProposalHttp.CreateProposalAsync(dto, token);
+
+        loading = false;
+        feedbackSuccess = result.Success;
+        feedbackMsg = result.Success
+            ? "¡Propuesta enviada correctamente!"
+            : result.ErrorMessage ?? "Error al enviar la propuesta.";
+
+        if (feedbackSuccess)
+        {
+            await Task.Delay(1200);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}
