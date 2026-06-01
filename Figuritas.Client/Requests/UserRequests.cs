@@ -5,6 +5,7 @@ using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Responses;
 using Figuritas.Client.Extensions;
 using System.Net.Http.Json;
+using System.Text;
 
 namespace Figuritas.Client.Requests
 {
@@ -84,24 +85,41 @@ namespace Figuritas.Client.Requests
             }
         }
 
-        public async Task<ApiResponse<List<UserStickerResponseDTO>>> GetUserStickersAsync(int userId)
+        public async Task<ApiResponse<List<MarketStickerResponseDTO>>> GetUserStickersAsync(
+            int userId,
+            int page = 1,
+            int pageSize = 20,
+            string? nationalTeam = null,
+            string? category = null,
+            int? number = null,
+            string? description = null,
+            bool? canBeDirectlyExchanged = null,
+            bool? canBeAuctioned = null)
         {
+            var url = new StringBuilder($"api/users/{userId}/stickers?Page={page}&PageSize={pageSize}");
+            if (!string.IsNullOrEmpty(nationalTeam)) url.Append($"&NationalTeam={Uri.EscapeDataString(nationalTeam)}");
+            if (!string.IsNullOrEmpty(category)) url.Append($"&Category={Uri.EscapeDataString(category)}");
+            if (number.HasValue) url.Append($"&Number={number.Value}");
+            if (!string.IsNullOrEmpty(description)) url.Append($"&Description={Uri.EscapeDataString(description)}");
+            if (canBeDirectlyExchanged.HasValue) url.Append($"&CanBeDirectlyExchanged={canBeDirectlyExchanged.Value}");
+            if (canBeAuctioned.HasValue) url.Append($"&CanBeAuctioned={canBeAuctioned.Value}");
+
             try
             {
-                var response = await _http.GetAsync($"api/users/{userId}/stickers");
+                var response = await _http.GetAsync(url.ToString());
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<List<UserStickerResponseDTO>>();
-                    return ApiResponse<List<UserStickerResponseDTO>>.Ok(data ?? new List<UserStickerResponseDTO>());
+                    var data = await response.ProcesarRespuesta<List<MarketStickerResponseDTO>>();
+                    return ApiResponse<List<MarketStickerResponseDTO>>.Ok(data ?? new List<MarketStickerResponseDTO>());
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<UserStickerResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<MarketStickerResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<List<UserStickerResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<MarketStickerResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 

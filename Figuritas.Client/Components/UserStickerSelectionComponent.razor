@@ -1,9 +1,10 @@
 @using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO.response
 @using Figuritas.Client.Requests
 @using Figuritas.Client.Models
 
-@inject DashboardHttpClient DashboardHttp
-@inject StickerHttpClient StickerHttp
+@inject UserHttpClient UserHttp
+@inject AuthStateService AuthState
 @inject NationalTeamHttpClient NationalTeamHttp
 @inject CategoryHttpClient CategoryHttp
 
@@ -106,35 +107,30 @@
     {
         var ntTask = NationalTeamHttp.GetNationalTeamsAsync();
         var catTask = CategoryHttp.GetCategoriesAsync();
-        var dashTask = DashboardHttp.GetMyStickersAsync(1, 100);
-        var catStickersTask = StickerHttp.GetStickersAsync(1, 500);
+        var stickersTask = UserHttp.GetUserStickersAsync(AuthState.UserId, page: 1, pageSize: 100, canBeDirectlyExchanged: true);
 
-        await Task.WhenAll(ntTask, catTask, dashTask, catStickersTask);
+        await Task.WhenAll(ntTask, catTask, stickersTask);
 
         if (ntTask.Result.Success)
             nationalTeams = ntTask.Result.Data?.OrderBy(nt => nt.Description).ToList() ?? new();
         if (catTask.Result.Success)
             categories = catTask.Result.Data?.OrderBy(c => c.Description).ToList() ?? new();
 
-        var catalog = (catStickersTask.Result.Data ?? new())
-            .ToDictionary(s => s.Number);
-
-        allVms = (dashTask.Result.Data ?? new())
-            .Where(d => d.Quantity > 0)
-            .Select(d =>
-            {
-                catalog.TryGetValue(d.Number, out var sticker);
-                sticker ??= new Sticker
+        allVms = (stickersTask.Result.Data ?? new())
+            .Select(dto => new UserStickerVm(
+                dto.UserStickerId,
+                new Sticker
                 {
-                    Number = d.Number,
-                    Description = d.Player,
-                    Team = d.Team,
-                    NationalTeam = string.Empty,
-                    Category = string.Empty
-                };
-                return new UserStickerVm(d.StickerId, sticker, d.Quantity,
-                    d.CanBeDirectlyExchanged, d.CanBeAuctioned);
-            })
+                    Number = dto.StickerNumber,
+                    Description = dto.StickerDescription,
+                    NationalTeam = dto.StickerNationalTeam,
+                    Team = dto.StickerTeam,
+                    Category = dto.StickerCategory,
+                    ImageUrl = dto.StickerImageUrl
+                },
+                dto.Quantity,
+                dto.CanBeDirectlyExchanged,
+                dto.CanBeAuctioned))
             .OrderBy(vm => vm.Sticker.Number)
             .ToList();
 
