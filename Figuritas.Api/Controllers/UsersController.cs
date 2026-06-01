@@ -52,6 +52,21 @@ public class UsersController : ControllerBase
         }
     }
 
+    [HttpGet("{userId}/stickers")]
+    [AllowAnonymous]
+    public ActionResult<List<MarketStickerResponseDTO>> GetUserStickers(int userId, [FromQuery] GetUserStickersDTO dto)
+    {
+        try
+        {
+            var stickers = _userService.GetUserStickersByUserId(userId, dto);
+            return Ok(stickers);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
     [HttpGet("{userId}/stickers/{stickerId}")]
     public ActionResult<UserSticker> GetUserStickerById(int userId, int stickerId)
     {

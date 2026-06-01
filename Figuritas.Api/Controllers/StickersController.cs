@@ -22,6 +22,14 @@ public class StickersController(StickerService stickerService) : ControllerBase
         }
         var stickers = _stickerService.Get(queryParams);
 
-        return Ok(stickers);        
+        return Ok(stickers);
+    }
+
+    [HttpGet("{id}")]
+    public ActionResult<Sticker> GetStickerById(int id)
+    {
+        var sticker = _stickerService.GetById(id);
+        if (sticker == null) return NotFound($"Sticker {id} not found.");
+        return Ok(sticker);
     }
 }
