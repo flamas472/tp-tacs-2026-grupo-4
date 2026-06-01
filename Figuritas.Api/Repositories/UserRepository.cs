@@ -1,3 +1,4 @@
+using Figuritas.Shared.Enums;
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
@@ -35,10 +36,20 @@ public class UserRepository : IUserRepository
         return _users.Find(u => u.Id == userId).FirstOrDefault();
     }
 
+    public User? GetByUsername(string username)
+    {
+        return _users.Find(u => u.Username == username).FirstOrDefault();
+    }
+
     public List<User> GetByIds(List<int> ids)
     {
         var filter = Builders<User>.Filter.In(u => u.Id, ids);
         return _users.Find(filter).ToList();
+    }
+
+    public List<User> GetByRole(UserRole role)
+    {
+        return _users.Find(u => u.Role == role).ToList();
     }
 
     public void Update(User user)
@@ -48,5 +59,18 @@ public class UserRepository : IUserRepository
         {
             throw new ArgumentException("User not found");
         }
+    }
+
+    /// <summary>
+    /// Creates a unique index on the Username field if it does not already exist.
+    /// Called once at application startup to prevent concurrent duplicate username inserts
+    /// that would bypass the application-level uniqueness check.
+    /// </summary>
+    public void EnsureIndexes()
+    {
+        var indexKeys = Builders<User>.IndexKeys.Ascending(u => u.Username);
+        var indexOptions = new CreateIndexOptions { Unique = true, Name = "unique_username" };
+        var indexModel = new CreateIndexModel<User>(indexKeys, indexOptions);
+        _users.Indexes.CreateOne(indexModel);
     }
 }

@@ -37,22 +37,6 @@ public class ExchangeProposalsController : ControllerBase
         return Ok(dto);
     }
 
-    [HttpGet("sent")]
-    public ActionResult<List<ExchangeProposalResponseDTO>> GetSentProposals()
-    {
-        var userId = _authService.GetUserIdFromToken(User);
-        var proposals = _proposalService.GetAllSentProposals(userId);
-        return Ok(proposals);
-    }
-
-    [HttpGet("received")]
-    public ActionResult<List<ExchangeProposalResponseDTO>> GetReceivedProposals()
-    {
-        var userId = _authService.GetUserIdFromToken(User);
-        var proposals = _proposalService.GetAllReceivedProposals(userId);
-        return Ok(proposals);
-    }
-
     [HttpPost]
     public async Task<ActionResult<ExchangeProposalResponseDTO>> PostExchangeProposal(PostExchangeProposalRequestDTO exchangeProposalDTO)
     {

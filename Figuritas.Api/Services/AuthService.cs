@@ -17,7 +17,11 @@ public class AuthService
 
     public string GenerateToken(User user)
     {
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
+        var jwtKey = _config["Jwt:Key"]
+            ?? throw new InvalidOperationException(
+                "JWT secret key is not configured. " +
+                "Set the 'Jwt:Key' value via the 'Jwt__Key' environment variable before starting the application.");
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]

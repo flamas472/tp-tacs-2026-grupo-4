@@ -6,6 +6,7 @@ using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
 using Figuritas.Shared.Model.Notificaciones;
 using Figuritas.Shared.Utils;
+using MongoDB.Driver;
 
 namespace Figuritas.Api.Services;
 
@@ -26,9 +27,9 @@ public class UserService(
     private readonly IMissingStickerRepository _missingStickerRepo = missingStickerRepo;
     private readonly INotificationService _notificationService = notificationService;
 
-    public List<User> GetAllUsers() => _userRepo.GetAll();
-
     public User? GetUserById(int id) => _userRepo.GetById(id);
+
+    public User? GetUserByUsername(string username) => _userRepo.GetByUsername(username);
 
     public User CreateUser(PostUserDTO userDTO)
     {
@@ -37,7 +38,7 @@ public class UserService(
 
         if (string.IsNullOrWhiteSpace(username))
             throw new ArgumentException("Username is required");
-        if (_userRepo.GetAll().Any(u => u.Username == username))
+        if (_userRepo.GetByUsername(username) != null)
             throw new ArgumentException("Username already exists");
         if (string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Password is required");
@@ -48,7 +49,15 @@ public class UserService(
             HashedPassword = BCrypt.Net.BCrypt.HashPassword(password)
         };
 
-        _userRepo.Add(user);
+        try
+        {
+            _userRepo.Add(user);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            throw new ArgumentException("Username already exists");
+        }
+
         return user;
     }
 
@@ -73,7 +82,7 @@ public class UserService(
         var username = userDTO.Username;
         var password = userDTO.Password;
 
-        var user = _userRepo.GetAll().FirstOrDefault(u => u.Username == username);
+        var user = _userRepo.GetByUsername(username);
         if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.HashedPassword))
             return null;
         return user;
@@ -233,8 +242,15 @@ public class UserService(
         return sticker;
     }
 
-    public void DeleteUserSticker(int userStickerId)
+    public void DeleteUserSticker(int userStickerId, int authenticatedUserId)
     {
+        var sticker = _inventoryRepo.GetById(userStickerId);
+        if (sticker == null)
+            throw new ArgumentException("Sticker not found");
+
+        if (sticker.UserId != authenticatedUserId)
+            throw new UnauthorizedAccessException("You do not own this sticker resource.");
+
         _inventoryRepo.Delete(userStickerId);
     }
 

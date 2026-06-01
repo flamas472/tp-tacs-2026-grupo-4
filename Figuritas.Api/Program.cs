@@ -19,7 +19,9 @@ builder.Services.AddAuthentication(options =>
 .AddJwtBearer(options =>
 {
     var secretKey = builder.Configuration["Jwt:Key"]
-                ?? throw new InvalidOperationException("Missing 'Jwt:Key' configuration in appsettings.json");
+                ?? throw new InvalidOperationException(
+                    "JWT secret key is not configured. " +
+                    "Set the 'Jwt:Key' value via the 'Jwt__Key' environment variable before starting the application.");
 
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -115,6 +117,8 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
+    var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+    userRepo.EnsureIndexes();
     SeedData.EnsureSeedData(scope.ServiceProvider);
 }
 

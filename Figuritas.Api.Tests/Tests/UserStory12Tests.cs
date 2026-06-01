@@ -46,7 +46,7 @@ public class UserStory12Tests : IAsyncLifetime
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "pass123")
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
     }
@@ -315,7 +315,7 @@ public class UserStory12Tests : IAsyncLifetime
         var response = await auth.PostAsJsonAsync("/api/admin/admins", dto);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var created = (await response.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
+        var created = (await response.Content.ReadFromJsonAsync<AdminUserResponseDTO>(JsonOpts))!;
         Assert.Equal("us12_b6_new_admin", created.Username);
         Assert.Equal(UserRole.Admin, created.Role);
     }
@@ -330,19 +330,19 @@ public class UserStory12Tests : IAsyncLifetime
         var createDto = new CreateAdminRequestDTO { Username = "us12_b7_admin", Password = "pass123" };
         var createResp = await superAuth.PostAsJsonAsync("/api/admin/admins", createDto);
         createResp.EnsureSuccessStatusCode();
-        var adminUser = (await createResp.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
+        var adminUser = (await createResp.Content.ReadFromJsonAsync<AdminUserResponseDTO>(JsonOpts))!;
 
         // Promote to SuperAdmin
         var patchDto = new PatchAdminRoleRequestDTO { Role = UserRole.SuperAdmin };
         var patchResp = await superAuth.PatchAsJsonAsync($"/api/admin/admins/{adminUser.Id}/role", patchDto);
         Assert.Equal(HttpStatusCode.OK, patchResp.StatusCode);
 
-        var updated = (await patchResp.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
+        var updated = (await patchResp.Content.ReadFromJsonAsync<AdminUserResponseDTO>(JsonOpts))!;
         Assert.Equal(UserRole.SuperAdmin, updated.Role);
 
         // Verify via GET /admins list
         var listResp = await superAuth.GetAsync("/api/admin/admins");
-        var admins = (await listResp.Content.ReadFromJsonAsync<List<UserResponseDTO>>(JsonOpts))!;
+        var admins = (await listResp.Content.ReadFromJsonAsync<List<AdminUserResponseDTO>>(JsonOpts))!;
         var promotedAdmin = admins.FirstOrDefault(a => a.Id == adminUser.Id);
         Assert.NotNull(promotedAdmin);
         Assert.Equal(UserRole.SuperAdmin, promotedAdmin.Role);

@@ -5,7 +5,6 @@ using Figuritas.Shared.DTO.response;
 using Figuritas.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http;
 
 namespace Figuritas.Api.Controllers;
 
@@ -112,30 +111,6 @@ public class UsersController : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("{userId}/stickers")]
-    [Obsolete("Deprecated: use GET /api/dashboard/stickers for authenticated access to own sticker inventory.")]
-    public ActionResult<List<UserStickerResponseDTO>> GetUserStickers(int userId)
-    {
-        var authenticatedUserId = _authService.GetUserIdFromToken(User);
-        if (authenticatedUserId != userId)
-            return StatusCode(StatusCodes.Status410Gone,
-                "This endpoint is deprecated. Use GET /api/dashboard/stickers to access your own sticker inventory.");
-
-        var userStickers = _userService.GetAllUserStickers()
-            .FindAll(us => us.UserId == userId)
-            .Select(us => new UserStickerResponseDTO
-            {
-                Id = us.Id,
-                UserId = us.UserId,
-                Quantity = us.Quantity,
-                CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
-                CanBeAuctioned = us.CanBeAuctioned,
-                Active = us.Active
-            })
-            .ToList();
-        return Ok(userStickers);
-    }
-
     [HttpPatch("{userId}/stickers/{stickerId}")]
     public ActionResult<UserSticker> PatchUserSticker(int userId, int stickerId, PatchUserStickerDTO patchDto)
     {
@@ -169,8 +144,13 @@ public class UsersController : ControllerBase
     {
         try
         {
-            _userService.DeleteUserSticker(stickerId);
+            var authenticatedUserId = _authService.GetUserIdFromToken(User);
+            _userService.DeleteUserSticker(stickerId, authenticatedUserId);
             return Ok();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return StatusCode(403, "You do not own this sticker resource.");
         }
         catch (ArgumentException ex)
         {
@@ -213,17 +193,20 @@ public class UsersController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet]
-    public ActionResult<List<UserResponseDTO>> GetUsers()
+    public ActionResult<UserResponseDTO> GetUserByUsername([FromQuery] string username)
     {
-        var users = _userService.GetAllUsers();
-        var response = users.Select(u => new UserResponseDTO
+        if (string.IsNullOrWhiteSpace(username))
+            return BadRequest("The 'username' query parameter is required.");
+
+        var user = _userService.GetUserByUsername(username);
+        if (user == null) return NotFound("User not found.");
+
+        return Ok(new UserResponseDTO
         {
-            Id = u.Id,
-            Username = u.Username,
-            Role = u.Role,
-            Reputation = u.Reputation
-        }).ToList();
-        return Ok(response);
+            Id = user.Id,
+            Username = user.Username,
+            Reputation = user.Reputation
+        });
     }
 
     [AllowAnonymous]
@@ -236,36 +219,17 @@ public class UsersController : ControllerBase
         {
             Id = user.Id,
             Username = user.Username,
-            Role = user.Role,
             Reputation = user.Reputation
         });
-    }
-
-    [AllowAnonymous]
-    [HttpPost]
-    public ActionResult<UserResponseDTO> PostUser(PostUserDTO userDTO)
-    {
-        try
-        {
-            var user = _userService.CreateUser(userDTO);
-            var response = new UserResponseDTO
-            {
-                Id = user.Id,
-                Username = user.Username,
-                Role = user.Role,
-                Reputation = user.Reputation
-            };
-            return CreatedAtAction(nameof(GetUserById), new { id = user.Id }, response);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
     }
 
     [HttpPatch("{id}")]
     public ActionResult<UserResponseDTO> PatchUser(int id, PatchUserDTO patchDTO)
     {
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != id)
+            return StatusCode(403, "You can only modify your own account.");
+
         try
         {
             if (patchDTO.Username == null && patchDTO.Password == null)
@@ -276,7 +240,6 @@ public class UsersController : ControllerBase
             {
                 Id = user.Id,
                 Username = user.Username,
-                Role = user.Role,
                 Reputation = user.Reputation
             };
             return Ok(response);

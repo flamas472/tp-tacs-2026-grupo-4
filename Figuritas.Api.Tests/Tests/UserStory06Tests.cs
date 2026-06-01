@@ -27,7 +27,7 @@ public class UserStory06Tests : IAsyncLifetime
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         var user = await response.Content.ReadFromJsonAsync<UserResponseDTO>(
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -267,13 +267,11 @@ public class UserStory06Tests : IAsyncLifetime
         var createResponse = await client.PostAsJsonAsync("/api/auctions", dto);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-        // Fetch updated sticker from API
-        var getResponse = await client.GetAsync($"/api/users/{user.Id}/stickers");
+        // Fetch updated sticker from API using the individual sticker endpoint
+        var getResponse = await client.GetAsync($"/api/users/{user.Id}/stickers/{userSticker.Id}");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
-        var stickers = await getResponse.Content.ReadFromJsonAsync<List<UserStickerResponseDTO>>(
+        var updated = await getResponse.Content.ReadFromJsonAsync<UserStickerResponseDTO>(
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        Assert.NotNull(stickers);
-        var updated = stickers!.FirstOrDefault(s => s.Id == userSticker.Id);
         Assert.NotNull(updated);
         Assert.Equal(originalQuantity - 1, updated!.Quantity);
     }
@@ -305,23 +303,19 @@ public class UserStory06Tests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         // Sticker is now inactive (Quantity=0, Active=false).
-        // GetById filters by Active=true, so it won't appear in the active list.
-        // We use GetByUserId which also checks Active. So we try the individual sticker endpoint.
-        // If it returns 404, it confirms Active=false. If returns 200, verify Quantity=0 and Active=false.
-        var getAllResponse = await client.GetAsync($"/api/users/{user.Id}/stickers");
-        Assert.Equal(HttpStatusCode.OK, getAllResponse.StatusCode);
-        var allStickers = await getAllResponse.Content.ReadFromJsonAsync<List<UserStickerResponseDTO>>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        Assert.NotNull(allStickers);
-        // The sticker with quantity=0 should not appear as active
-        var found = allStickers!.FirstOrDefault(s => s.Id == userSticker.Id);
-        // Either not found (filtered out as inactive) or found with Active=false and Quantity=0
-        if (found != null)
+        // Use the individual sticker endpoint to verify its state.
+        // If it returns 404, it confirms the sticker was deactivated and filtered out.
+        // If returns 200, verify Quantity=0 and Active=false.
+        var getStickerResponse = await client.GetAsync($"/api/users/{user.Id}/stickers/{userSticker.Id}");
+        if (getStickerResponse.StatusCode == HttpStatusCode.OK)
         {
-            Assert.Equal(0, found.Quantity);
+            var found = await getStickerResponse.Content.ReadFromJsonAsync<UserStickerResponseDTO>(
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            Assert.NotNull(found);
+            Assert.Equal(0, found!.Quantity);
             Assert.False(found.Active);
         }
-        // If not found in the active listing, the test passes — it was correctly deactivated
+        // If 404, the sticker was correctly deactivated and filtered from the inventory
     }
 
     /// <summary>

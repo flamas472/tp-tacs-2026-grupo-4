@@ -4,6 +4,7 @@ using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Enums;
 using Figuritas.Shared.Model;
+using MongoDB.Driver;
 
 namespace Figuritas.Api.Services;
 
@@ -27,7 +28,7 @@ public class AdminService
 
         if (string.IsNullOrWhiteSpace(username))
             throw new ArgumentException("Username is required");
-        if (_userRepo.GetAll().Any(u => u.Username == username))
+        if (_userRepo.GetByUsername(username) != null)
             throw new ArgumentException("Username already exists");
         if (string.IsNullOrWhiteSpace(password))
             throw new ArgumentException("Password is required");
@@ -39,19 +40,28 @@ public class AdminService
             Role = UserRole.Admin
         };
 
-        _userRepo.Add(admin);
+        try
+        {
+            _userRepo.Add(admin);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            throw new ArgumentException("Username already exists");
+        }
+
         return admin;
     }
 
-    public List<UserResponseDTO> GetAllAdmins()
+    public List<AdminUserResponseDTO> GetAllAdmins()
     {
-        return _userRepo.GetAll()
-            .Where(u => u.Role == UserRole.Admin || u.Role == UserRole.SuperAdmin)
+        var admins = _userRepo.GetByRole(UserRole.Admin);
+        var superAdmins = _userRepo.GetByRole(UserRole.SuperAdmin);
+        return admins.Concat(superAdmins)
             .Select(MapToDto)
             .ToList();
     }
 
-    public UserResponseDTO PatchAdminRole(int userId, PatchAdminRoleRequestDTO dto)
+    public AdminUserResponseDTO PatchAdminRole(int userId, PatchAdminRoleRequestDTO dto)
     {
         if (dto.Role == UserRole.User)
             throw new ArgumentException("Cannot demote an admin to regular User via this endpoint. Remove them from the system instead.");
@@ -67,7 +77,7 @@ public class AdminService
         return MapToDto(user);
     }
 
-    private static UserResponseDTO MapToDto(User user) => new()
+    private static AdminUserResponseDTO MapToDto(User user) => new()
     {
         Id = user.Id,
         Username = user.Username,

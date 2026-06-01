@@ -42,12 +42,12 @@ public class AdminController : ControllerBase
     /// </summary>
     [HttpPost("admins")]
     [Authorize(Roles = "SuperAdmin")]
-    public ActionResult<UserResponseDTO> CreateAdmin([FromBody] CreateAdminRequestDTO dto)
+    public ActionResult<AdminUserResponseDTO> CreateAdmin([FromBody] CreateAdminRequestDTO dto)
     {
         try
         {
             var admin = _adminService.CreateAdmin(dto);
-            var response = new UserResponseDTO
+            var response = new AdminUserResponseDTO
             {
                 Id = admin.Id,
                 Username = admin.Username,
@@ -68,7 +68,7 @@ public class AdminController : ControllerBase
     /// </summary>
     [HttpGet("admins")]
     [Authorize(Roles = "SuperAdmin")]
-    public ActionResult<List<UserResponseDTO>> GetAdmins()
+    public ActionResult<List<AdminUserResponseDTO>> GetAdmins()
     {
         var admins = _adminService.GetAllAdmins();
         return Ok(admins);
@@ -80,7 +80,7 @@ public class AdminController : ControllerBase
     /// </summary>
     [HttpPatch("admins/{id}/role")]
     [Authorize(Roles = "SuperAdmin")]
-    public ActionResult<UserResponseDTO> PatchAdminRole(int id, [FromBody] PatchAdminRoleRequestDTO dto)
+    public ActionResult<AdminUserResponseDTO> PatchAdminRole(int id, [FromBody] PatchAdminRoleRequestDTO dto)
     {
         try
         {

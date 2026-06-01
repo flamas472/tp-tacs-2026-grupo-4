@@ -28,7 +28,7 @@ public static class SeedData
 
         // Seed initial SuperAdmin — academic project, password security intentionally relaxed
         const string superAdminUsername = "Ivanabete";
-        if (!userRepo.GetAll().Any(u => u.Username == superAdminUsername))
+        if (userRepo.GetByUsername(superAdminUsername) == null)
         {
             userRepo.Add(new User
             {

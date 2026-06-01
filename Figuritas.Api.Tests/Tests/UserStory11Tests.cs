@@ -35,7 +35,7 @@ public class UserStory11Tests : IAsyncLifetime
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
     }
