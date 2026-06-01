@@ -16,16 +16,19 @@ namespace Figuritas.Api.Tests;
 /// Requires a running MongoDB instance (same as the app).
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
-public class UserStory02Tests
+public class UserStory02Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStory02Tests(WebApplicationFactory<Program> factory)
+    public UserStory02Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 

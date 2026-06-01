@@ -13,11 +13,16 @@ namespace Figuritas.Api.Controllers;
 public class AuctionsController : ControllerBase
 {
     private readonly AuctionService _auctionService;
+    private readonly AuctionWatchlistService _auctionWatchlistService;
     private readonly AuthService _authService;
 
-    public AuctionsController(AuctionService auctionService, AuthService authService)
+    public AuctionsController(
+        AuctionService auctionService,
+        AuctionWatchlistService auctionWatchlistService,
+        AuthService authService)
     {
         _auctionService = auctionService;
+        _auctionWatchlistService = auctionWatchlistService;
         _authService = authService;
     }
 
@@ -74,12 +79,12 @@ public class AuctionsController : ControllerBase
     }
 
     [HttpPost("{auctionId}/offers")]
-    public ActionResult<AuctionOfferResponseDTO> PostAuctionOffer(int auctionId, [FromBody] PostAuctionOfferRequestDTO dto)
+    public async Task<ActionResult<AuctionOfferResponseDTO>> PostAuctionOffer(int auctionId, [FromBody] PostAuctionOfferRequestDTO dto)
     {
         try
         {
             var bidderId = _authService.GetUserIdFromToken(User);
-            var offer = _auctionService.CreateOffer(bidderId, auctionId, dto);
+            var offer = await _auctionService.CreateOfferAsync(bidderId, auctionId, dto);
             return CreatedAtAction(nameof(GetAuction), new { id = auctionId }, offer);
         }
         catch (KeyNotFoundException ex)
@@ -90,5 +95,47 @@ public class AuctionsController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    [HttpPost("{id}/watch")]
+    public async Task<ActionResult<AuctionWatchlistResponseDTO>> WatchAuction(int id)
+    {
+        try
+        {
+            var userId = _authService.GetUserIdFromToken(User);
+            var entry = await _auctionWatchlistService.AddWatchAsync(userId, id);
+            return Ok(entry);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
+
+    [HttpDelete("{id}/watch")]
+    public async Task<ActionResult> UnwatchAuction(int id)
+    {
+        try
+        {
+            var userId = _authService.GetUserIdFromToken(User);
+            await _auctionWatchlistService.RemoveWatchAsync(userId, id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpGet("watchlist")]
+    public async Task<ActionResult<List<AuctionWatchlistResponseDTO>>> GetMyWatchlist()
+    {
+        var userId = _authService.GetUserIdFromToken(User);
+        var watchlist = await _auctionWatchlistService.GetMyWatchlistAsync(userId);
+        return Ok(watchlist);
     }
 }

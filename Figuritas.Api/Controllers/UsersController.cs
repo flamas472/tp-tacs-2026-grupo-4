@@ -24,7 +24,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost("{userId}/stickers")]
-    public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerRequestDTO data)
+    public async Task<ActionResult<UserStickerResponseDTO>> PostUserSticker(int userId, PostUserStickerRequestDTO data)
     {
         try
         {
@@ -32,8 +32,17 @@ public class UsersController : ControllerBase
             if (authenticatedUserId != userId)
                 return StatusCode(403, "You can only publish stickers for your own account.");
 
-            var userSticker = _userService.CreateUserSticker(userId, data);
-            return CreatedAtAction(nameof(GetUserStickerById), new { userId = userId, stickerId = userSticker.Id }, userSticker);
+            var userSticker = await _userService.CreateUserStickerAsync(userId, data);
+            var responseDto = new UserStickerResponseDTO
+            {
+                Id = userSticker.Id,
+                UserId = userSticker.UserId,
+                Quantity = userSticker.Quantity,
+                CanBeDirectlyExchanged = userSticker.CanBeDirectlyExchanged,
+                CanBeAuctioned = userSticker.CanBeAuctioned,
+                Active = userSticker.Active
+            };
+            return CreatedAtAction(nameof(GetUserStickerById), new { userId = userId, stickerId = userSticker.Id }, responseDto);
         }
         catch (ArgumentException ex)
         {
@@ -130,6 +139,10 @@ public class UsersController : ControllerBase
     [HttpPatch("{userId}/stickers/{stickerId}")]
     public ActionResult<UserSticker> PatchUserSticker(int userId, int stickerId, PatchUserStickerDTO patchDto)
     {
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != userId)
+            return Forbid();
+
         try
         {
             if (patchDto.Quantity < 0)
@@ -138,8 +151,12 @@ public class UsersController : ControllerBase
             if (patchDto.CanBeDirectlyExchanged == null && patchDto.CanBeAuctioned == null && patchDto.Quantity == null)
                 return BadRequest("At least one field must be provided for update.");
 
-            var userSticker = _userService.UpdateUserSticker(stickerId, patchDto.CanBeDirectlyExchanged, patchDto.CanBeAuctioned, patchDto.Quantity);
+            var userSticker = _userService.UpdateUserSticker(stickerId, patchDto.CanBeDirectlyExchanged, patchDto.CanBeAuctioned, patchDto.Quantity, authenticatedUserId);
             return Ok(userSticker);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (ArgumentException ex)
         {

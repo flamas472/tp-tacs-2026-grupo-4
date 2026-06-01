@@ -11,4 +11,5 @@ public interface IMissingStickerRepository
     Task<MissingSticker?> GetByIdAsync(int id);
     Task<List<int>> GetStickerIdsByUserIdAsync(int userId);
     Task<List<MissingSticker>> GetByUserIdsAsync(List<int> userIds);
+    Task<List<int>> GetUserIdsForStickerAsync(int stickerId);
 }

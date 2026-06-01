@@ -4,6 +4,7 @@ using Figuritas.Shared.DTO;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Notificaciones;
 using Figuritas.Shared.Utils;
 
 namespace Figuritas.Api.Services;
@@ -14,7 +15,8 @@ public class UserService(
     IUserStickerRepository inventoryRepo,
     StickerService stickerService,
     IExchangeRepository exchangeRepo,
-    IMissingStickerRepository missingStickerRepo
+    IMissingStickerRepository missingStickerRepo,
+    INotificationService notificationService
     )
 {
     private readonly IUserStickerRepository _inventoryRepo = inventoryRepo;
@@ -22,6 +24,7 @@ public class UserService(
     private readonly StickerService _stickerService = stickerService;
     private readonly IExchangeRepository _exchangeRepo = exchangeRepo;
     private readonly IMissingStickerRepository _missingStickerRepo = missingStickerRepo;
+    private readonly INotificationService _notificationService = notificationService;
 
     public List<User> GetAllUsers() => _userRepo.GetAll();
 
@@ -114,7 +117,7 @@ public class UserService(
         return await _missingStickerRepo.DeleteAsync(userId, stickerId);
     }
 
-    public UserSticker CreateUserSticker(int userId, PostUserStickerRequestDTO data)
+    public async Task<UserSticker> CreateUserStickerAsync(int userId, PostUserStickerRequestDTO data)
     {
         if (!_userRepo.ExistsId(userId))
             throw new ArgumentException("User not found");
@@ -137,6 +140,21 @@ public class UserService(
             throw new ArgumentException("Inventory already registered");
 
         _inventoryRepo.Add(userSticker);
+
+        // Notify users who have this catalog sticker as missing (US01 trigger)
+        var interestedUserIds = await _missingStickerRepo.GetUserIdsForStickerAsync(data.StickerId);
+        foreach (var interestedUserId in interestedUserIds)
+        {
+            if (interestedUserId == userId)
+                continue;
+
+            await _notificationService.SendNotificationAsync(
+                interestedUserId,
+                NotificationType.MissingStickerAvailable,
+                "Missing Sticker Now Available",
+                $"Sticker #{sticker.Number} ({sticker.Description}) is now available for exchange.",
+                referenceId: userSticker.Id);
+        }
 
         return userSticker;
     }
@@ -194,11 +212,14 @@ public class UserService(
         }).ToList();
     }
 
-    public UserSticker UpdateUserSticker(int stickerId, bool? canBeDirectlyExchanged, bool? canBeAuctioned, int? quantity)
+    public UserSticker UpdateUserSticker(int stickerId, bool? canBeDirectlyExchanged, bool? canBeAuctioned, int? quantity, int authenticatedUserId)
     {
         var sticker = _inventoryRepo.GetById(stickerId);
         if (sticker == null)
             throw new ArgumentException("Sticker not found");
+
+        if (sticker.UserId != authenticatedUserId)
+            throw new UnauthorizedAccessException("You do not own this sticker resource.");
 
         if (canBeDirectlyExchanged.HasValue)
             sticker.CanBeDirectlyExchanged = canBeDirectlyExchanged.Value;

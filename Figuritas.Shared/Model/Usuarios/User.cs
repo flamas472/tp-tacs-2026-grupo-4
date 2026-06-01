@@ -16,4 +16,8 @@ public class User
     [Range(0, 5)]
     public double Reputation => Ratings.Count > 0 ? Ratings.Average(r => r.Stars) : 0;
 
+    // Notification preferences
+    public bool AlertOnMissingStickerAvailable { get; set; } = true;
+    public bool AlertOnAuctionEnding { get; set; } = true;
+    public bool AlertOnNewProposal { get; set; } = true;
 }

@@ -54,7 +54,7 @@ public class ExchangeProposalsController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<ExchangeProposalResponseDTO> PostExchangeProposal(PostExchangeProposalRequestDTO exchangeProposalDTO)
+    public async Task<ActionResult<ExchangeProposalResponseDTO>> PostExchangeProposal(PostExchangeProposalRequestDTO exchangeProposalDTO)
     {
         try
         {
@@ -66,7 +66,7 @@ public class ExchangeProposalsController : ControllerBase
             if (exchangeProposalDTO.OfferedUserStickerIds == null || exchangeProposalDTO.OfferedUserStickerIds.Any(id => id <= 0) || exchangeProposalDTO.RequestedUserStickerId <= 0)
                 return BadRequest("Offered stickers and requested sticker must be valid.");
 
-            var responseDto = _proposalService.CreateExchangeProposal(proponentId, exchangeProposalDTO);
+            var responseDto = await _proposalService.CreateExchangeProposalAsync(proponentId, exchangeProposalDTO);
 
             return CreatedAtAction(nameof(GetExchangeProposalById), new { id = responseDto.Id }, responseDto);
         }

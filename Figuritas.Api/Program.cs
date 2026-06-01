@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using Figuritas.Api.Hubs;
 using Figuritas.Api.Repositories;
 using Figuritas.Api.Services;
+using Figuritas.Api.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -35,6 +37,8 @@ builder.Services.AddControllers()
             new JsonStringEnumConverter());
     });
 
+builder.Services.AddSignalR();
+
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddSingleton<IIdGenerator, MongoIdGenerator>();
 
@@ -49,6 +53,9 @@ builder.Services.AddScoped<ExchangeProposalService>();
 builder.Services.AddScoped<ExchangeService>();
 builder.Services.AddScoped<AuctionService>();
 builder.Services.AddScoped<SuggestionService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<AuctionWatchlistService>();
+builder.Services.AddHostedService<AuctionEndingWorker>();
 
 // Register repositories with interface mappings
 builder.Services.AddScoped<IExchangeRepository, ExchangeRepository>();
@@ -62,6 +69,8 @@ builder.Services.AddScoped<IExchangeProposalRepository, ExchangeProposalReposito
 builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IAuctionOfferRepository, AuctionOfferRepository>();
 builder.Services.AddScoped<IMissingStickerRepository, MissingStickerRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IAuctionWatchlistRepository, AuctionWatchlistRepository>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -94,7 +103,8 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:5280", "http://localhost:5048")
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -129,5 +139,6 @@ app.UseAuthorization();
 app.UseCors("BlazorLocalPolicy");
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/api/notification-hub");
 
 app.Run();

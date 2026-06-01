@@ -11,12 +11,12 @@ using Xunit;
 namespace Figuritas.Api.Tests;
 
 [Collection(nameof(IntegrationTestCollection))]
-public class UserStories09Tests : IAsyncLifetime
+public class UserStory09Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStories09Tests(WebApplicationFactory<Program> factory)
+    public UserStory09Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -666,6 +666,6 @@ public class UserStories09Tests : IAsyncLifetime
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
     public Task DisposeAsync() => Task.CompletedTask;
 }

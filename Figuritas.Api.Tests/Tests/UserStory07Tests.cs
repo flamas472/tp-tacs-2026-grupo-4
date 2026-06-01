@@ -13,10 +13,10 @@ namespace Figuritas.Api.Tests;
 [Collection(nameof(IntegrationTestCollection))]
 public class UserStory07Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStory07Tests(WebApplicationFactory<Program> factory)
+    public UserStory07Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -471,6 +471,6 @@ public class UserStory07Tests : IAsyncLifetime
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
     public Task DisposeAsync() => Task.CompletedTask;
 }

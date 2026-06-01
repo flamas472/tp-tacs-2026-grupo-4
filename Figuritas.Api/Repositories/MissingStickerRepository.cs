@@ -46,4 +46,12 @@ public class MissingStickerRepository : IMissingStickerRepository
         var filter = Builders<MissingSticker>.Filter.In(ms => ms.UserId, userIds);
         return await _collection.Find(filter).ToListAsync();
     }
+
+    public async Task<List<int>> GetUserIdsForStickerAsync(int stickerId)
+    {
+        return await _collection
+            .Find(ms => ms.StickerId == stickerId)
+            .Project(ms => ms.UserId)
+            .ToListAsync();
+    }
 }

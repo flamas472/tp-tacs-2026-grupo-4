@@ -44,4 +44,26 @@ public class AuctionRepository : IAuctionRepository
             .Limit(pageSize)
             .ToList();
     }
+
+    public async Task<List<Auction>> GetActiveAuctionsEndingBeforeAsync(DateTime threshold)
+    {
+        var filter = Builders<Auction>.Filter.And(
+            Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active),
+            Builders<Auction>.Filter.Lte(a => a.EndsAt, threshold),
+            Builders<Auction>.Filter.Gt(a => a.EndsAt, DateTime.UtcNow),
+            Builders<Auction>.Filter.Eq(a => a.AuctionEndingNotificationSent, false)
+        );
+        return await _auctions.Find(filter).ToListAsync();
+    }
+
+    public async Task<bool> TryClaimEndingNotificationAsync(int auctionId)
+    {
+        var filter = Builders<Auction>.Filter.And(
+            Builders<Auction>.Filter.Eq(a => a.Id, auctionId),
+            Builders<Auction>.Filter.Eq(a => a.AuctionEndingNotificationSent, false)
+        );
+        var update = Builders<Auction>.Update.Set(a => a.AuctionEndingNotificationSent, true);
+        var result = await _auctions.UpdateOneAsync(filter, update);
+        return result.ModifiedCount == 1;
+    }
 }

@@ -12,17 +12,20 @@ public class AuctionService
     private readonly IAuctionRepository _auctionRepo;
     private readonly IAuctionOfferRepository _offerRepo;
     private readonly IMissingStickerRepository _missingStickerRepo;
+    private readonly AuctionWatchlistService _watchlistService;
 
     public AuctionService(
         IUserStickerRepository userStickerRepo,
         IAuctionRepository auctionRepo,
         IAuctionOfferRepository offerRepo,
-        IMissingStickerRepository missingStickerRepo)
+        IMissingStickerRepository missingStickerRepo,
+        AuctionWatchlistService watchlistService)
     {
         _userStickerRepo = userStickerRepo;
         _auctionRepo = auctionRepo;
         _offerRepo = offerRepo;
         _missingStickerRepo = missingStickerRepo;
+        _watchlistService = watchlistService;
     }
 
     public List<AuctionResponseDTO> GetMyAuctions(GetMyAuctionsDTO dto, int callerUserId)
@@ -85,7 +88,7 @@ public class AuctionService
         return MapToDto(auction);
     }
 
-    public AuctionOfferResponseDTO CreateOffer(int bidderId, int auctionId, PostAuctionOfferRequestDTO dto)
+    public async Task<AuctionOfferResponseDTO> CreateOfferAsync(int bidderId, int auctionId, PostAuctionOfferRequestDTO dto)
     {
         if (dto.OfferedUserStickerIds == null || dto.OfferedUserStickerIds.Count == 0)
             throw new InvalidOperationException("Offered sticker list cannot be empty.");
@@ -152,6 +155,9 @@ public class AuctionService
 
         auction.BestCurrentOfferId = offer.Id;
         _auctionRepo.Update(auction);
+
+        // Auto-add bidder to watchlist if not already watching
+        await _watchlistService.EnsureWatchingAsync(bidderId, auctionId);
 
         return MapOfferToDto(offer);
     }

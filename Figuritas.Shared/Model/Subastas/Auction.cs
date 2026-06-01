@@ -19,4 +19,8 @@ public class Auction
     public DateTime EndsAt { get; set; }
 
     public int? BestCurrentOfferId { get; set; }
+
+    // Deuda técnica aceptada:  Campo AuctionEndingNotificationSent en la entidad Auction (mezcla de concern de infraestructura con dominio) — bajo riesgo, requiere refactor más amplio
+    /// <summary>Marks that the AuctionEnding alert was already sent. Prevents duplicate worker notifications.</summary>
+    public bool AuctionEndingNotificationSent { get; set; } = false;
 }

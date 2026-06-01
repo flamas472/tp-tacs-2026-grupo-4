@@ -2,6 +2,7 @@ using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model.Intercambios;
+using Figuritas.Shared.Model.Notificaciones;
 
 namespace Figuritas.Api.Services;
 
@@ -10,18 +11,21 @@ public class ExchangeProposalService
     private readonly IUserStickerRepository _inventoryRepo;
     private readonly IExchangeProposalRepository _exchangePropRepo;
     private readonly IMissingStickerRepository _missingStickerRepo;
+    private readonly INotificationService _notificationService;
 
     public ExchangeProposalService(
         IUserStickerRepository inventoryRepo,
         IExchangeProposalRepository exchangePropRepo,
-        IMissingStickerRepository missingStickerRepo)
+        IMissingStickerRepository missingStickerRepo,
+        INotificationService notificationService)
     {
         _inventoryRepo = inventoryRepo;
         _exchangePropRepo = exchangePropRepo;
         _missingStickerRepo = missingStickerRepo;
+        _notificationService = notificationService;
     }
 
-    public ExchangeProposalResponseDTO CreateExchangeProposal(int callerUserId, PostExchangeProposalRequestDTO dto)
+    public async Task<ExchangeProposalResponseDTO> CreateExchangeProposalAsync(int callerUserId, PostExchangeProposalRequestDTO dto)
     {
         if (callerUserId == dto.ProposedUserId)
             throw new InvalidOperationException("A user cannot propose an exchange to themselves.");
@@ -77,6 +81,13 @@ public class ExchangeProposalService
             }
             _inventoryRepo.Update(userSticker);
         }
+
+        // Notify the recipient about the new proposal
+        await _notificationService.SendNotificationAsync(
+            dto.ProposedUserId,
+            NotificationType.NewProposal,
+            "New Exchange Proposal",
+            $"User {callerUserId} sent you a new exchange proposal.");
 
         return MapToResponseDto(proposal);
     }
