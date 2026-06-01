@@ -45,13 +45,25 @@ public class UserStickerRepository : IUserStickerRepository
         _userStickers.InsertOne(userSticker);
     }
 
+    public void Add(UserSticker userSticker, IClientSessionHandle session)
+    {
+        userSticker.Id = _idGenerator.GetNextId<UserSticker>();
+        _userStickers.InsertOne(session, userSticker);
+    }
+
     public UserSticker? GetById(int id) => _userStickers.Find(us => us.Id == id && us.Active).FirstOrDefault();
 
     public UserSticker? GetByIdIncludingInactive(int id) => _userStickers.Find(us => us.Id == id).FirstOrDefault();
 
+    public UserSticker? GetByIdIncludingInactive(int id, IClientSessionHandle session) =>
+        _userStickers.Find(session, us => us.Id == id).FirstOrDefault();
+
     public List<UserSticker> GetMultipleById(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id) && us.Active).ToList();
 
     public List<UserSticker> GetMultipleByIdIncludingInactive(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id)).ToList();
+
+    public List<UserSticker> GetMultipleByIdIncludingInactive(List<int> ids, IClientSessionHandle session) =>
+        _userStickers.Find(session, us => ids.Contains(us.Id)).ToList();
 
     public bool Exists(UserSticker userSticker)
     {
@@ -70,6 +82,15 @@ public class UserStickerRepository : IUserStickerRepository
     public void Update(UserSticker userSticker)
     {
         var result = _userStickers.ReplaceOne(us => us.Id == userSticker.Id, userSticker);
+        if (!result.IsAcknowledged || result.MatchedCount == 0)
+        {
+            throw new ArgumentException("UserSticker not found");
+        }
+    }
+
+    public void Update(UserSticker userSticker, IClientSessionHandle session)
+    {
+        var result = _userStickers.ReplaceOne(session, us => us.Id == userSticker.Id, userSticker);
         if (!result.IsAcknowledged || result.MatchedCount == 0)
         {
             throw new ArgumentException("UserSticker not found");
@@ -102,6 +123,9 @@ public class UserStickerRepository : IUserStickerRepository
 
     public List<UserSticker> GetByUserId(int userId) =>
         _userStickers.Find(us => us.UserId == userId && us.Active).ToList();
+
+    public List<UserSticker> GetByUserId(int userId, IClientSessionHandle session) =>
+        _userStickers.Find(session, us => us.UserId == userId && us.Active).ToList();
 
     public List<UserSticker> GetByUserIdPaginated(int userId, int page, int pageSize)
     {

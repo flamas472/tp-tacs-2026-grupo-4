@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using Figuritas.Api.Hubs;
 using Figuritas.Api.Repositories;
 using Figuritas.Api.Services;
+using Figuritas.Api.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
@@ -17,7 +19,9 @@ builder.Services.AddAuthentication(options =>
 .AddJwtBearer(options =>
 {
     var secretKey = builder.Configuration["Jwt:Key"]
-                ?? throw new InvalidOperationException("Missing 'Jwt:Key' configuration in appsettings.json");
+                ?? throw new InvalidOperationException(
+                    "JWT secret key is not configured. " +
+                    "Set the 'Jwt:Key' value via the 'Jwt__Key' environment variable before starting the application.");
 
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -35,6 +39,8 @@ builder.Services.AddControllers()
             new JsonStringEnumConverter());
     });
 
+builder.Services.AddSignalR();
+
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddSingleton<IIdGenerator, MongoIdGenerator>();
 
@@ -49,6 +55,11 @@ builder.Services.AddScoped<ExchangeProposalService>();
 builder.Services.AddScoped<ExchangeService>();
 builder.Services.AddScoped<AuctionService>();
 builder.Services.AddScoped<SuggestionService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<AuctionWatchlistService>();
+builder.Services.AddScoped<AdminAnalyticsService>();
+builder.Services.AddScoped<AdminService>();
+builder.Services.AddHostedService<AuctionEndingWorker>();
 
 // Register repositories with interface mappings
 builder.Services.AddScoped<IExchangeRepository, ExchangeRepository>();
@@ -62,6 +73,9 @@ builder.Services.AddScoped<IExchangeProposalRepository, ExchangeProposalReposito
 builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IAuctionOfferRepository, AuctionOfferRepository>();
 builder.Services.AddScoped<IMissingStickerRepository, MissingStickerRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IAuctionWatchlistRepository, AuctionWatchlistRepository>();
+builder.Services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -88,13 +102,18 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+var allowedOrigins = builder.Configuration.GetValue<string>("AllowedOrigins")
+    ?.Split(",", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("BlazorLocalPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5280", "http://localhost:5048")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -129,5 +148,6 @@ app.UseAuthorization();
 app.UseCors("BlazorLocalPolicy");
 
 app.MapControllers();
+app.MapHub<NotificationHub>("/api/notification-hub");
 
 app.Run();

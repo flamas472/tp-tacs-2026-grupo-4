@@ -2,6 +2,7 @@ using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model.Intercambios;
+using Figuritas.Shared.Model.Notificaciones;
 
 namespace Figuritas.Api.Services;
 
@@ -10,18 +11,24 @@ public class ExchangeProposalService
     private readonly IUserStickerRepository _inventoryRepo;
     private readonly IExchangeProposalRepository _exchangePropRepo;
     private readonly IMissingStickerRepository _missingStickerRepo;
+    private readonly INotificationService _notificationService;
+    private readonly int _rateLimitWindowSeconds;
 
     public ExchangeProposalService(
         IUserStickerRepository inventoryRepo,
         IExchangeProposalRepository exchangePropRepo,
-        IMissingStickerRepository missingStickerRepo)
+        IMissingStickerRepository missingStickerRepo,
+        INotificationService notificationService,
+        IConfiguration configuration)
     {
         _inventoryRepo = inventoryRepo;
         _exchangePropRepo = exchangePropRepo;
         _missingStickerRepo = missingStickerRepo;
+        _notificationService = notificationService;
+        _rateLimitWindowSeconds = configuration.GetValue<int>("RateLimit:ExchangeProposalWindowSeconds", defaultValue: 3);
     }
 
-    public ExchangeProposalResponseDTO CreateExchangeProposal(int callerUserId, PostExchangeProposalRequestDTO dto)
+    public async Task<ExchangeProposalResponseDTO> CreateExchangeProposalAsync(int callerUserId, PostExchangeProposalRequestDTO dto)
     {
         if (callerUserId == dto.ProposedUserId)
             throw new InvalidOperationException("A user cannot propose an exchange to themselves.");
@@ -56,6 +63,9 @@ public class ExchangeProposalService
         if (!requestedSticker.CanBeDirectlyExchanged)
             throw new InvalidOperationException("The requested sticker is not available for direct exchange.");
 
+        if (_rateLimitWindowSeconds > 0 && _exchangePropRepo.HasRecentProposal(callerUserId, _rateLimitWindowSeconds))
+            throw new InvalidOperationException("Please wait a few seconds before submitting another exchange proposal.");
+
         var proposal = new ExchangeProposal
         {
             ProponentID = callerUserId,
@@ -77,6 +87,13 @@ public class ExchangeProposalService
             }
             _inventoryRepo.Update(userSticker);
         }
+
+        // Notify the recipient about the new proposal
+        await _notificationService.SendNotificationAsync(
+            dto.ProposedUserId,
+            NotificationType.NewProposal,
+            "New Exchange Proposal",
+            $"User {callerUserId} sent you a new exchange proposal.");
 
         return MapToResponseDto(proposal);
     }

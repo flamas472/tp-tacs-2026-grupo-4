@@ -13,10 +13,10 @@ namespace Figuritas.Api.Tests;
 [Collection(nameof(IntegrationTestCollection))]
 public class UserStory05Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStory05Tests(WebApplicationFactory<Program> factory)
+    public UserStory05Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -27,7 +27,7 @@ public class UserStory05Tests : IAsyncLifetime
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         var user = await response.Content.ReadFromJsonAsync<UserResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return user!;
@@ -195,12 +195,10 @@ public class UserStory05Tests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
         // Verify stock was decremented by reservation
-        var stickersResponse = await clientA.GetAsync($"/api/users/{userA.Id}/stickers");
-        Assert.Equal(HttpStatusCode.OK, stickersResponse.StatusCode);
-        var stickers = await stickersResponse.Content.ReadFromJsonAsync<List<UserStickerResponseDTO>>(
+        var stickerResponse = await clientA.GetAsync($"/api/users/{userA.Id}/stickers/{stickerX.Id}");
+        Assert.Equal(HttpStatusCode.OK, stickerResponse.StatusCode);
+        var updatedX = await stickerResponse.Content.ReadFromJsonAsync<UserStickerResponseDTO>(
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        Assert.NotNull(stickers);
-        var updatedX = stickers!.FirstOrDefault(s => s.Id == stickerX.Id);
         Assert.NotNull(updatedX);
         Assert.Equal(1, updatedX!.Quantity);
     }
@@ -342,7 +340,7 @@ public class UserStory05Tests : IAsyncLifetime
         var createResponse = await clientA.PostAsJsonAsync("/api/exchange-proposals", dto);
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-        var sentResponse = await clientA.GetAsync("/api/exchange-proposals/sent");
+        var sentResponse = await clientA.GetAsync("/api/dashboard/proposals/sent");
         Assert.Equal(HttpStatusCode.OK, sentResponse.StatusCode);
         var sentList = await sentResponse.Content.ReadFromJsonAsync<List<ExchangeProposalResponseDTO>>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         Assert.NotNull(sentList);
@@ -353,7 +351,7 @@ public class UserStory05Tests : IAsyncLifetime
         Assert.IsType<List<int>>(sentProposal.OfferedUserStickerIds);
         Assert.Equal("Pending", sentProposal.State);
 
-        var receivedResponse = await clientB.GetAsync("/api/exchange-proposals/received");
+        var receivedResponse = await clientB.GetAsync("/api/dashboard/proposals/received");
         Assert.Equal(HttpStatusCode.OK, receivedResponse.StatusCode);
         var receivedList = await receivedResponse.Content.ReadFromJsonAsync<List<ExchangeProposalResponseDTO>>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         Assert.NotNull(receivedList);
@@ -582,6 +580,6 @@ public class UserStory05Tests : IAsyncLifetime
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
     public Task DisposeAsync() => Task.CompletedTask;
 }

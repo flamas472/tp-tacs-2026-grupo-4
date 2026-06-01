@@ -13,10 +13,10 @@ namespace Figuritas.Api.Tests;
 [Collection(nameof(IntegrationTestCollection))]
 public class UserStory08Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStory08Tests(WebApplicationFactory<Program> factory)
+    public UserStory08Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -27,7 +27,7 @@ public class UserStory08Tests : IAsyncLifetime
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }))!;
@@ -463,10 +463,13 @@ public class UserStory08Tests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Test 14: GET /api/users/{B.Id}/stickers autenticado como A → HTTP 410 Gone (endpoint obsoleto blindado).
+    /// Test 14: GET /api/users/{B.Id}/stickers was the legacy deprecated endpoint.
+    /// The GET verb has been removed — the route only exists for POST, so the framework
+    /// returns 405 Method Not Allowed. Sticker inventory is now exclusively available
+    /// via GET /api/dashboard/stickers.
     /// </summary>
     [Fact]
-    public async Task GetUserStickers_LegacyEndpoint_WithOtherUsersId_ReturnsForbidOrGone()
+    public async Task GetUserStickers_LegacyEndpoint_IsRemoved_Returns405()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
         var userA = await RegisterUserAsync($"us08_legA_{suffix}", "password123");
@@ -474,17 +477,15 @@ public class UserStory08Tests : IAsyncLifetime
         var tokenA = await LoginAsync($"us08_legA_{suffix}", "password123");
         var clientA = ClientWithToken(tokenA);
 
-        // A attempts to access B's stickers via the legacy endpoint
+        // GET /api/users/{userId}/stickers is not registered — only POST exists on this route,
+        // so the framework responds with 405 Method Not Allowed.
         var response = await clientA.GetAsync($"/api/users/{userB.Id}/stickers");
 
-        Assert.True(
-            response.StatusCode == HttpStatusCode.Forbidden ||
-            response.StatusCode == (HttpStatusCode)410,
-            $"Expected 403 or 410, got {(int)response.StatusCode}");
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
     public Task DisposeAsync() => Task.CompletedTask;
 }

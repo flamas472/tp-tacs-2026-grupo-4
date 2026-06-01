@@ -17,23 +17,26 @@ namespace Figuritas.Api.Tests;
 /// Requires a running MongoDB instance (same as the app).
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
-public class UserStory01Tests
+public class UserStory01Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStory01Tests(WebApplicationFactory<Program> factory)
+    public UserStory01Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         var user = await response.Content.ReadFromJsonAsync<UserResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return user!;
@@ -94,7 +97,7 @@ public class UserStory01Tests
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var created = await response.Content.ReadFromJsonAsync<UserSticker>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var created = await response.Content.ReadFromJsonAsync<UserStickerResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         Assert.NotNull(created);
         Assert.True(created!.Active);
         Assert.Equal(2, created.Quantity);

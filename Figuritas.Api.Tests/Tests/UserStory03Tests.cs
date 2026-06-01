@@ -16,23 +16,26 @@ namespace Figuritas.Api.Tests;
 /// Requires a running MongoDB instance (same as the app).
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
-public class UserStory03Tests
+public class UserStory03Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStory03Tests(WebApplicationFactory<Program> factory)
+    public UserStory03Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
     }
+
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         var user = await response.Content.ReadFromJsonAsync<UserResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return user!;
@@ -65,7 +68,7 @@ public class UserStory03Tests
         return client;
     }
 
-    private async Task<UserSticker> PublishStickerAsync(HttpClient authenticatedClient, int userId, int stickerId, int quantity = 2, bool canBeDirectlyExchanged = true, bool canBeAuctioned = false)
+    private async Task<UserStickerResponseDTO> PublishStickerAsync(HttpClient authenticatedClient, int userId, int stickerId, int quantity = 2, bool canBeDirectlyExchanged = true, bool canBeAuctioned = false)
     {
         var dto = new PostUserStickerRequestDTO
         {
@@ -76,7 +79,7 @@ public class UserStory03Tests
         };
         var response = await authenticatedClient.PostAsJsonAsync($"/api/users/{userId}/stickers", dto);
         response.EnsureSuccessStatusCode();
-        var created = await response.Content.ReadFromJsonAsync<UserSticker>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var created = await response.Content.ReadFromJsonAsync<UserStickerResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return created!;
     }
 

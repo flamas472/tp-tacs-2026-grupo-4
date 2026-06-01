@@ -1,5 +1,7 @@
 using Figuritas.Shared.Model;
 using Figuritas.Shared.Model.Intercambios;
+using Figuritas.Shared.Model.Notificaciones;
+using Figuritas.Shared.Model.Subastas;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 
@@ -19,6 +21,18 @@ public class MongoDbContext
 
     public IMongoCollection<T> Collection<T>(string collectionName) => _database.GetCollection<T>(collectionName);
 
+    /// <summary>
+    /// Exposes the underlying IMongoDatabase so that test infrastructure can perform
+    /// operations such as dropping collections for isolation between test runs.
+    /// </summary>
+    public IMongoDatabase GetDatabase() => _database;
+
+    /// <summary>
+    /// Exposes the underlying IMongoClient so that services can start multi-document sessions
+    /// for ACID transactions.
+    /// </summary>
+    public IMongoClient GetClient() => _database.Client;
+
     private static void EnsureClassMapsRegistered()
     {
         RegisterClassMap<Category>();
@@ -33,6 +47,8 @@ public class MongoDbContext
         RegisterClassMap<Auction>();
         RegisterClassMap<AuctionOffer>();
         RegisterClassMap<MissingSticker>();
+        RegisterClassMap<Notification>();
+        RegisterClassMap<AuctionWatchlist>();
     }
 
     private static readonly object _classMapLock = new();

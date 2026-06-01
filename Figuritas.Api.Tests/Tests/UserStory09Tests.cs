@@ -11,12 +11,12 @@ using Xunit;
 namespace Figuritas.Api.Tests;
 
 [Collection(nameof(IntegrationTestCollection))]
-public class UserStories09Tests : IAsyncLifetime
+public class UserStory09Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStories09Tests(WebApplicationFactory<Program> factory)
+    public UserStory09Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -27,7 +27,7 @@ public class UserStories09Tests : IAsyncLifetime
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }))!;
@@ -100,11 +100,12 @@ public class UserStories09Tests : IAsyncLifetime
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }))!;
     }
 
-    private async Task<List<UserStickerResponseDTO>> GetUserStickersAsync(HttpClient authenticatedClient, int userId)
+    private async Task<UserStickerResponseDTO?> GetUserStickerAsync(HttpClient authenticatedClient, int userId, int stickerId)
     {
-        var response = await authenticatedClient.GetAsync($"/api/users/{userId}/stickers");
+        var response = await authenticatedClient.GetAsync($"/api/users/{userId}/stickers/{stickerId}");
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();
-        return (await response.Content.ReadFromJsonAsync<List<UserStickerResponseDTO>>(
+        return (await response.Content.ReadFromJsonAsync<UserStickerResponseDTO>(
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }))!;
     }
 
@@ -170,8 +171,7 @@ public class UserStories09Tests : IAsyncLifetime
 
         await CreateProposalAsync(clientA, new List<int> { stickerX.Id }, stickerY.Id, userB.Id);
 
-        var stickers = await GetUserStickersAsync(clientA, userA.Id);
-        var updatedX = stickers.FirstOrDefault(s => s.Id == stickerX.Id);
+        var updatedX = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
         Assert.NotNull(updatedX);
         Assert.Equal(1, updatedX!.Quantity);
     }
@@ -199,19 +199,14 @@ public class UserStories09Tests : IAsyncLifetime
         await CreateProposalAsync(clientA, new List<int> { stickerX.Id }, stickerY.Id, userB.Id);
 
         // After reservation the sticker should be Active=false
-        var stickersResponse = await clientA.GetAsync($"/api/users/{userA.Id}/stickers");
-        Assert.Equal(HttpStatusCode.OK, stickersResponse.StatusCode);
-        var allStickers = await stickersResponse.Content.ReadFromJsonAsync<List<UserStickerResponseDTO>>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        Assert.NotNull(allStickers);
-        var updatedX = allStickers!.FirstOrDefault(s => s.Id == stickerX.Id);
-        // Either not in active list (filtered out) or present with Active=false, Qty=0
+        var updatedX = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
+        // Either null (filtered as inactive) or present with Active=false, Qty=0
         if (updatedX != null)
         {
             Assert.Equal(0, updatedX.Quantity);
             Assert.False(updatedX.Active);
         }
-        // If not found, it was correctly deactivated and filtered from active listings
+        // If null, it was correctly deactivated and filtered from active listings
     }
 
     // ─── Grupo B — Devolución en rechazo/cancelación ─────────────────────────
@@ -237,18 +232,18 @@ public class UserStories09Tests : IAsyncLifetime
         var proposal = await CreateProposalAsync(clientA, new List<int> { stickerX.Id }, stickerY.Id, userB.Id);
 
         // After proposal creation, Qty should be 1
-        var stickersAfterCreate = await GetUserStickersAsync(clientA, userA.Id);
-        var afterCreate = stickersAfterCreate.First(s => s.Id == stickerX.Id);
-        Assert.Equal(1, afterCreate.Quantity);
+        var afterCreate = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
+        Assert.NotNull(afterCreate);
+        Assert.Equal(1, afterCreate!.Quantity);
 
         // Reject proposal (userB is recipient)
         var rejectResponse = await clientB.PostAsync($"/api/exchange-proposals/{proposal.Id}/reject", null);
         Assert.Equal(HttpStatusCode.OK, rejectResponse.StatusCode);
 
         // Stock should be returned: Qty=2 again
-        var stickersAfterReject = await GetUserStickersAsync(clientA, userA.Id);
-        var afterReject = stickersAfterReject.First(s => s.Id == stickerX.Id);
-        Assert.Equal(2, afterReject.Quantity);
+        var afterReject = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
+        Assert.NotNull(afterReject);
+        Assert.Equal(2, afterReject!.Quantity);
     }
 
     /// <summary>
@@ -276,8 +271,7 @@ public class UserStories09Tests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, rejectResponse.StatusCode);
 
         // Stock should be returned: Qty=1, Active=true
-        var stickers = await GetUserStickersAsync(clientA, userA.Id);
-        var restored = stickers.FirstOrDefault(s => s.Id == stickerX.Id);
+        var restored = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
         Assert.NotNull(restored);
         Assert.Equal(1, restored!.Quantity);
         Assert.True(restored.Active);
@@ -304,18 +298,18 @@ public class UserStories09Tests : IAsyncLifetime
         var proposal = await CreateProposalAsync(clientA, new List<int> { stickerX.Id }, stickerY.Id, userB.Id);
 
         // After proposal creation, Qty should be 1
-        var stickersAfterCreate = await GetUserStickersAsync(clientA, userA.Id);
-        var afterCreate = stickersAfterCreate.First(s => s.Id == stickerX.Id);
-        Assert.Equal(1, afterCreate.Quantity);
+        var afterCreate = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
+        Assert.NotNull(afterCreate);
+        Assert.Equal(1, afterCreate!.Quantity);
 
         // Cancel proposal (userA is proponent)
         var cancelResponse = await clientA.PostAsync($"/api/exchange-proposals/{proposal.Id}/cancel", null);
         Assert.Equal(HttpStatusCode.OK, cancelResponse.StatusCode);
 
         // Stock should be returned: Qty=2 again
-        var stickersAfterCancel = await GetUserStickersAsync(clientA, userA.Id);
-        var afterCancel = stickersAfterCancel.First(s => s.Id == stickerX.Id);
-        Assert.Equal(2, afterCancel.Quantity);
+        var afterCancel = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
+        Assert.NotNull(afterCancel);
+        Assert.Equal(2, afterCancel!.Quantity);
     }
 
     /// <summary>
@@ -404,8 +398,7 @@ public class UserStories09Tests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, acceptResponse.StatusCode);
 
         // UserB's stickerY should have decreased by 1 (from 2 to 1)
-        var stickersB = await GetUserStickersAsync(clientB, userB.Id);
-        var updatedY = stickersB.FirstOrDefault(s => s.Id == stickerY.Id);
+        var updatedY = await GetUserStickerAsync(clientB, userB.Id, stickerY.Id);
         Assert.NotNull(updatedY);
         Assert.Equal(originalQtyY - 1, updatedY!.Quantity);
     }
@@ -440,10 +433,8 @@ public class UserStories09Tests : IAsyncLifetime
         // After acceptance: receiver (userB) should now own that sticker type (via inventory update or new entry).
         // Since we're doing Quantity++ on offered stickers after acceptance,
         // stickerX (owned by userA) should go back to Qty=2 (the reservation is converted to transfer).
-        var stickersA = await GetUserStickersAsync(clientA, userA.Id);
-        var restoredX = stickersA.FirstOrDefault(s => s.Id == stickerX.Id);
+        var restoredX = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
         // After acceptance: the offered sticker's qty was incremented to represent transfer.
-        // The actual sticker record belongs to userA but qty is incremented to reflect userB received it.
         // Implementation detail: we increment qty on the proponent's record (since it represents the catalog sticker
         // and receiver needs it added to their inventory separately).
         Assert.NotNull(restoredX);
@@ -473,11 +464,8 @@ public class UserStories09Tests : IAsyncLifetime
         var proposal = await CreateProposalAsync(clientA, new List<int> { stickerX.Id }, stickerY.Id, userB.Id);
 
         // At this point stickerX should be reserved (Qty=0, Active=false)
-        var stickersBeforeAccept = await clientA.GetAsync($"/api/users/{userA.Id}/stickers");
-        var allBeforeAccept = await stickersBeforeAccept.Content.ReadFromJsonAsync<List<UserStickerResponseDTO>>(
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        var xBeforeAccept = allBeforeAccept!.FirstOrDefault(s => s.Id == stickerX.Id);
-        // Should be deactivated
+        var xBeforeAccept = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
+        // Should be deactivated (null if filtered out, or present with Qty=0)
         if (xBeforeAccept != null)
             Assert.Equal(0, xBeforeAccept.Quantity);
 
@@ -666,6 +654,6 @@ public class UserStories09Tests : IAsyncLifetime
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
     public Task DisposeAsync() => Task.CompletedTask;
 }

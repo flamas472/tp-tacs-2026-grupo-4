@@ -15,17 +15,20 @@ public class DashboardController : ControllerBase
     private readonly ExchangeProposalService _proposalService;
     private readonly AuctionService _auctionService;
     private readonly AuthService _authService;
+    private readonly INotificationService _notificationService;
 
     public DashboardController(
         UserService userService,
         ExchangeProposalService proposalService,
         AuctionService auctionService,
-        AuthService authService)
+        AuthService authService,
+        INotificationService notificationService)
     {
         _userService = userService;
         _proposalService = proposalService;
         _auctionService = auctionService;
         _authService = authService;
+        _notificationService = notificationService;
     }
 
     [HttpGet("stickers")]
@@ -58,5 +61,47 @@ public class DashboardController : ControllerBase
         var callerId = _authService.GetUserIdFromToken(User);
         var auctions = _auctionService.GetMyAuctions(dto, callerId);
         return Ok(auctions);
+    }
+
+    [HttpPut("preferences")]
+    public ActionResult UpdatePreferences([FromBody] UpdatePreferencesDTO dto)
+    {
+        try
+        {
+            var callerId = _authService.GetUserIdFromToken(User);
+            _notificationService.UpdatePreferences(callerId, dto);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpGet("notifications")]
+    public async Task<ActionResult<List<NotificationResponseDTO>>> GetMyNotifications([FromQuery] GetMyNotificationsDTO dto)
+    {
+        var callerId = _authService.GetUserIdFromToken(User);
+        var notifications = await _notificationService.GetMyNotificationsAsync(callerId, dto);
+        return Ok(notifications);
+    }
+
+    [HttpPatch("notifications/{id}/read")]
+    public async Task<ActionResult> MarkNotificationAsRead(int id)
+    {
+        try
+        {
+            var callerId = _authService.GetUserIdFromToken(User);
+            await _notificationService.MarkAsReadAsync(id, callerId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return StatusCode(403, "This notification does not belong to you.");
+        }
     }
 }

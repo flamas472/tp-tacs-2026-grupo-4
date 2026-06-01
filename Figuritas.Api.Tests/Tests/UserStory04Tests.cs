@@ -18,10 +18,10 @@ namespace Figuritas.Api.Tests;
 [Collection(nameof(IntegrationTestCollection))]
 public class UserStory04Tests : IAsyncLifetime
 {
-    private readonly WebApplicationFactory<Program> _factory;
+    private readonly IntegrationTestFactory _factory;
     private readonly HttpClient _client;
 
-    public UserStory04Tests(WebApplicationFactory<Program> factory)
+    public UserStory04Tests(IntegrationTestFactory factory)
     {
         _factory = factory;
         _client = factory.CreateClient();
@@ -32,7 +32,7 @@ public class UserStory04Tests : IAsyncLifetime
     private async Task<UserResponseDTO> RegisterUserAsync(string username, string password)
     {
         var dto = new { Username = username, Password = password };
-        var response = await _client.PostAsJsonAsync("/api/users", dto);
+        var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
         response.EnsureSuccessStatusCode();
         var user = await response.Content.ReadFromJsonAsync<UserResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return user!;
@@ -65,7 +65,7 @@ public class UserStory04Tests : IAsyncLifetime
         return client;
     }
 
-    private async Task<UserSticker> PublishStickerAsync(HttpClient authenticatedClient, int userId, int stickerId, int quantity = 2, bool canBeDirectlyExchanged = true, bool canBeAuctioned = false)
+    private async Task<UserStickerResponseDTO> PublishStickerAsync(HttpClient authenticatedClient, int userId, int stickerId, int quantity = 2, bool canBeDirectlyExchanged = true, bool canBeAuctioned = false)
     {
         var dto = new PostUserStickerRequestDTO
         {
@@ -76,7 +76,7 @@ public class UserStory04Tests : IAsyncLifetime
         };
         var response = await authenticatedClient.PostAsJsonAsync($"/api/users/{userId}/stickers", dto);
         response.EnsureSuccessStatusCode();
-        var created = await response.Content.ReadFromJsonAsync<UserSticker>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        var created = await response.Content.ReadFromJsonAsync<UserStickerResponseDTO>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
         return created!;
     }
 
@@ -301,11 +301,8 @@ public class UserStory04Tests : IAsyncLifetime
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();
     public Task DisposeAsync() => Task.CompletedTask;
-    // Cleanup not implemented: no admin endpoint exists to delete test data from shared MongoDB.
-    // To implement: add DELETE /api/admin/users/{id} or expose a test-only cleanup method,
-    // then delete all UserStickers and MissingStickers created by test users here.
 
     // ─── US04 Tests (continued) ──────────────────────────────────────────────
 
