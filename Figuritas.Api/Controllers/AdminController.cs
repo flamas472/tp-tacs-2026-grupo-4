@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Figuritas.Api.Services;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
@@ -63,14 +64,16 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
-    /// Lists all Admin and SuperAdmin accounts.
+    /// Lists all Admin and SuperAdmin accounts, paginated.
     /// Restricted to SuperAdmin.
     /// </summary>
     [HttpGet("admins")]
     [Authorize(Roles = "SuperAdmin")]
-    public ActionResult<List<AdminUserResponseDTO>> GetAdmins()
+    public ActionResult<List<AdminUserResponseDTO>> GetAdmins(
+        [FromQuery][Range(1, int.MaxValue)] int page = 1,
+        [FromQuery][Range(1, 100)] int pageSize = 20)
     {
-        var admins = _adminService.GetAllAdmins();
+        var admins = _adminService.GetAllAdmins(page, pageSize);
         return Ok(admins);
     }
 

@@ -102,11 +102,15 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+var allowedOrigins = builder.Configuration.GetValue<string>("AllowedOrigins")
+    ?.Split(",", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? Array.Empty<string>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("BlazorLocalPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:5280", "http://localhost:5048")
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -117,8 +121,6 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-    userRepo.EnsureIndexes();
     SeedData.EnsureSeedData(scope.ServiceProvider);
 }
 

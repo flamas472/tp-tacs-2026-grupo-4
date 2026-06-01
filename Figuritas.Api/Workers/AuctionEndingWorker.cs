@@ -34,8 +34,10 @@ public class AuctionEndingWorker : BackgroundService
                 var auctionRepo = scope.ServiceProvider.GetRequiredService<IAuctionRepository>();
                 var watchlistRepo = scope.ServiceProvider.GetRequiredService<IAuctionWatchlistRepository>();
                 var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                var auctionService = scope.ServiceProvider.GetRequiredService<AuctionService>();
 
                 await ProcessEndingAuctionsAsync(auctionRepo, watchlistRepo, notificationService);
+                await ProcessExpiredAuctionsAsync(auctionRepo, auctionService);
             }
             catch (Exception ex)
             {
@@ -87,6 +89,52 @@ public class AuctionEndingWorker : BackgroundService
             _logger.LogInformation(
                 "Sent AuctionEnding notifications for auction {AuctionId} to {Count} watchers.",
                 auction.Id, watcherIds.Count);
+        }
+    }
+
+    /// <summary>
+    /// Finds active auctions whose expiry date has already passed and closes them automatically.
+    /// Delegates all business logic (winner selection, stock transfers, missing-sticker cleanup)
+    /// to <see cref="AuctionService.CloseAuctionAutomatically"/>.
+    ///
+    /// Uses an atomic claim flag (<see cref="IAuctionRepository.TryClaimAutomaticClosureAsync"/>)
+    /// to guarantee idempotency across multiple worker instances: only the instance that wins
+    /// the atomic update will proceed to close the auction.
+    ///
+    /// Extracted as an internal method to allow direct unit testing.
+    /// </summary>
+    internal async Task ProcessExpiredAuctionsAsync(
+        IAuctionRepository auctionRepo,
+        AuctionService auctionService)
+    {
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var expiredAuctions = await auctionRepo.GetExpiredActiveAuctionsAsync(now);
+
+        foreach (var auction in expiredAuctions)
+        {
+            // Atomically claim the closure right. Only one worker instance will succeed.
+            var claimed = await auctionRepo.TryClaimAutomaticClosureAsync(auction.Id);
+            if (!claimed)
+            {
+                _logger.LogDebug(
+                    "Automatic closure for auction {AuctionId} already claimed by another process. Skipping.",
+                    auction.Id);
+                continue;
+            }
+
+            try
+            {
+                await auctionService.CloseAuctionAutomatically(auction.Id);
+
+                _logger.LogInformation(
+                    "Auction {AuctionId} automatically closed. Winner offer: {WinnerId}.",
+                    auction.Id, auction.BestCurrentOfferId?.ToString() ?? "none");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to automatically close auction {AuctionId}.", auction.Id);
+            }
         }
     }
 }

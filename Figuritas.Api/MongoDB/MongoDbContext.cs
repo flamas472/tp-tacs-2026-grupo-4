@@ -27,6 +27,12 @@ public class MongoDbContext
     /// </summary>
     public IMongoDatabase GetDatabase() => _database;
 
+    /// <summary>
+    /// Exposes the underlying IMongoClient so that services can start multi-document sessions
+    /// for ACID transactions.
+    /// </summary>
+    public IMongoClient GetClient() => _database.Client;
+
     private static void EnsureClassMapsRegistered()
     {
         RegisterClassMap<Category>();

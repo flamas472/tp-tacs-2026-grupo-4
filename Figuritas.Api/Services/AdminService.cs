@@ -52,11 +52,10 @@ public class AdminService
         return admin;
     }
 
-    public List<AdminUserResponseDTO> GetAllAdmins()
+    public List<AdminUserResponseDTO> GetAllAdmins(int page = 1, int pageSize = 20)
     {
-        var admins = _userRepo.GetByRole(UserRole.Admin);
-        var superAdmins = _userRepo.GetByRole(UserRole.SuperAdmin);
-        return admins.Concat(superAdmins)
+        var adminRoles = new List<UserRole> { UserRole.Admin, UserRole.SuperAdmin };
+        return _userRepo.GetByRoles(adminRoles, page, pageSize)
             .Select(MapToDto)
             .ToList();
     }

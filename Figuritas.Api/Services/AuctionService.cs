@@ -35,9 +35,9 @@ public class AuctionService
                            .ToList();
     }
 
-    public List<AuctionResponseDTO> GetAuctions()
+    public List<AuctionResponseDTO> GetAuctions(int page = 1, int pageSize = 20)
     {
-        return _auctionRepo.GetAll().Select(MapToDto).ToList();
+        return _auctionRepo.GetAll(page, pageSize).Select(MapToDto).ToList();
     }
 
     public AuctionResponseDTO? GetAuction(int id)
@@ -123,6 +123,15 @@ public class AuctionService
                     $"UserSticker {offeredUs.Id} has no available stock.");
         }
 
+        // Guard 1: Prevent a bidder from competing against their own leading offer (auto-bid).
+        if (auction.BestCurrentOfferId.HasValue)
+        {
+            var currentBestOffer = _offerRepo.GetById(auction.BestCurrentOfferId.Value);
+            if (currentBestOffer != null && currentBestOffer.BidderId == bidderId)
+                throw new InvalidOperationException(
+                    "You already hold the current best offer. You cannot outbid yourself.");
+        }
+
         // Validate minimum offer requirements: compare catalog sticker IDs
         var offeredCatalogStickerIds = offeredUserStickers.Select(us => us.Sticker.Id).ToHashSet();
         var missingRequired = auction.MinimumOfferStickerIds
@@ -132,6 +141,25 @@ public class AuctionService
         if (missingRequired.Any())
             throw new InvalidOperationException(
                 $"Offer does not meet minimum requirements. Missing catalog sticker ID(s): {string.Join(", ", missingRequired)}");
+
+        // Guard 2: If the bidder already has a non-winning active offer on this auction, supersede it
+        // and release the stock that was reserved for it before reserving stock for the new offer.
+        var previousOffer = await _offerRepo.GetActiveBidderOfferAsync(auctionId, bidderId);
+        if (previousOffer != null)
+        {
+            // Mark the previous offer as superseded
+            previousOffer.Status = AuctionOfferStatus.Superseded;
+            _offerRepo.Update(previousOffer);
+
+            // Release the stock reserved by the previous offer to avoid duplicate blocking
+            var previousStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(previousOffer.OfferedUserStickerIds);
+            foreach (var prevSticker in previousStickers)
+            {
+                prevSticker.Quantity++;
+                prevSticker.Active = true;
+                _userStickerRepo.Update(prevSticker);
+            }
+        }
 
         // Reserve stock: decrement quantity for each offered sticker
         foreach (var offeredUs in offeredUserStickers)
@@ -148,7 +176,8 @@ public class AuctionService
         {
             AuctionId = auctionId,
             BidderId = bidderId,
-            OfferedUserStickerIds = dto.OfferedUserStickerIds
+            OfferedUserStickerIds = dto.OfferedUserStickerIds,
+            Status = AuctionOfferStatus.Active
         };
 
         _offerRepo.Add(offer);
@@ -187,8 +216,10 @@ public class AuctionService
                 _userStickerRepo.Update(auctionedSticker);
             }
 
-            // Return all bidders' reserved stickers
-            foreach (var offer in allOffers)
+            // Return reserved stickers only for Active offers — Superseded offers had their stock
+            // released at the time they were superseded, so including them here would double-return.
+            var activeOffers = allOffers.Where(o => o.Status == AuctionOfferStatus.Active).ToList();
+            foreach (var offer in activeOffers)
             {
                 var bidderStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(offer.OfferedUserStickerIds);
                 foreach (var bidderSticker in bidderStickers)
@@ -269,8 +300,11 @@ public class AuctionService
                 await _missingStickerRepo.DeleteAsync(auction.AuctioneerId, winningSticker.Sticker.Id);
             }
 
-            // Return losing bidders' reserved stickers
-            var losingOffers = allOffers.Where(o => o.Id != winningOfferId).ToList();
+            // Return losing bidders' reserved stickers.
+            // Skip Superseded offers: their stock was already released when they were superseded.
+            var losingOffers = allOffers
+                .Where(o => o.Id != winningOfferId && o.Status == AuctionOfferStatus.Active)
+                .ToList();
             foreach (var losingOffer in losingOffers)
             {
                 var loserStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(losingOffer.OfferedUserStickerIds);
@@ -287,6 +321,27 @@ public class AuctionService
         _auctionRepo.Update(auction);
 
         return MapToDto(auction);
+    }
+
+    /// <summary>
+    /// Closes an expired auction automatically (called by the background worker, not by the auctioneer).
+    /// Applies exactly the same business rules as <see cref="CloseAuction"/> but:
+    /// - Skips the caller-ownership check (the worker has no user identity).
+    /// - Automatically selects the winner based on <see cref="Auction.BestCurrentOfferId"/>.
+    /// Virtual to allow unit-test mocking without requiring an interface extraction.
+    /// </summary>
+    public virtual async Task<AuctionResponseDTO> CloseAuctionAutomatically(int auctionId)
+    {
+        var auction = _auctionRepo.GetById(auctionId);
+        if (auction == null)
+            throw new KeyNotFoundException("Auction not found.");
+
+        if (auction.Status != AuctionStatus.Active)
+            throw new InvalidOperationException("The auction is not active.");
+
+        // Delegate to the shared closure logic using the recorded best offer as winner.
+        // Passing callerUserId = auction.AuctioneerId satisfies the ownership guard in CloseAuction.
+        return await CloseAuction(auctionId, auction.BestCurrentOfferId, auction.AuctioneerId);
     }
 
     private static AuctionResponseDTO MapToDto(Auction auction) => new()

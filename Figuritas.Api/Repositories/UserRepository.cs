@@ -13,6 +13,7 @@ public class UserRepository : IUserRepository
     {
         _users = context.Collection<User>("Users");
         _idGenerator = idGenerator;
+        EnsureIndexes();
     }
 
     public bool ExistsId(int userId)
@@ -52,6 +53,16 @@ public class UserRepository : IUserRepository
         return _users.Find(u => u.Role == role).ToList();
     }
 
+    public List<User> GetByRoles(List<UserRole> roles, int page, int pageSize)
+    {
+        var filter = Builders<User>.Filter.In(u => u.Role, roles);
+        return _users.Find(filter)
+            .SortBy(u => u.Id)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .ToList();
+    }
+
     public void Update(User user)
     {
         var result = _users.ReplaceOne(u => u.Id == user.Id, user);
@@ -63,10 +74,10 @@ public class UserRepository : IUserRepository
 
     /// <summary>
     /// Creates a unique index on the Username field if it does not already exist.
-    /// Called once at application startup to prevent concurrent duplicate username inserts
+    /// Called once at construction time to prevent concurrent duplicate username inserts
     /// that would bypass the application-level uniqueness check.
     /// </summary>
-    public void EnsureIndexes()
+    private void EnsureIndexes()
     {
         var indexKeys = Builders<User>.IndexKeys.Ascending(u => u.Username);
         var indexOptions = new CreateIndexOptions { Unique = true, Name = "unique_username" };

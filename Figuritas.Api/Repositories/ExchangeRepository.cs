@@ -25,6 +25,12 @@ public class ExchangeRepository : IExchangeRepository
         _exchanges.InsertOne(exchange);
     }
 
+    public void Add(Exchange exchange, IClientSessionHandle session)
+    {
+        exchange.Id = _idGenerator.GetNextId<Exchange>();
+        _exchanges.InsertOne(session, exchange);
+    }
+
     public Exchange? GetById(int exchangeId)
     {
         return _exchanges.Find(e => e.Id == exchangeId).FirstOrDefault();

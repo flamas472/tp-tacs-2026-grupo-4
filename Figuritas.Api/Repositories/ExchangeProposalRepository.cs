@@ -12,6 +12,31 @@ public class ExchangeProposalRepository : IExchangeProposalRepository
     {
         _proposals = context.Collection<ExchangeProposal>("ExchangeProposals");
         _idGenerator = idGenerator;
+        EnsureIndexes();
+    }
+
+    private void EnsureIndexes()
+    {
+        // Index: ProponentID — accelerates sent-proposal queries (dashboard)
+        _proposals.Indexes.CreateOne(new CreateIndexModel<ExchangeProposal>(
+            Builders<ExchangeProposal>.IndexKeys.Ascending(p => p.ProponentID),
+            new CreateIndexOptions { Name = "idx_proposal_proponent" }));
+
+        // Index: ProposedID — accelerates received-proposal queries (dashboard)
+        _proposals.Indexes.CreateOne(new CreateIndexModel<ExchangeProposal>(
+            Builders<ExchangeProposal>.IndexKeys.Ascending(p => p.ProposedID),
+            new CreateIndexOptions { Name = "idx_proposal_proposed" }));
+
+        // Index: State — accelerates state-filtered queries and analytics.
+        // No explicit name: lets MongoDB use the auto-generated name "State_1" which may
+        // already exist from AnalyticsRepository. Omitting the name ensures idempotency.
+        _proposals.Indexes.CreateOne(new CreateIndexModel<ExchangeProposal>(
+            Builders<ExchangeProposal>.IndexKeys.Ascending(p => p.State)));
+
+        // Index: CreatedAt — accelerates chronological ordering and rate-limit guard queries
+        _proposals.Indexes.CreateOne(new CreateIndexModel<ExchangeProposal>(
+            Builders<ExchangeProposal>.IndexKeys.Ascending(p => p.CreatedAt),
+            new CreateIndexOptions { Name = "idx_proposal_created_at" }));
     }
 
     public List<ExchangeProposal> GetAll()

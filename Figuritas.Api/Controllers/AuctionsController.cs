@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Figuritas.Shared.DTO.request;
@@ -28,9 +29,11 @@ public class AuctionsController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous]
-    public ActionResult<List<AuctionResponseDTO>> GetAuctions()
+    public ActionResult<List<AuctionResponseDTO>> GetAuctions(
+        [FromQuery][Range(1, int.MaxValue)] int page = 1,
+        [FromQuery][Range(1, 100)] int pageSize = 20)
     {
-        var auctions = _auctionService.GetAuctions();
+        var auctions = _auctionService.GetAuctions(page, pageSize);
         return Ok(auctions);
     }
 

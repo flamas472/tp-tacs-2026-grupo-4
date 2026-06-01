@@ -34,25 +34,25 @@ public class AnalyticsRepository : IAnalyticsRepository
 
     private void EnsureIndexes()
     {
-        // Index: Users.Role — eliminates COLLSCAN when filtering admins/superadmins
-        var userRoleIndex = new CreateIndexModel<User>(
-            Builders<User>.IndexKeys.Ascending(u => u.Role));
-        _users.Indexes.CreateOne(userRoleIndex);
+        // Index: Users.Role — eliminates COLLSCAN when filtering admins/superadmins and by-role queries.
+        // No explicit name: uses auto-generated "Role_1" to ensure idempotency across all repositories.
+        _users.Indexes.CreateOne(new CreateIndexModel<User>(
+            Builders<User>.IndexKeys.Ascending(u => u.Role)));
 
-        // Index: Notifications.Type — improves type-based analytics queries
-        var notifTypeIndex = new CreateIndexModel<Notification>(
-            Builders<Notification>.IndexKeys.Ascending(n => n.Type));
-        _notifications.Indexes.CreateOne(notifTypeIndex);
+        // Index: Notifications.Type — improves type-based analytics queries.
+        // No explicit name: uses auto-generated "Type_1".
+        _notifications.Indexes.CreateOne(new CreateIndexModel<Notification>(
+            Builders<Notification>.IndexKeys.Ascending(n => n.Type)));
 
-        // Index: ExchangeProposals.State — improves state-based analytics queries
-        var proposalStateIndex = new CreateIndexModel<ExchangeProposal>(
-            Builders<ExchangeProposal>.IndexKeys.Ascending(p => p.State));
-        _proposals.Indexes.CreateOne(proposalStateIndex);
+        // Index: ExchangeProposals.State — referenced here for analytics; also created in ExchangeProposalRepository.
+        // No explicit name: uses auto-generated "State_1" to match both creation sites.
+        _proposals.Indexes.CreateOne(new CreateIndexModel<ExchangeProposal>(
+            Builders<ExchangeProposal>.IndexKeys.Ascending(p => p.State)));
 
-        // Index: Auctions.Status — improves status-based analytics queries
-        var auctionStatusIndex = new CreateIndexModel<Auction>(
-            Builders<Auction>.IndexKeys.Ascending(a => a.Status));
-        _auctions.Indexes.CreateOne(auctionStatusIndex);
+        // Index: Auctions.Status — referenced here for analytics; primary index created in AuctionRepository.
+        // No explicit name: uses auto-generated "Status_1" to match both creation sites.
+        _auctions.Indexes.CreateOne(new CreateIndexModel<Auction>(
+            Builders<Auction>.IndexKeys.Ascending(a => a.Status)));
     }
 
     public async Task<int> CountTotalUsersAsync()
