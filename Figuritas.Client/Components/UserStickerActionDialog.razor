@@ -5,6 +5,7 @@
 
 @inject AuthStateService AuthState
 @inject UserHttpClient UserHttp
+@inject IDialogService DialogService
 
 <MudDialog>
     <DialogContent>
@@ -24,6 +25,13 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cancelar</MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Warning"
+                   StartIcon="@Icons.Material.Filled.Gavel"
+                   OnClick="HandleSubastar"
+                   Disabled="loading">
+            Subastar
+        </MudButton>
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Save"
@@ -56,6 +64,26 @@
     {
         canBeDirectlyExchanged = InitialCanBeDirectlyExchanged;
         canBeAuctioned = InitialCanBeAuctioned;
+    }
+
+    private async Task HandleSubastar()
+    {
+        var parameters = new DialogParameters<NewAuctionRequestComponent>
+        {
+            { c => c.UserStickerId, UserStickerId },
+            { c => c.Sticker, Sticker }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+        var dialog = await DialogService.ShowAsync<NewAuctionRequestComponent>(
+            string.Empty, parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            MudDialog.Close();
     }
 
     private async Task HandleGuardar()

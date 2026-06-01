@@ -1,0 +1,139 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO.request
+@using Figuritas.Client.Models
+@using Figuritas.Client.Requests
+
+@inject AuctionHttpClient AuctionHttp
+@inject AuthStateService AuthState
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.Gavel" Color="Color.Warning" />
+            <MudText Typo="Typo.h6">Publicar subasta</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (Sticker is not null)
+        {
+            <MudPaper Class="auction-sticker-preview pa-3 mb-4" Elevation="0">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Figurita a subastar</MudText>
+                <div class="d-flex align-center gap-3 mt-1">
+                    <img src="@Sticker.ImageUrl" class="auction-preview-img" alt="@Sticker.Description" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">#@Sticker.Number.ToString("D3") — @Sticker.Description</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@Sticker.NationalTeam · @Sticker.Category</MudText>
+                    </div>
+                </div>
+            </MudPaper>
+        }
+
+        <MudText Typo="Typo.subtitle2" Class="mb-1">
+            Figuritas mínimas de oferta
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2" Style="font-size:0.8rem">
+            Elegí las figuritas que querés recibir como mínimo a cambio.
+        </MudText>
+        <SelectedStickerListComponent SelectedStickers="@selectedStickers"
+                                      OnSelectionChanged="@OnStickersChanged"
+                                      Source="StickersSource.Catalog" />
+
+        <MudDivider Class="my-4" />
+
+        <MudText Typo="Typo.subtitle2" Class="mb-2">Fecha y hora de cierre</MudText>
+        <div class="auction-datetime-row">
+            <MudDatePicker Label="Fecha"
+                           @bind-Date="endDate"
+                           Margin="Margin.Dense"
+                           Variant="Variant.Outlined"
+                           DateFormat="dd/MM/yyyy"
+                           MinDate="@DateTime.Today.AddDays(1)" />
+            <MudTimePicker Label="Hora"
+                           @bind-Time="endTime"
+                           Margin="Margin.Dense"
+                           Variant="Variant.Outlined"
+                           AmPm="false" />
+        </div>
+
+        @if (feedbackMsg is not null)
+        {
+            <MudAlert Severity="@(feedbackSuccess ? Severity.Success : Severity.Error)"
+                      Dense="true" Class="mt-3">
+                @feedbackMsg
+            </MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Disabled="loading">Cancelar</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Warning"
+                   StartIcon="@Icons.Material.Filled.Gavel"
+                   OnClick="HandleSubmit"
+                   Disabled="loading">
+            @if (loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Publicar subasta
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public int UserStickerId { get; set; }
+    [Parameter] public Sticker? Sticker { get; set; }
+
+    private List<Sticker> selectedStickers = new();
+    private DateTime? endDate;
+    private TimeSpan? endTime;
+    private bool loading = false;
+    private string? feedbackMsg;
+    private bool feedbackSuccess = false;
+
+    private void OnStickersChanged(List<Sticker> stickers) => selectedStickers = stickers;
+
+    private async Task HandleSubmit()
+    {
+        feedbackMsg = null;
+
+        if (endDate is null || endTime is null)
+        {
+            feedbackMsg = "Seleccioná la fecha y hora de cierre.";
+            return;
+        }
+
+        var endsAt = endDate.Value.Date.Add(endTime.Value);
+        if (endsAt <= DateTime.Now.AddMinutes(5))
+        {
+            feedbackMsg = "La fecha de cierre debe ser al menos 5 minutos en el futuro.";
+            return;
+        }
+
+        loading = true;
+
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var dto = new PostAuctionRequestDTO
+        {
+            UserStickerId = UserStickerId,
+            MinimumOfferStickerIds = selectedStickers.Select(s => s.Id).ToList(),
+            EndsAt = endsAt
+        };
+
+        var result = await AuctionHttp.CreateAuctionAsync(dto, token);
+
+        loading = false;
+        feedbackSuccess = result.Success;
+        feedbackMsg = result.Success
+            ? "¡Subasta publicada correctamente!"
+            : result.ErrorMessage ?? "Error al publicar la subasta.";
+
+        if (feedbackSuccess)
+        {
+            await Task.Delay(1200);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}
