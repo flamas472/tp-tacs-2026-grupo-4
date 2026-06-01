@@ -345,3 +345,110 @@ code {
 
 .requirement.met   { color: var(--mud-palette-success); }
 .requirement.unmet { color: var(--mud-palette-text-secondary); }
+
+
+/* ─── UnderConstruction component ──────────────────────────────────────── */
+.under-construction-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.construction-icons {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.uc-divider {
+    width: 100%;
+    max-width: 520px;
+}
+
+.uc-stories-header {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.uc-stories-list {
+    width: 100%;
+    max-width: 560px;
+    text-align: left;
+}
+
+.uc-story-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(126, 111, 255, 0.06);
+    border-left: 3px solid var(--mud-palette-primary);
+}
+
+.uc-story-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+
+/* ─── Home page ─────────────────────────────────────────────────────────── */
+.home-section-header {
+    display: flex;
+    align-items: center;
+}
+
+.home-stories {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 720px;
+}
+
+.home-story-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 8px;
+    background: rgba(126, 111, 255, 0.04);
+    border-left: 3px solid var(--mud-palette-primary);
+    transition: background 0.15s;
+}
+
+.home-story-row:hover {
+    background: rgba(126, 111, 255, 0.09);
+}
+
+.home-story-num {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--mud-palette-primary);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-story-text {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.home-story-badge {
+    flex-shrink: 0;
+}
+
+.home-story-action {
+    flex-shrink: 0;
+    margin: -6px -4px;
+}

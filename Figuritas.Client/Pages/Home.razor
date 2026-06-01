@@ -1,15 +1,90 @@
 @page "/"
 @attribute [Authorize]
+@inject AuthStateService AuthState
+@inject NavigationManager Nav
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Inicio — Figuritas</PageTitle>
 
-<MudText Typo="Typo.h3" GutterBottom="true">Hello, world!</MudText>
-<MudText Class="mb-8">Welcome to your new app, powered by MudBlazor and the .NET 10 Template!</MudText>
+<MudText Typo="Typo.h5" GutterBottom="true">
+    Hola, <b>@AuthState.Username</b>
+</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Tu colección digital de figuritas</MudText>
 
-
-<MudAlert Severity="Severity.Normal" ContentAlignment="HorizontalAlignment.Start">
-    You can find documentation and examples on our website here:
-    <MudLink Href="https://mudblazor.com" Target="_blank" Typo="Typo.body2" Color="Color.Primary">
-        <b>www.mudblazor.com</b>
-    </MudLink>
+<MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-5" Icon="@Icons.Material.Filled.Construction">
+    El panel de inicio está en construcción. Próximamente verás aquí un resumen de tu actividad.
 </MudAlert>
+
+<div class="home-section-header mb-3">
+    <MudIcon Icon="@Icons.Material.Outlined.Assignment" Color="Color.Primary" Size="Size.Small" Class="mr-1" />
+    <MudText Typo="Typo.subtitle1"><b>Funcionalidades de la plataforma</b></MudText>
+</div>
+
+<div class="home-stories">
+    @foreach (var item in Stories().Where(s => s.AdminOnly ? AuthState.IsAdmin : true))
+    {
+        <div class="home-story-row">
+            <span class="home-story-num">@item.Number</span>
+            <MudText Typo="Typo.body2" Class="home-story-text">@item.Text</MudText>
+            @if (item.IsCurrentPage)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined" Class="home-story-badge">Esta página</MudChip>
+            }
+            else if (item.Href != null)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
+                               Size="Size.Small"
+                               Color="Color.Primary"
+                               Href="@item.Href"
+                               Class="home-story-action" />
+            }
+            else
+            {
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="home-story-badge">Próximamente</MudChip>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private record StoryItem(int Number, string Text, string? Href, bool IsCurrentPage = false, bool AdminOnly = false);
+
+    private IEnumerable<StoryItem> Stories() => new[]
+    {
+        new StoryItem(1,
+            "Publicar una figurita que quiero intercambiar, especificando número, selección, jugador, cantidad y condiciones.",
+            "/catalogo"),
+        new StoryItem(2,
+            "Registrar las figuritas que me faltan para completar mi colección.",
+            "/faltantes"),
+        new StoryItem(3,
+            "Buscar figuritas disponibles aplicando filtros por número, selección, jugador, etc.",
+            "/mercado"),
+        new StoryItem(4,
+            "Recibir sugerencias automáticas de intercambio en función de mis faltantes y las repetidas de otros usuarios.",
+            "/sugerencias"),
+        new StoryItem(5,
+            "Hacer una propuesta por una figurita, ofreciendo una o más figuritas de mi colección.",
+            "/propuestas"),
+        new StoryItem(6,
+            "Publicar una figurita en subasta, definiendo duración y condiciones mínimas para adjudicarla.",
+            "/mis-subastas"),
+        new StoryItem(7,
+            "Ofertar por una subasta activa utilizando figuritas de mi colección.",
+            "/subastas"),
+        new StoryItem(8,
+            "Ver mis figuritas publicadas, propuestas enviadas y recibidas, subastas activas y el estado de cada operación.",
+            null, IsCurrentPage: true),
+        new StoryItem(9,
+            "Aceptar o rechazar propuestas recibidas.",
+            "/propuestas"),
+        new StoryItem(10,
+            "Calificar a otro usuario luego de concretar un intercambio para construir un sistema de reputación.",
+            "/intercambios"),
+        new StoryItem(11,
+            "Recibir alertas cuando aparezca una figurita que me falta, cuando una subasta esté por finalizar o cuando reciba una nueva propuesta.",
+            null),
+        new StoryItem(12,
+            "Como administrador: ver estadísticas de uso y actividad de la plataforma.",
+            "/admin/estadisticas", AdminOnly: true),
+    };
+}
