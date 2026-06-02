@@ -58,6 +58,12 @@ correr comando en la raíz del proyecto
 dotnet user-secrets set "Jwt:Key" "TuClaveSuperSecretaDeMasDe32Caracteres" --project Figuritas.Api/Figuritas.Api.csproj
 ```
 
+### Levantar MongoDB
+Corre en docker para no precisar instalaciones locales de MongoDB
+```bash
+docker run --name mongo-tacs-dev -p 27017:27017 -d mongodb/mongodb-community-server:latest
+```
+
 ### Levantar api
 ```bash
 cd Figuritas.Api
