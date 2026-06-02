@@ -454,6 +454,26 @@ code {
 }
 
 
+/* ─── SuggestionRowComponent ─────────────────────────────────────────────── */
+.suggestion-row:hover {
+    border-color: var(--mud-palette-success) !important;
+    background: rgba(61, 203, 108, 0.05) !important;
+}
+
+.suggestion-row-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.suggestion-username {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
 /* ─── StickerSelectionComponent ─────────────────────────────────────────── */
 .ssc-filters {
     display: grid;

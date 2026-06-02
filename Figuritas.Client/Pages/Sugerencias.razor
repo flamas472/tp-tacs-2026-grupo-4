@@ -1,9 +1,102 @@
 @page "/sugerencias"
 @attribute [Authorize]
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.DTO.response
 
-<PageTitle>Sugerencias — Figuritas</PageTitle>
+@inject InventoryStickerHttpClient MarketHttp
+@inject IDialogService DialogService
 
-<UnderConstruction Section="Sugerencias de intercambio"
-                   Stories="@(new (int, string)[]{
-                       (4, "Como usuario quiero recibir sugerencias automáticas de intercambio en función de mis faltantes y las figuritas repetidas de otros usuarios.")
-                   })" />
+<PageTitle>Sugerencias — FiguriTACS</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-1">Sugerencias de intercambio</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Usuarios que tienen figuritas que te faltan. Los ⭐ match perfecto son casos donde ellos también necesitan algo que vos tenés.
+</MudText>
+
+@if (suggestions == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Buscando sugerencias...</MudText>
+    </div>
+}
+else if (!suggestions.Any())
+{
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Style="font-size:3rem" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">Sin sugerencias por ahora</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+            Agregá figuritas a tus faltantes para recibir sugerencias de intercambio.
+        </MudText>
+    </div>
+}
+else
+{
+    <MudPaper Elevation="2" Style="border-radius:12px; padding:0.5rem 0.5rem 0.25rem;">
+        @foreach (var suggestion in suggestions)
+        {
+            <SuggestionRowComponent Suggestion="@suggestion"
+                                    @key="@($"{suggestion.SuggestedUserId}_{suggestion.TheirUserStickerId}")"
+                                    OnClick="OnSuggestionClick" />
+        }
+    </MudPaper>
+
+    <div class="sticker-pagination">
+        <MudTooltip Text="Página anterior">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Primary"
+                           Disabled="@(!hasPrevPage)"
+                           OnClick="HandlePrevPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+        <MudText Typo="Typo.body1" Class="pagination-label">Página @currentPage</MudText>
+        <MudTooltip Text="Página siguiente">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Primary"
+                           Disabled="@(!hasNextPage)"
+                           OnClick="HandleNextPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+    </div>
+}
+
+@code {
+    private const int PageSize = 20;
+
+    private List<ExchangeSuggestionResponseDTO>? suggestions;
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    protected override async Task OnInitializedAsync() => await FetchPage();
+
+    private async Task FetchPage()
+    {
+        suggestions = null;
+        StateHasChanged();
+
+        var response = await MarketHttp.GetSuggestionsAsync(currentPage, PageSize);
+        suggestions = response.Success ? (response.Data ?? new()) : new();
+        hasNextPage = suggestions.Count == PageSize;
+    }
+
+    private async Task HandleNextPage() { currentPage++; await FetchPage(); }
+    private async Task HandlePrevPage() { if (currentPage > 1) { currentPage--; await FetchPage(); } }
+
+    private async Task OnSuggestionClick(ExchangeSuggestionResponseDTO suggestion)
+    {
+        var parameters = new DialogParameters<SuggestionDetailDialog>
+        {
+            { d => d.Suggestion, suggestion }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        await DialogService.ShowAsync<SuggestionDetailDialog>(
+            $"Sugerencia — {suggestion.SuggestedUsername}",
+            parameters, options);
+    }
+}

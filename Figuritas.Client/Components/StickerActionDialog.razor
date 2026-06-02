@@ -99,7 +99,8 @@
     private bool canBeAuctioned = false;
     private bool loading = false;
     private bool initialLoading = false;
-    private MyPublishedStickerResponseDTO? cachedExisting = null;
+    private int? existingUserStickerId = null;   // UserSticker.Id si ya existe en inventario
+    private int existingQuantity = 0;
     private string? feedbackMsg = null;
     private bool feedbackSuccess = false;
     private Severity feedbackSeverity = Severity.Error;
@@ -114,14 +115,37 @@
     {
         initialLoading = true;
 
-        var result = await DashboardHttp.GetMyStickersAsync(1, 100);
-        cachedExisting = result.Success
-            ? result.Data?.FirstOrDefault(s => s.Number == Sticker.Number)
-            : null;
+        // Intento 1: endpoint específico por número (devuelve activas con Quantity > 0)
+        var targeted = await UserHttp.GetUserStickersAsync(
+            AuthState.UserId, number: Sticker.Number, pageSize: 5);
+        var found = targeted.Data?.FirstOrDefault();
 
-        // Pre-poblar: si ya la tiene, usar sus valores; si no, intercambio=true, subasta=false
-        canBeExchanged = cachedExisting?.CanBeDirectlyExchanged ?? true;
-        canBeAuctioned = cachedExisting?.CanBeAuctioned ?? false;
+        if (found != null)
+        {
+            existingUserStickerId = found.UserStickerId;
+            existingQuantity      = found.Quantity;
+            canBeExchanged        = found.CanBeDirectlyExchanged;
+            canBeAuctioned        = found.CanBeAuctioned;
+        }
+        else
+        {
+            // Intento 2: dashboard — puede devolver stickers con Quantity=0 (reservadas)
+            var dash = await DashboardHttp.GetMyStickersAsync(1, 100);
+            var dashFound = dash.Data?.FirstOrDefault(s => s.Number == Sticker.Number);
+
+            if (dashFound != null)
+            {
+                existingUserStickerId = dashFound.StickerId;  // StickerId == UserSticker ID
+                existingQuantity      = dashFound.Quantity;
+                canBeExchanged        = dashFound.CanBeDirectlyExchanged;
+                canBeAuctioned        = dashFound.CanBeAuctioned;
+            }
+            else
+            {
+                canBeExchanged = true;
+                canBeAuctioned = false;
+            }
+        }
 
         initialLoading = false;
     }
@@ -150,16 +174,16 @@
 
     private async Task HandleRepetida(int userId)
     {
-        if (cachedExisting != null)
+        if (existingUserStickerId.HasValue)
         {
-            // Ya existe → PATCH: incrementar cantidad + actualizar booleanos
+            // Ya existe en inventario (activa o reservada) → PATCH: Quantity + 1
             var patchResult = await UserHttp.UpdateUserStickerAsync(
-                userId, cachedExisting.StickerId,
+                userId, existingUserStickerId.Value,
                 new PatchUserStickerDTO
                 {
                     CanBeDirectlyExchanged = canBeExchanged,
-                    CanBeAuctioned = canBeAuctioned,
-                    Quantity = cachedExisting.Quantity + 1
+                    CanBeAuctioned         = canBeAuctioned,
+                    Quantity               = existingQuantity + 1
                 });
 
             feedbackSuccess = patchResult.Success;
@@ -169,13 +193,13 @@
         }
         else
         {
-            // No existe → POST
+            // No existe en el inventario → POST
             var postResult = await UserHttp.AddUserStickerAsync(userId, new PostUserStickerRequestDTO
             {
-                StickerId = Sticker.Id,
-                Quantity = 1,
+                StickerId              = Sticker.Id,
+                Quantity               = 1,
                 CanBeDirectlyExchanged = canBeExchanged,
-                CanBeAuctioned = canBeAuctioned
+                CanBeAuctioned         = canBeAuctioned
             });
 
             feedbackSuccess = postResult.Success;

@@ -1,0 +1,175 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Client.Models
+@using Figuritas.Client.Requests
+
+@inject UserHttpClient UserHttp
+@inject AuthStateService AuthState
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Sugerencia de intercambio</MudText>
+            @if (Suggestion.IsPerfectMatch)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled" Class="ml-1">
+                    ⭐ Match perfecto
+                </MudChip>
+            }
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (loading)
+        {
+            <div class="d-flex justify-center pa-4">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else
+        {
+            <div class="proposal-detail-sides">
+                <div class="proposal-detail-side">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                        Ellos tienen — @Suggestion.SuggestedUsername
+                    </MudText>
+                    <div class="proposal-detail-sticker">
+                        <img src="@Suggestion.StickerImageUrl" alt="@Suggestion.StickerDescription" />
+                        <MudText Typo="Typo.subtitle2">#@Suggestion.StickerNumber.ToString("D3")</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@Suggestion.StickerDescription</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@Suggestion.StickerNationalTeam</MudText>
+                    </div>
+                </div>
+
+                <MudIcon Icon="@Icons.Material.Filled.SwapHoriz"
+                         Color="Color.Secondary" Class="proposal-swap-icon"
+                         Style="font-size:2rem" />
+
+                <div class="proposal-detail-side">
+                    @if (Suggestion.IsPerfectMatch && preloadedVm != null)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                            Vos tenés (sugerida)
+                        </MudText>
+                        <div class="proposal-detail-sticker">
+                            <img src="@preloadedVm.Sticker.ImageUrl" alt="@preloadedVm.Sticker.Description" />
+                            <MudText Typo="Typo.subtitle2">#@preloadedVm.Sticker.Number.ToString("D3")</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@preloadedVm.Sticker.Description</MudText>
+                        </div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2" Style="font-size:0.7rem">
+                            Podés agregar o quitar figuritas al proponer.
+                        </MudText>
+                    }
+                    else if (Suggestion.IsPerfectMatch)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Match perfecto — seleccioná tus figuritas al proponer.
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Elegí qué figuritas querés ofrecer al proponer.
+                        </MudText>
+                    }
+                </div>
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())">Cerrar</MudButton>
+        @if (!loading)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.SwapHoriz"
+                       OnClick="HandleProponer">
+                Proponer intercambio
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public ExchangeSuggestionResponseDTO Suggestion { get; set; } = default!;
+
+    private bool loading = true;
+    private UserStickerVm? preloadedVm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Suggestion.IsPerfectMatch && Suggestion.CallerUserStickerId.HasValue
+            && Suggestion.CallerMatchedStickerNumber.HasValue)
+        {
+            var result = await UserHttp.GetUserStickersAsync(
+                AuthState.UserId,
+                number: Suggestion.CallerMatchedStickerNumber.Value,
+                pageSize: 5);
+
+            var found = result.Data?
+                .FirstOrDefault(s => s.UserStickerId == Suggestion.CallerUserStickerId.Value);
+
+            if (found != null)
+            {
+                preloadedVm = new UserStickerVm(
+                    found.UserStickerId,
+                    new Sticker
+                    {
+                        Number      = found.StickerNumber,
+                        Description = found.StickerDescription,
+                        NationalTeam = found.StickerNationalTeam,
+                        Team        = found.StickerTeam,
+                        Category    = found.StickerCategory,
+                        ImageUrl    = found.StickerImageUrl
+                    },
+                    found.Quantity,
+                    found.CanBeDirectlyExchanged,
+                    found.CanBeAuctioned);
+            }
+        }
+
+        loading = false;
+    }
+
+    private MarketStickerResponseDTO AsMarketSticker() => new MarketStickerResponseDTO
+    {
+        UserStickerId         = Suggestion.TheirUserStickerId,
+        OwnerId               = Suggestion.SuggestedUserId,
+        StickerNumber         = Suggestion.StickerNumber,
+        StickerDescription    = Suggestion.StickerDescription,
+        StickerNationalTeam   = Suggestion.StickerNationalTeam,
+        StickerTeam           = Suggestion.StickerTeam,
+        StickerCategory       = Suggestion.StickerCategory,
+        StickerImageUrl       = Suggestion.StickerImageUrl,
+        Quantity              = Suggestion.TheirQuantity,
+        CanBeDirectlyExchanged = true,
+        CanBeAuctioned        = false
+    };
+
+    private async Task HandleProponer()
+    {
+        var initialStickers = preloadedVm != null
+            ? new List<UserStickerVm> { preloadedVm }
+            : new List<UserStickerVm>();
+
+        var parameters = new DialogParameters<NewExchangeProposalComponent>
+        {
+            { c => c.MarketSticker,    AsMarketSticker() },
+            { c => c.InitialStickers,  initialStickers }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<NewExchangeProposalComponent>(
+            string.Empty, parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            MudDialog.Close();
+    }
+}

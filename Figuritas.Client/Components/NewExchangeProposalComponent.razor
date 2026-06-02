@@ -64,8 +64,14 @@
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
     [Parameter][EditorRequired] public MarketStickerResponseDTO MarketSticker { get; set; } = default!;
+    [Parameter] public List<UserStickerVm>? InitialStickers { get; set; }
 
     private List<UserStickerVm> selectedStickers = new();
+
+    protected override void OnInitialized()
+    {
+        selectedStickers = InitialStickers?.ToList() ?? new();
+    }
     private bool loading = false;
     private string? feedbackMsg;
     private bool feedbackSuccess = false;
