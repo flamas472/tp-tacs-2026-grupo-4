@@ -38,6 +38,11 @@ public class AuctionOfferRepository : IAuctionOfferRepository
                 .Ascending(o => o.AuctionId)
                 .Ascending(o => o.State),
             new CreateIndexOptions { Name = "idx_auctionoffer_auction_state" }));
+
+        // Index: BidderId — accelerates GetByBidderIdAsync (my bids dashboard).
+        _offers.Indexes.CreateOne(new CreateIndexModel<AuctionOffer>(
+            Builders<AuctionOffer>.IndexKeys.Ascending(o => o.BidderId),
+            new CreateIndexOptions { Name = "idx_auctionoffer_bidder_id" }));
     }
 
     public List<AuctionOffer> GetAll() => _offers.Find(_ => true).ToList();
@@ -83,6 +88,33 @@ public class AuctionOfferRepository : IAuctionOfferRepository
             Builders<AuctionOffer>.Filter.Eq(o => o.Status, AuctionOfferStatus.Active)
         );
         return await _offers.Find(filter).FirstOrDefaultAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<AuctionOffer>> GetByBidderIdAsync(int bidderId, int page, int pageSize)
+    {
+        var filter = Builders<AuctionOffer>.Filter.Eq(o => o.BidderId, bidderId);
+        return await _offers.Find(filter)
+            .SortByDescending(o => o.Id)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .ToListAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task<Dictionary<int, int>> CountByAuctionIdsAsync(List<int> auctionIds)
+    {
+        if (auctionIds.Count == 0)
+            return new Dictionary<int, int>();
+
+        var filter = Builders<AuctionOffer>.Filter.In(o => o.AuctionId, auctionIds);
+        var offers = await _offers.Find(filter)
+            .Project(o => new { o.AuctionId })
+            .ToListAsync();
+
+        return offers
+            .GroupBy(o => o.AuctionId)
+            .ToDictionary(g => g.Key, g => g.Count());
     }
 
     /// <inheritdoc/>

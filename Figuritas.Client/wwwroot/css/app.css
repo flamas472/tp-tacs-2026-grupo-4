@@ -621,6 +621,12 @@ code {
     flex: 1;
 }
 
+.auction-sticker-pick-placeholder {
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 181, 69, 0.35);
+}
+
 
 /* ─── AuctionCardComponent ───────────────────────────────────────────────── */
 .auction-card {
@@ -864,4 +870,115 @@ code {
     flex-wrap: wrap;
     gap: 0.3rem;
     margin-bottom: 0.75rem;
+}
+
+
+/* ─── AuctionCardComponent — bordes de estado ───────────────────────────── */
+.auction-border-active {
+    border-left: 4px solid var(--mud-palette-success) !important;
+}
+
+.auction-border-cancelled {
+    border-left: 4px solid var(--mud-palette-error) !important;
+}
+
+.auction-border-closed {
+    border-left: 4px solid rgba(120, 120, 140, 0.45) !important;
+}
+
+.auction-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+}
+
+.auction-card-auctioneer {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+@media (min-width: 960px) {
+    .auction-card-auctioneer {
+        max-width: 110px;
+    }
+}
+
+
+/* ─── Subastas.razor — cabecera y filtro de chips ───────────────────────── */
+.auctions-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.auctions-filter-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.auction-filter-chipset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+
+/* ─── OfferPreviewComponent ─────────────────────────────────────────────── */
+:root {
+    --offer-thumb-size: 48px;
+}
+
+.offer-preview-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;           /* Firefox */
+    padding-bottom: 2px;
+}
+
+.offer-preview-row::-webkit-scrollbar {
+    display: none;                   /* Chrome/Safari */
+}
+
+.offer-preview-thumb {
+    height: var(--offer-thumb-size);
+    width: auto;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.offer-preview-overflow {
+    flex-shrink: 0;
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    width: var(--offer-thumb-size) !important;
+    height: var(--offer-thumb-size) !important;
+    border-radius: 4px !important;
+}
+
+
+/* ─── AuctionDetailDialog — chip de ganador ─────────────────────────────── */
+.auction-winner-chip {
+    font-weight: 700 !important;
+    animation: winner-pulse 2s ease-in-out infinite;
+}
+
+@keyframes winner-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.72; }
 }

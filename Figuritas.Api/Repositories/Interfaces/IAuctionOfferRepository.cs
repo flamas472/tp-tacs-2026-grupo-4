@@ -40,6 +40,18 @@ public interface IAuctionOfferRepository
     Task<bool> TryCancelOfferAtomicallyAsync(int offerId);
 
     /// <summary>
+    /// Returns a paged list of all offers placed by <paramref name="bidderId"/> across all auctions,
+    /// ordered by most recent first.
+    /// </summary>
+    Task<List<AuctionOffer>> GetByBidderIdAsync(int bidderId, int page, int pageSize);
+
+    /// <summary>
+    /// Returns a dictionary mapping each auctionId to the total number of offers for that auction.
+    /// Only auctionIds present in <paramref name="auctionIds"/> are included in the result.
+    /// </summary>
+    Task<Dictionary<int, int>> CountByAuctionIdsAsync(List<int> auctionIds);
+
+    /// <summary>
     /// Atomically appends <paramref name="additionalStickerIds"/> to the offer's
     /// <see cref="AuctionOffer.OfferedUserStickerIds"/> list using a MongoDB <c>$push/$each</c>
     /// update conditioned on <c>State == Pending</c>.

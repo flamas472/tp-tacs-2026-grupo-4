@@ -169,6 +169,33 @@ namespace Figuritas.Client.Requests
             }
         }
 
+        /// <summary>
+        /// Returns a paged list of bids placed by the authenticated user on third-party auctions.
+        /// Maps to GET /api/dashboard/bids.
+        /// </summary>
+        public async Task<ApiResponse<List<MyBidResponseDTO>>> GetMyBidsAsync(int page = 1, int pageSize = 20)
+        {
+            try
+            {
+                var response = await _http.GetAsync(
+                    $"api/dashboard/bids?page={page}&pageSize={pageSize}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<List<MyBidResponseDTO>>();
+                    return ApiResponse<List<MyBidResponseDTO>>.Ok(data ?? new List<MyBidResponseDTO>());
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<List<MyBidResponseDTO>>.Fail(
+                    $"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<List<MyBidResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
         public async Task<ApiResponse<bool>> UpdatePreferencesAsync(UpdatePreferencesDTO dto)
         {
             try

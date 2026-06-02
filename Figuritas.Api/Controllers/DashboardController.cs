@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Figuritas.Api.Services;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
@@ -56,11 +57,27 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet("auctions")]
-    public ActionResult<List<AuctionResponseDTO>> GetMyAuctions([FromQuery] GetMyAuctionsDTO dto)
+    public async Task<ActionResult<List<AuctionResponseDTO>>> GetMyAuctions([FromQuery] GetMyAuctionsDTO dto)
     {
         var callerId = _authService.GetUserIdFromToken(User);
-        var auctions = _auctionService.GetMyAuctions(dto, callerId);
+        var auctions = await _auctionService.GetMyAuctions(dto, callerId);
         return Ok(auctions);
+    }
+
+    /// <summary>
+    /// GET /api/dashboard/bids
+    /// Returns a paged list of all bids placed by the authenticated user on auctions
+    /// created by other users. Each item includes sticker info, offer state, and a flag
+    /// indicating whether the bid is currently the leading (winning) offer.
+    /// </summary>
+    [HttpGet("bids")]
+    public async Task<ActionResult<List<MyBidResponseDTO>>> GetMyBids(
+        [FromQuery][Range(1, int.MaxValue)] int page = 1,
+        [FromQuery][Range(1, 100)] int pageSize = 20)
+    {
+        var callerId = _authService.GetUserIdFromToken(User);
+        var bids = await _auctionService.GetMyBidsAsync(callerId, page, pageSize);
+        return Ok(bids);
     }
 
     [HttpPut("preferences")]

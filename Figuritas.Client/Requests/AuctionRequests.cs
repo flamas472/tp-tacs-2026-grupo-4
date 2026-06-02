@@ -198,5 +198,82 @@ namespace Figuritas.Client.Requests
                 return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
             }
         }
+
+        /// <summary>Gets all offers for a given auction (public endpoint).</summary>
+        public async Task<ApiResponse<List<AuctionOfferResponseDTO>>> GetAuctionOffersAsync(int auctionId)
+        {
+            try
+            {
+                var response = await _http.GetAsync($"api/auctions/{auctionId}/offers");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<List<AuctionOfferResponseDTO>>();
+                    return ApiResponse<List<AuctionOfferResponseDTO>>.Ok(data ?? new());
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<List<AuctionOfferResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<List<AuctionOfferResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>Cancels the authenticated user's offer on an auction.</summary>
+        public async Task<ApiResponse<AuctionOfferResponseDTO>> CancelOfferAsync(int auctionId, int offerId, string authToken)
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Delete, $"api/auctions/{auctionId}/offers/{offerId}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+
+                var response = await _http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<AuctionOfferResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<AuctionOfferResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionOfferResponseDTO>.Fail("No se pudo leer la oferta cancelada.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<AuctionOfferResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AuctionOfferResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>Updates (appends stickers to) the authenticated user's offer on an auction.</summary>
+        public async Task<ApiResponse<AuctionOfferResponseDTO>> UpdateOfferAsync(int auctionId, int offerId, UpdateAuctionOfferRequestDTO dto, string authToken)
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Patch, $"api/auctions/{auctionId}/offers/{offerId}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+                request.Content = JsonContent.Create(dto);
+
+                var response = await _http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<AuctionOfferResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<AuctionOfferResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionOfferResponseDTO>.Fail("No se pudo leer la oferta actualizada.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<AuctionOfferResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AuctionOfferResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
     }
 }

@@ -28,20 +28,20 @@ public class AuctionsController : ControllerBase
     }
 
     [HttpGet]
-    public ActionResult<List<AuctionResponseDTO>> GetAuctions(
+    public async Task<ActionResult<List<AuctionResponseDTO>>> GetAuctions(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
         [FromQuery][Range(1, 100)] int pageSize = 20)
     {
         var callerUserId = _authService.GetUserIdFromToken(User);
-        var auctions = _auctionService.GetAuctions(page, pageSize, excludeAuctioneerId: callerUserId);
+        var auctions = await _auctionService.GetAuctions(page, pageSize, excludeAuctioneerId: callerUserId);
         return Ok(auctions);
     }
 
     [HttpGet("{id}")]
     [AllowAnonymous]
-    public ActionResult<AuctionResponseDTO> GetAuction(int id)
+    public async Task<ActionResult<AuctionResponseDTO>> GetAuction(int id)
     {
-        var auction = _auctionService.GetAuction(id);
+        var auction = await _auctionService.GetAuction(id);
         if (auction == null)
             return NotFound("Auction not found.");
         return Ok(auction);

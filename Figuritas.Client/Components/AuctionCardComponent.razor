@@ -1,11 +1,11 @@
 @using Figuritas.Shared.DTO.response
 
-<MudCard Class="sticker-card auction-card" Elevation="2" @onclick="HandleClick">
+<MudCard Class="@($"sticker-card auction-card {StatusBorderClass}")" Elevation="2" @onclick="HandleClick">
     <div class="sticker-image-container">
         <img src="@Auction.StickerImageUrl" alt="@Auction.StickerDescription" class="sticker-image" />
         <span class="sticker-number-badge">@Auction.StickerNumber.ToString("D3")</span>
-        <span class="auction-status-badge @(IsOpen ? "auction-open" : "auction-closed")">
-            @(IsOpen ? "Abierta" : "Cerrada")
+        <span class="auction-status-badge @StatusBadgeClass">
+            @StatusLabel
         </span>
     </div>
     <MudCardContent Class="sticker-info">
@@ -16,13 +16,19 @@
                 @TimeRemaining
             </MudText>
         </div>
-        @if (Auction.BestCurrentOfferId.HasValue)
-        {
-            <div class="auction-offer-indicator">
-                <MudIcon Icon="@Icons.Material.Filled.Gavel" Size="Size.Small" Color="Color.Warning" />
-                <MudText Typo="Typo.caption" Color="Color.Warning">Tiene puja</MudText>
-            </div>
-        }
+        <div class="auction-card-footer mt-1">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="auction-card-auctioneer">
+                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="vertical-align:middle;font-size:0.75rem;" />
+                @Auction.AuctioneerUsername
+            </MudText>
+            @if (Auction.OfferCount > 0)
+            {
+                <div class="auction-offer-indicator">
+                    <MudIcon Icon="@Icons.Material.Filled.Gavel" Size="Size.Small" Color="Color.Warning" />
+                    <MudText Typo="Typo.caption" Color="Color.Warning">@Auction.OfferCount puja@(Auction.OfferCount == 1 ? "" : "s")</MudText>
+                </div>
+            }
+        </div>
     </MudCardContent>
 </MudCard>
 
@@ -31,6 +37,26 @@
     [Parameter] public EventCallback<AuctionResponseDTO> OnClick { get; set; }
 
     private bool IsOpen => Auction.Status == "Active" && Auction.EndsAt > DateTime.UtcNow;
+
+    /// <summary>Clase CSS de borde lateral según el estado de la subasta.</summary>
+    private string StatusBorderClass => Auction.Status switch
+    {
+        "Active" => "auction-border-active",
+        "Cancelled" => "auction-border-cancelled",
+        _ => "auction-border-closed"
+    };
+
+    /// <summary>Clase CSS del badge de estado.</summary>
+    private string StatusBadgeClass => IsOpen ? "auction-open" : "auction-closed";
+
+    /// <summary>Etiqueta legible del estado.</summary>
+    private string StatusLabel => Auction.Status switch
+    {
+        "Active" when IsOpen => "Abierta",
+        "Active" => "Venció",
+        "Cancelled" => "Cancelada",
+        _ => "Cerrada"
+    };
 
     private string TimeRemaining
     {

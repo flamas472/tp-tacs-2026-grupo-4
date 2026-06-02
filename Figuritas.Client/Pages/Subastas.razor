@@ -6,9 +6,41 @@
 @inject AuctionHttpClient AuctionHttp
 @inject IDialogService DialogService
 
-<PageTitle>Subastas activas — FiguriTACS</PageTitle>
+<PageTitle>Subastas — FiguriTACS</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Subastas activas</MudText>
+<div class="auctions-header-row mb-3">
+    <MudText Typo="Typo.h5">Subastas</MudText>
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Warning"
+               StartIcon="@Icons.Material.Filled.Gavel"
+               OnClick="HandlePublicarSubasta">
+        Publicar subasta
+    </MudButton>
+</div>
+
+@* Filtro de estado con chips reactivos *@
+<div class="auctions-filter-row mb-4">
+    <MudChipSet T="string" SelectionMode="SelectionMode.SingleSelection"
+                SelectedValue="@activeFilter"
+                SelectedValueChanged="OnFilterChanged"
+                Class="auction-filter-chipset">
+        <MudChip T="string" Value="@FilterActive"
+                 Color="@(activeFilter == FilterActive ? Color.Success : Color.Default)"
+                 Variant="@(activeFilter == FilterActive ? Variant.Filled : Variant.Outlined)">
+            Abiertas
+        </MudChip>
+        <MudChip T="string" Value="@FilterClosed"
+                 Color="@(activeFilter == FilterClosed ? Color.Default : Color.Default)"
+                 Variant="@(activeFilter == FilterClosed ? Variant.Filled : Variant.Outlined)">
+            Cerradas
+        </MudChip>
+        <MudChip T="string" Value="@FilterAll"
+                 Color="@(activeFilter == FilterAll ? Color.Primary : Color.Default)"
+                 Variant="@(activeFilter == FilterAll ? Variant.Filled : Variant.Outlined)">
+            Todas
+        </MudChip>
+    </MudChipSet>
+</div>
 
 @if (auctions == null)
 {
@@ -56,22 +88,49 @@ else
 
 @code {
     private const int PageSize = 24;
+    private const string FilterActive = "active";
+    private const string FilterClosed = "closed";
+    private const string FilterAll = "all";
 
     private List<AuctionResponseDTO>? auctions;
     private int currentPage = 1;
     private bool hasNextPage;
     private bool hasPrevPage => currentPage > 1;
 
+    // "active" es el filtro por defecto
+    private string activeFilter = FilterActive;
+
     protected override async Task OnInitializedAsync() => await FetchPage();
+
+    private async Task OnFilterChanged(string value)
+    {
+        // MudChipSet puede pasar null si se deselecciona; en ese caso no hacer nada
+        if (string.IsNullOrEmpty(value)) return;
+        activeFilter = value;
+        currentPage = 1;
+        await FetchPage();
+    }
 
     private async Task FetchPage()
     {
         auctions = null;
         StateHasChanged();
 
+        // El endpoint GET /api/auctions ya filtra por el subastador (excluye al caller).
+        // Para filtro "active" aprovechamos el endpoint existente (que devuelve solo activas).
+        // Para "closed" y "all" también usamos el mismo endpoint: post-filtramos localmente
+        // ya que el backend devuelve un page completo y los estados son pocos por página.
         var response = await AuctionHttp.GetAuctionsAsync(currentPage, PageSize);
-        auctions = response.Success ? (response.Data ?? new()) : new();
-        hasNextPage = auctions.Count == PageSize;
+        var all = response.Success ? (response.Data ?? new()) : new();
+
+        auctions = activeFilter switch
+        {
+            FilterActive => all.Where(a => a.Status == "Active" && a.EndsAt > DateTime.UtcNow).ToList(),
+            FilterClosed => all.Where(a => a.Status != "Active" || a.EndsAt <= DateTime.UtcNow).ToList(),
+            _ => all
+        };
+
+        hasNextPage = all.Count == PageSize;
     }
 
     private async Task HandleNextPage() { currentPage++; await FetchPage(); }
@@ -92,5 +151,22 @@ else
         await DialogService.ShowAsync<AuctionDetailDialog>(
             $"#{auction.StickerNumber:D3} — {auction.StickerDescription}",
             parameters, options);
+    }
+
+    private async Task HandlePublicarSubasta()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<NewAuctionRequestComponent>(
+            string.Empty, new DialogParameters(), options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+            await FetchPage();
     }
 }

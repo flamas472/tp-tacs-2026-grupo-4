@@ -19,4 +19,7 @@ public class AuctionResponseDTO
     public string StickerTeam { get; set; } = string.Empty;
     public string StickerImageUrl { get; set; } = string.Empty;
     public string AuctioneerUsername { get; set; } = string.Empty;
+
+    /// <summary>Total number of offers/bids received by this auction.</summary>
+    public int OfferCount { get; set; }
 }

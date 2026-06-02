@@ -31,47 +31,62 @@ public class AuctionService
         _userRepo = userRepo;
     }
 
-    public List<AuctionResponseDTO> GetMyAuctions(GetMyAuctionsDTO dto, int callerUserId)
+    public async Task<List<AuctionResponseDTO>> GetMyAuctions(GetMyAuctionsDTO dto, int callerUserId)
     {
-        var auctions = _auctionRepo.GetByAuctioneerId(callerUserId, AuctionStatus.Active.ToString(), dto.Page, dto.PageSize);
+        // Pass null as status so the repository returns all statuses (Active, Closed, Cancelled).
+        var auctions = _auctionRepo.GetByAuctioneerId(callerUserId, null, dto.Page, dto.PageSize);
         var stickerIds = auctions.Select(a => a.UserStickerId).ToList();
+        var auctionIds = auctions.Select(a => a.Id).ToList();
         var stickers = _userStickerRepo.GetMultipleByIdIncludingInactive(stickerIds).ToDictionary(us => us.Id);
         var user = _userRepo.GetById(callerUserId);
+        var offerCounts = await _offerRepo.CountByAuctionIdsAsync(auctionIds);
         return auctions.Select(a =>
         {
             stickers.TryGetValue(a.UserStickerId, out var us);
-            return MapToDto(a, us, user);
+            offerCounts.TryGetValue(a.Id, out var count);
+            return MapToDto(a, us, user, count);
         }).ToList();
     }
 
-    public List<AuctionResponseDTO> GetAuctions(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null)
+    public async Task<List<AuctionResponseDTO>> GetAuctions(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null)
     {
         var auctions = _auctionRepo.GetAll(page, pageSize, excludeAuctioneerId);
         var stickerIds = auctions.Select(a => a.UserStickerId).Distinct().ToList();
         var userIds = auctions.Select(a => a.AuctioneerId).Distinct().ToList();
+        var auctionIds = auctions.Select(a => a.Id).ToList();
         var stickers = _userStickerRepo.GetMultipleByIdIncludingInactive(stickerIds).ToDictionary(us => us.Id);
         var users = _userRepo.GetByIds(userIds).ToDictionary(u => u.Id);
+        var offerCounts = await _offerRepo.CountByAuctionIdsAsync(auctionIds);
         return auctions.Select(a =>
         {
             stickers.TryGetValue(a.UserStickerId, out var us);
             users.TryGetValue(a.AuctioneerId, out var user);
-            return MapToDto(a, us, user);
+            offerCounts.TryGetValue(a.Id, out var count);
+            return MapToDto(a, us, user, count);
         }).ToList();
     }
 
-    public AuctionResponseDTO? GetAuction(int id)
+    public async Task<AuctionResponseDTO?> GetAuction(int id)
     {
         var auction = _auctionRepo.GetById(id);
         if (auction == null) return null;
         var us = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
         var user = _userRepo.GetById(auction.AuctioneerId);
-        return MapToDto(auction, us, user);
+        var offerCounts = await _offerRepo.CountByAuctionIdsAsync(new List<int> { auction.Id });
+        offerCounts.TryGetValue(auction.Id, out var offerCount);
+        return MapToDto(auction, us, user, offerCount);
     }
 
     public async Task<List<AuctionOfferResponseDTO>> GetOffersForAuctionAsync(int auctionId)
     {
         var offers = await _offerRepo.GetAllByAuctionIdAsync(auctionId);
-        return offers.Select(MapOfferToDto).ToList();
+        var bidderIds = offers.Select(o => o.BidderId).Distinct().ToList();
+        var bidders = _userRepo.GetByIds(bidderIds).ToDictionary(u => u.Id);
+        return offers.Select(o =>
+        {
+            bidders.TryGetValue(o.BidderId, out var bidder);
+            return MapOfferToDto(o, bidder?.Username ?? string.Empty);
+        }).ToList();
     }
 
     public AuctionResponseDTO CreateAuction(int callerUserId, PostAuctionRequestDTO dto)
@@ -709,6 +724,57 @@ public class AuctionService
     }
 
     /// <summary>
+    /// Returns a paged list of all bids placed by the authenticated user on auctions created
+    /// by other users. Each item is enriched with the auction's sticker info and a flag
+    /// indicating whether the bid is currently the system-ranked or auctioneer-selected winner.
+    /// </summary>
+    public async Task<List<MyBidResponseDTO>> GetMyBidsAsync(int bidderId, int page, int pageSize)
+    {
+        var offers = await _offerRepo.GetByBidderIdAsync(bidderId, page, pageSize);
+        if (offers.Count == 0)
+            return new List<MyBidResponseDTO>();
+
+        // Batch-load all parent auctions to avoid N+1 queries.
+        var auctionIds = offers.Select(o => o.AuctionId).Distinct().ToList();
+        var auctionMap = auctionIds
+            .Select(id => _auctionRepo.GetById(id))
+            .Where(a => a != null)
+            .ToDictionary(a => a!.Id);
+
+        // Batch-load all UserStickers referenced by the auctions.
+        var userStickerIds = auctionMap.Values.Select(a => a!.UserStickerId).Distinct().ToList();
+        var userStickerMap = _userStickerRepo.GetMultipleByIdIncludingInactive(userStickerIds)
+            .ToDictionary(us => us.Id);
+
+        return offers.Select(offer =>
+        {
+            auctionMap.TryGetValue(offer.AuctionId, out var auction);
+            UserSticker? us = null;
+            if (auction != null)
+                userStickerMap.TryGetValue(auction.UserStickerId, out us);
+
+            // IsCurrentWinner: true if this offer is either the system-ranked best or the
+            // auctioneer-explicitly-selected winner.
+            var isCurrentWinner = auction != null &&
+                (auction.BestCurrentOfferId == offer.Id || auction.UserSelectedBestOfferId == offer.Id);
+
+            return new MyBidResponseDTO
+            {
+                OfferId = offer.Id,
+                AuctionId = offer.AuctionId,
+                StickerNumber = us?.Sticker.Number ?? 0,
+                StickerDescription = us?.Sticker.Description ?? string.Empty,
+                StickerNationalTeam = us?.Sticker.NationalTeam ?? string.Empty,
+                StickerTeam = us?.Sticker.Team ?? string.Empty,
+                AuctionStatus = auction?.Status.ToString() ?? string.Empty,
+                CreatedAt = offer.CreatedAt,
+                State = offer.State.ToString(),
+                IsCurrentWinner = isCurrentWinner
+            };
+        }).ToList();
+    }
+
+    /// <summary>
     /// Core finalization logic shared by <see cref="AcceptOfferAsync"/> and
     /// <see cref="CloseAuctionAutomatically"/>. Called after the auction status has
     /// already been atomically transitioned to Closed.
@@ -909,7 +975,7 @@ public class AuctionService
         _auctionRepo.Update(auction);
     }
 
-    private static AuctionResponseDTO MapToDto(Auction auction, UserSticker? us = null, User? user = null) => new()
+    private static AuctionResponseDTO MapToDto(Auction auction, UserSticker? us = null, User? user = null, int offerCount = 0) => new()
     {
         Id = auction.Id,
         AuctioneerId = auction.AuctioneerId,
@@ -925,16 +991,18 @@ public class AuctionService
         StickerNationalTeam = us?.Sticker.NationalTeam ?? string.Empty,
         StickerTeam = us?.Sticker.Team ?? string.Empty,
         StickerImageUrl = us?.Sticker.ImageUrl ?? string.Empty,
-        AuctioneerUsername = user?.Username ?? string.Empty
+        AuctioneerUsername = user?.Username ?? string.Empty,
+        OfferCount = offerCount
     };
 
-    private static AuctionOfferResponseDTO MapOfferToDto(AuctionOffer offer) => new()
+    private static AuctionOfferResponseDTO MapOfferToDto(AuctionOffer offer, string bidderUsername = "") => new()
     {
         Id = offer.Id,
         AuctionId = offer.AuctionId,
         BidderId = offer.BidderId,
         OfferedUserStickerIds = offer.OfferedUserStickerIds,
         CreatedAt = offer.CreatedAt,
-        State = offer.State.ToString()
+        State = offer.State.ToString(),
+        BidderUsername = bidderUsername
     };
 }
