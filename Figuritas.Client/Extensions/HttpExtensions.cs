@@ -13,9 +13,9 @@ namespace Figuritas.Client.Extensions
                 {
                     return await response.Content.ReadFromJsonAsync<T>();
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Error de deserialización
+                    Console.Error.WriteLine($"[ProcesarRespuesta<{typeof(T).Name}>] {ex.GetType().Name}: {ex.Message}");
                     return default;
                 }
             }

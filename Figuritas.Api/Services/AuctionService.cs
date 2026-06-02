@@ -13,37 +13,59 @@ public class AuctionService
     private readonly IAuctionOfferRepository _offerRepo;
     private readonly IMissingStickerRepository _missingStickerRepo;
     private readonly AuctionWatchlistService _watchlistService;
+    private readonly IUserRepository _userRepo;
 
     public AuctionService(
         IUserStickerRepository userStickerRepo,
         IAuctionRepository auctionRepo,
         IAuctionOfferRepository offerRepo,
         IMissingStickerRepository missingStickerRepo,
-        AuctionWatchlistService watchlistService)
+        AuctionWatchlistService watchlistService,
+        IUserRepository userRepo)
     {
         _userStickerRepo = userStickerRepo;
         _auctionRepo = auctionRepo;
         _offerRepo = offerRepo;
         _missingStickerRepo = missingStickerRepo;
         _watchlistService = watchlistService;
+        _userRepo = userRepo;
     }
 
     public List<AuctionResponseDTO> GetMyAuctions(GetMyAuctionsDTO dto, int callerUserId)
     {
-        return _auctionRepo.GetByAuctioneerId(callerUserId, AuctionStatus.Active.ToString(), dto.Page, dto.PageSize)
-                           .Select(MapToDto)
-                           .ToList();
+        var auctions = _auctionRepo.GetByAuctioneerId(callerUserId, AuctionStatus.Active.ToString(), dto.Page, dto.PageSize);
+        var stickerIds = auctions.Select(a => a.UserStickerId).ToList();
+        var stickers = _userStickerRepo.GetMultipleByIdIncludingInactive(stickerIds).ToDictionary(us => us.Id);
+        var user = _userRepo.GetById(callerUserId);
+        return auctions.Select(a =>
+        {
+            stickers.TryGetValue(a.UserStickerId, out var us);
+            return MapToDto(a, us, user);
+        }).ToList();
     }
 
     public List<AuctionResponseDTO> GetAuctions(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null)
     {
-        return _auctionRepo.GetAll(page, pageSize, excludeAuctioneerId).Select(MapToDto).ToList();
+        var auctions = _auctionRepo.GetAll(page, pageSize, excludeAuctioneerId);
+        var stickerIds = auctions.Select(a => a.UserStickerId).Distinct().ToList();
+        var userIds = auctions.Select(a => a.AuctioneerId).Distinct().ToList();
+        var stickers = _userStickerRepo.GetMultipleByIdIncludingInactive(stickerIds).ToDictionary(us => us.Id);
+        var users = _userRepo.GetByIds(userIds).ToDictionary(u => u.Id);
+        return auctions.Select(a =>
+        {
+            stickers.TryGetValue(a.UserStickerId, out var us);
+            users.TryGetValue(a.AuctioneerId, out var user);
+            return MapToDto(a, us, user);
+        }).ToList();
     }
 
     public AuctionResponseDTO? GetAuction(int id)
     {
         var auction = _auctionRepo.GetById(id);
-        return auction == null ? null : MapToDto(auction);
+        if (auction == null) return null;
+        var us = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
+        var user = _userRepo.GetById(auction.AuctioneerId);
+        return MapToDto(auction, us, user);
     }
 
     public async Task<List<AuctionOfferResponseDTO>> GetOffersForAuctionAsync(int auctionId)
@@ -91,7 +113,8 @@ public class AuctionService
 
         _auctionRepo.Add(auction);
 
-        return MapToDto(auction);
+        var user = _userRepo.GetById(callerUserId);
+        return MapToDto(auction, us, user);
     }
 
     public async Task<AuctionOfferResponseDTO> CreateOfferAsync(int bidderId, int auctionId, PostAuctionOfferRequestDTO dto)
@@ -886,7 +909,7 @@ public class AuctionService
         _auctionRepo.Update(auction);
     }
 
-    private static AuctionResponseDTO MapToDto(Auction auction) => new()
+    private static AuctionResponseDTO MapToDto(Auction auction, UserSticker? us = null, User? user = null) => new()
     {
         Id = auction.Id,
         AuctioneerId = auction.AuctioneerId,
@@ -896,7 +919,13 @@ public class AuctionService
         CreatedAt = auction.CreatedAt,
         EndsAt = auction.EndsAt,
         BestCurrentOfferId = auction.BestCurrentOfferId,
-        UserSelectedBestOfferId = auction.UserSelectedBestOfferId
+        UserSelectedBestOfferId = auction.UserSelectedBestOfferId,
+        StickerNumber = us?.Sticker.Number ?? 0,
+        StickerDescription = us?.Sticker.Description ?? string.Empty,
+        StickerNationalTeam = us?.Sticker.NationalTeam ?? string.Empty,
+        StickerTeam = us?.Sticker.Team ?? string.Empty,
+        StickerImageUrl = us?.Sticker.ImageUrl ?? string.Empty,
+        AuctioneerUsername = user?.Username ?? string.Empty
     };
 
     private static AuctionOfferResponseDTO MapOfferToDto(AuctionOffer offer) => new()

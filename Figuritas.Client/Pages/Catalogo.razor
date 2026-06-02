@@ -1,172 +1,158 @@
 @page "/catalogo"
-@using Figuritas.Client.Components;
-@using Figuritas.Client.Extensions;
-@using Figuritas.Shared.Responses;
-@using Figuritas.Client.Requests;
-
-@inject StickerHttpClient StickerHttp
-@inject HttpClient Http
+@using Figuritas.Client.Requests
 @using Figuritas.Shared.Model
 
-<PageTitle>Catálogo</PageTitle>
+@inject IDialogService DialogService
+@inject AuthStateService AuthState
+@inject StickerHttpClient StickerHttp
+@inject NationalTeamHttpClient NationalTeamHttp
+@inject CategoryHttpClient CategoryHttp
 
+<PageTitle>Catálogo de figuritas</PageTitle>
 
-@* FILTROS *@
-<MudPaper Style="padding: 1rem; margin-bottom: 1rem;">
-    <div style="display: flex; flex-wrap: wrap; gap: 1.5rem;">
-        <MudSelect
-            T="string"
-            Label="Selección"
-            Value="@filtroNationalTeam"
-            ValueChanged="@OnFiltroNationalTeamIdChanged"
-            Style="min-width: 240px;"
-        >
+<MudText Typo="Typo.h5" Class="mb-4">Catálogo</MudText>
+
+<MudPaper Class="filters-panel" Elevation="1">
+    <p class="filters-title">Filtros</p>
+    <div class="filters-row">
+        <MudSelect T="string"
+                   Label="Selección"
+                   Value="@filtroNationalTeam"
+                   ValueChanged="OnFiltroNationalTeamChanged"
+                   Class="filter-select"
+                   Clearable="true">
             <MudSelectItem Value="@(string.Empty)">Todas las selecciones</MudSelectItem>
-            @foreach (NationalTeam nationalTeam in nationalTeams ?? new List<NationalTeam>())
+            @foreach (var nt in nationalTeams ?? new List<NationalTeam>())
             {
-                <MudSelectItem Value="@(nationalTeam.Description)">@nationalTeam.Description</MudSelectItem>
+                <MudSelectItem Value="@nt.Description">@nt.Description</MudSelectItem>
             }
         </MudSelect>
 
-        <MudSelect
-            T="string"
-            Label="Categoría"
-            Value="@filtroCategory"
-            ValueChanged="@OnFiltroCategoryIdChanged"
-            Style="min-width: 240px;"
-        >
+        <MudSelect T="string"
+                   Label="Categoría"
+                   Value="@filtroCategory"
+                   ValueChanged="OnFiltroCategoryChanged"
+                   Class="filter-select"
+                   Clearable="true">
             <MudSelectItem Value="@(string.Empty)">Todas las categorías</MudSelectItem>
-            @foreach (Category category in category ?? new List<Category>())
+            @foreach (var cat in categories ?? new List<Category>())
             {
-                <MudSelectItem Value="@(category.Description)">@category.Description</MudSelectItem>
+                <MudSelectItem Value="@cat.Description">@cat.Description</MudSelectItem>
             }
         </MudSelect>
     </div>
 </MudPaper>
 
-@* LISTADO DE FIGURITAS *@
-@if (stickers == null)
-{
-    <MudPaper Style="padding: 1rem;">
-        <MudText Typo="Typo.subtitle1">@mensajeFetch</MudText>
-        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Style="margin-top: 1rem;" />
-    </MudPaper>
-}
-else if (!stickers.Any())
-{
-    <MudPaper Style="padding: 1rem;">
-        <MudText Typo="Typo.subtitle1">No se encontraron figuritas</MudText>
-    </MudPaper>
-}
-else
-{
-    <MudGrid GutterSize="3">
-        @foreach (Sticker sticker in stickers)
-        {
-            <MudItem xs="6" sm="4" md="3" lg="2">
-                <StickerComponent
-                    sticker="@sticker"
-                    @key="sticker.Id"
-                    OnStickerClick="OnStickerClick"
-                />
-            </MudItem>
-        }
-    </MudGrid>
-}
-
-
+<StickerListComponent Stickers="@stickers"
+                      OnStickerClick="OnStickerClick"
+                      OnNextPage="HandleNextPage"
+                      OnPrevPage="HandlePrevPage"
+                      HasNextPage="@hasNextPage"
+                      HasPrevPage="@hasPrevPage"
+                      CurrentPage="@currentPage" />
 
 @code {
+    private const int PageSize = 24;
+
     private List<Sticker>? stickers;
     private List<NationalTeam>? nationalTeams;
-    private List<Category>? category;
-    private string mensajeFetch = "Cargando figuritas...";
-    private string filtroNationalTeam = "";
-    private string filtroCategory = "";
+    private List<Category>? categories;
 
-    private async Task OnFiltroNationalTeamIdChanged(string value)
+    private string filtroNationalTeam = string.Empty;
+    private string filtroCategory = string.Empty;
+
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    protected override async Task OnInitializedAsync()
     {
-        filtroNationalTeam = value;
+        var ntTask = NationalTeamHttp.GetNationalTeamsAsync();
+        var catTask = CategoryHttp.GetCategoriesAsync();
+
+        await Task.WhenAll(ntTask, catTask);
+
+        var ntResponse = ntTask.Result;
+        var catResponse = catTask.Result;
+
+        if (ntResponse.Success)
+            nationalTeams = ntResponse.Data?.OrderBy(nt => nt.Description).ToList();
+
+        if (catResponse.Success)
+            categories = catResponse.Data?.OrderBy(c => c.Description).ToList();
+
         await FetchStickers();
     }
 
-    private async Task OnFiltroCategoryIdChanged(string value)
+    private async Task OnFiltroNationalTeamChanged(string value)
+    {
+        filtroNationalTeam = value;
+        currentPage = 1;
+        await FetchStickers();
+    }
+
+    private async Task OnFiltroCategoryChanged(string value)
     {
         filtroCategory = value;
+        currentPage = 1;
         await FetchStickers();
+    }
+
+    private async Task HandleNextPage()
+    {
+        currentPage++;
+        await FetchStickers();
+    }
+
+    private async Task HandlePrevPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            await FetchStickers();
+        }
     }
 
     private async Task FetchStickers()
     {
-        mensajeFetch = "Cargando figuritas...";
-        stickers = null; // Esto hace que se muestre el mensaje de "Cargando figuritas..." mientras se hace la petición
-        StateHasChanged(); // Forzamos a Blazor a actualizar la UI antes de hacer la petición
-        ApiResponse<List<Sticker>> response = await StickerHttp.GetStickersAsync(
-            page: 1,
-            pageSize: 24,
+        stickers = null;
+        StateHasChanged();
+
+        var response = await StickerHttp.GetStickersAsync(
+            page: currentPage,
+            pageSize: PageSize,
             nationalTeam: filtroNationalTeam,
             category: filtroCategory
-            );
+        );
 
         if (response.Success)
         {
-            stickers = response.Data;
-
-
-            if (stickers != null)
-            {
-                stickers = stickers.OrderBy(s => s.Id).ToList();
-            }
+            stickers = response.Data?.OrderBy(s => s.Number).ToList() ?? new List<Sticker>();
+            hasNextPage = stickers.Count == PageSize;
         }
         else
         {
-            mensajeFetch = "Error al cargar figuritas: " + response.ErrorMessage;
-            Console.WriteLine(mensajeFetch);
-        }
-    }
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            var nationalTeamsTask = Http.GetAsync("api/NationalTeam");
-            var categoryTask = Http.GetAsync("api/Category");
-
-            await Task.WhenAll(nationalTeamsTask, categoryTask);
-
-            nationalTeams = await nationalTeamsTask.Result.ProcesarRespuesta<List<NationalTeam>>();
-            category = await categoryTask.Result.ProcesarRespuesta<List<Category>>();
-
-            if (nationalTeams != null)
-            {
-                nationalTeams = nationalTeams.OrderBy(nt => nt.Description).ToList();
-            }
-            if (category != null)
-            {
-                category = category.OrderBy(c => c.Description).ToList();
-            }
-
-
-            await FetchStickers();
-
-
-        }
-        catch (Exception ex)
-        {
-
-            mensajeFetch = "Error en petición http: " + ex.Message;
-            Console.WriteLine(mensajeFetch);
+            stickers = new List<Sticker>();
+            hasNextPage = false;
+            Console.WriteLine($"Error al cargar figuritas: {response.ErrorMessage}");
         }
     }
 
-
-    private void OnStickerClick(Sticker clickedSticker)
+    private async Task OnStickerClick(Sticker sticker)
     {
-        @*
-            TODO: ACA ABRIR UN MODAL PARA OFRECER ACCIONES:
-                AGREGAR A FALTANTES
-                AGREGAR A REPETIDAS
-        *@
-        Console.WriteLine($"Se clickeó la figurita: {clickedSticker.Description}");
-        Console.WriteLine($"Pendiente: Abrir modal para agregar a faltantes o repetidas");
+        var parameters = new DialogParameters<StickerActionDialog>
+        {
+            { d => d.Sticker, sticker },
+            { d => d.IsAuthenticated, AuthState.UserId != 0 }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        await DialogService.ShowAsync<StickerActionDialog>(
+            $"#{sticker.Number:D3} — {sticker.Description}",
+            parameters, options);
     }
 }

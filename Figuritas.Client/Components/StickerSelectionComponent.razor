@@ -1,0 +1,195 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Client.Requests
+@using Figuritas.Client.Models
+
+@inject StickerHttpClient StickerHttp
+@inject NationalTeamHttpClient NationalTeamHttp
+@inject CategoryHttpClient CategoryHttp
+
+<MudDialog>
+    <DialogContent>
+        <div class="ssc-filters">
+            <MudSelect T="string" Label="Selección" Value="@filtroNT" ValueChanged="OnFiltroNTChanged"
+                       Dense="true" Margin="Margin.Dense" Clearable="true" Variant="Variant.Outlined">
+                <MudSelectItem Value="@string.Empty">Todas</MudSelectItem>
+                @foreach (var nt in nationalTeams)
+                {
+                    <MudSelectItem Value="@nt.Description">@nt.Description</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSelect T="string" Label="Categoría" Value="@filtroCat" ValueChanged="OnFiltroCatChanged"
+                       Dense="true" Margin="Margin.Dense" Clearable="true" Variant="Variant.Outlined">
+                <MudSelectItem Value="@string.Empty">Todas</MudSelectItem>
+                @foreach (var cat in categories)
+                {
+                    <MudSelectItem Value="@cat.Description">@cat.Description</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudTextField T="string" Label="Número" Value="@filtroNumberStr"
+                          ValueChanged="OnNumeroChanged"
+                          Immediate="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Tag" />
+
+            <MudTextField T="string" Label="Descripción" Value="@filtroDesc"
+                          ValueChanged="OnDescChanged"
+                          Immediate="true" Margin="Margin.Dense" Variant="Variant.Outlined"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+        </div>
+
+        @if (pagedStickers == null)
+        {
+            <div class="ssc-loading">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+            </div>
+        }
+        else if (!pagedStickers.Any())
+        {
+            <div class="ssc-empty">
+                <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Color="Color.Secondary" Style="font-size:2.5rem" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Sin resultados</MudText>
+            </div>
+        }
+        else
+        {
+            <div class="ssc-grid">
+                @foreach (var sticker in pagedStickers)
+                {
+                    <div class="ssc-card" @onclick="@(() => SelectSticker(sticker))">
+                        <img src="@sticker.ImageUrl" class="ssc-img" alt="@sticker.Description" />
+                        <span class="ssc-num">#@sticker.Number.ToString("D3")</span>
+                        <MudText Typo="Typo.caption" Class="ssc-desc">@sticker.Description</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ssc-meta">@sticker.NationalTeam</MudText>
+                    </div>
+                }
+            </div>
+
+            <div class="ssc-pagination">
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                               Disabled="@(page <= 1)"
+                               OnClick="PrevPage"
+                               Size="Size.Small" />
+                <MudText Typo="Typo.body2">@(page) / @TotalPages</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                               Disabled="@(page >= TotalPages)"
+                               OnClick="NextPage"
+                               Size="Size.Small" />
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Variant="Variant.Text">Cancelar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public StickersSource Source { get; set; } = StickersSource.Catalog;
+
+    private const int PageSize = 6;
+    private int page = 1;
+
+    private string filtroNT = string.Empty;
+    private string filtroCat = string.Empty;
+    private string filtroNumberStr = string.Empty;
+    private string filtroDesc = string.Empty;
+
+    private List<Sticker> allStickers = new();
+    private List<Sticker>? pagedStickers;
+    private List<NationalTeam> nationalTeams = new();
+    private List<Category> categories = new();
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)GetFiltered().Count / PageSize));
+
+    protected override async Task OnInitializedAsync()
+    {
+        var ntTask = NationalTeamHttp.GetNationalTeamsAsync();
+        var catTask = CategoryHttp.GetCategoriesAsync();
+        await Task.WhenAll(ntTask, catTask);
+
+        if (ntTask.Result.Success)
+            nationalTeams = ntTask.Result.Data?.OrderBy(nt => nt.Description).ToList() ?? new();
+        if (catTask.Result.Success)
+            categories = catTask.Result.Data?.OrderBy(c => c.Description).ToList() ?? new();
+
+        await LoadFromApi();
+    }
+
+    private async Task LoadFromApi()
+    {
+        pagedStickers = null;
+        StateHasChanged();
+
+        var response = await StickerHttp.GetStickersAsync(
+            page: 1,
+            pageSize: 200,
+            nationalTeam: string.IsNullOrEmpty(filtroNT) ? null : filtroNT,
+            category: string.IsNullOrEmpty(filtroCat) ? null : filtroCat);
+
+        allStickers = response.Success ? (response.Data ?? new()) : new();
+        page = 1;
+        ApplyFilter();
+    }
+
+    private List<Sticker> GetFiltered()
+    {
+        var result = allStickers.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(filtroNumberStr) && int.TryParse(filtroNumberStr, out var num))
+            result = result.Where(s => s.Number == num);
+
+        if (!string.IsNullOrWhiteSpace(filtroDesc))
+            result = result.Where(s => s.Description.Contains(filtroDesc, StringComparison.OrdinalIgnoreCase));
+
+        return result.OrderBy(s => s.Number).ToList();
+    }
+
+    private void ApplyFilter()
+    {
+        var filtered = GetFiltered();
+        pagedStickers = filtered.Skip((page - 1) * PageSize).Take(PageSize).ToList();
+        StateHasChanged();
+    }
+
+    private async Task OnFiltroNTChanged(string value)
+    {
+        filtroNT = value;
+        await LoadFromApi();
+    }
+
+    private async Task OnFiltroCatChanged(string value)
+    {
+        filtroCat = value;
+        await LoadFromApi();
+    }
+
+    private void OnNumeroChanged(string value)
+    {
+        filtroNumberStr = value;
+        page = 1;
+        ApplyFilter();
+    }
+
+    private void OnDescChanged(string value)
+    {
+        filtroDesc = value;
+        page = 1;
+        ApplyFilter();
+    }
+
+    private void PrevPage()
+    {
+        if (page > 1) { page--; ApplyFilter(); }
+    }
+
+    private void NextPage()
+    {
+        if (page < TotalPages) { page++; ApplyFilter(); }
+    }
+
+    private void SelectSticker(Sticker sticker) =>
+        MudDialog.Close(DialogResult.Ok(sticker));
+
+    private void Cancel() => MudDialog.Cancel();
+}

@@ -1,0 +1,82 @@
+@using Figuritas.Client.Models
+
+@inject IDialogService DialogService
+
+<div class="ssl-container">
+    @if (!internalList.Any())
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ssl-empty">
+            Sin figuritas seleccionadas
+        </MudText>
+    }
+    else
+    {
+        <div class="ssl-chips">
+            @foreach (var vm in internalList)
+            {
+                <div class="ssl-chip" @key="vm.UserStickerId">
+                    <MudText Typo="Typo.caption" Class="ssl-chip-label">
+                        #@vm.Sticker.Number.ToString("D3") — @Truncate(vm.Sticker.Description, 24)
+                    </MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Size="Size.Small"
+                                   Color="Color.Error"
+                                   OnClick="@(() => Remove(vm))" />
+                </div>
+            }
+        </div>
+    }
+
+    <MudButton StartIcon="@Icons.Material.Filled.Add"
+               Size="Size.Small"
+               Variant="Variant.Outlined"
+               Color="Color.Primary"
+               Class="mt-1"
+               OnClick="OpenSelection">
+        Agregar figurita
+    </MudButton>
+</div>
+
+@code {
+    [Parameter] public List<UserStickerVm> SelectedStickers { get; set; } = new();
+    [Parameter] public EventCallback<List<UserStickerVm>> OnSelectionChanged { get; set; }
+
+    private List<UserStickerVm> internalList = new();
+
+    protected override void OnParametersSet()
+    {
+        internalList = new List<UserStickerVm>(SelectedStickers);
+    }
+
+    private async Task OpenSelection()
+    {
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<UserStickerSelectionComponent>(
+            "Mis figuritas", new DialogParameters(), options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled && result.Data is UserStickerVm selected)
+        {
+            if (!internalList.Any(v => v.UserStickerId == selected.UserStickerId))
+            {
+                internalList.Add(selected);
+                await OnSelectionChanged.InvokeAsync(new List<UserStickerVm>(internalList));
+            }
+        }
+    }
+
+    private async Task Remove(UserStickerVm vm)
+    {
+        internalList.Remove(vm);
+        await OnSelectionChanged.InvokeAsync(new List<UserStickerVm>(internalList));
+    }
+
+    private static string Truncate(string text, int max) =>
+        text.Length <= max ? text : text[..max] + "…";
+}

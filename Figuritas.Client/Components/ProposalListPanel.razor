@@ -1,0 +1,127 @@
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Shared.Model.Intercambios
+@using Figuritas.Client.Requests
+
+@inject DashboardHttpClient DashboardHttp
+@inject IDialogService DialogService
+
+<MudPaper Class="proposal-panel" Elevation="2">
+    @if (ShowFilter)
+    {
+        <div class="proposal-filter-row">
+            @foreach (var state in AllowedStates!)
+            {
+                <MudChip T="string"
+                         Size="Size.Small"
+                         Color="@(selectedState == state ? Color.Primary : Color.Default)"
+                         Variant="@(selectedState == state ? Variant.Filled : Variant.Outlined)"
+                         OnClick="@(() => SetFilter(state))">
+                    @GetLabel(state)
+                </MudChip>
+            }
+        </div>
+    }
+
+    <div class="proposal-list-scroll">
+        @if (proposals == null)
+        {
+            <div class="proposal-empty">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Medium" />
+            </div>
+        }
+        else if (!proposals.Any())
+        {
+            <div class="proposal-empty">
+                <MudIcon Icon="@Icons.Material.Outlined.SwapHoriz" Color="Color.Secondary" Style="font-size:2.5rem" />
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-1">Sin propuestas</MudText>
+            </div>
+        }
+        else
+        {
+            <div class="proposal-list">
+                @foreach (var proposal in proposals)
+                {
+                    <ProposalRowComponent Proposal="@proposal"
+                                          @key="proposal.Id"
+                                          OnClick="OpenDetail" />
+                }
+            </div>
+        }
+    </div>
+</MudPaper>
+
+@code {
+    [Parameter][EditorRequired] public bool IsSent { get; set; }
+
+    /// <summary>
+    /// Lista de estados permitidos en el filtro.
+    /// null  → no aplica filtro de estado (muestra todo, sin chips de filtro).
+    /// Count == 1 → filtro fijo a ese estado, chips ocultos.
+    /// Count  > 1 → muestra chips con esas opciones, default = Pending si está en la lista.
+    /// </summary>
+    [Parameter] public List<ExchangeProposalState>? AllowedStates { get; set; }
+
+    private ExchangeProposalState? selectedState;
+    private List<ExchangeProposalResponseDTO>? proposals;
+
+    private bool ShowFilter => AllowedStates != null && AllowedStates.Count > 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AllowedStates == null)
+            selectedState = null;
+        else if (AllowedStates.Count == 1)
+            selectedState = AllowedStates[0];
+        else if (AllowedStates.Contains(ExchangeProposalState.Pending))
+            selectedState = ExchangeProposalState.Pending;
+        else
+            selectedState = AllowedStates.FirstOrDefault();
+
+        await LoadAsync();
+    }
+
+    private async Task SetFilter(ExchangeProposalState state)
+    {
+        selectedState = state;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        proposals = null;
+        StateHasChanged();
+
+        var response = IsSent
+            ? await DashboardHttp.GetMySentProposalsAsync(state: selectedState)
+            : await DashboardHttp.GetMyReceivedProposalsAsync(state: selectedState);
+
+        proposals = response.Success ? (response.Data ?? new()) : new();
+    }
+
+    private async Task OpenDetail(ExchangeProposalResponseDTO proposal)
+    {
+        var parameters = new DialogParameters<ProposalDetailDialog>
+        {
+            { d => d.Proposal, proposal }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<ProposalDetailDialog>("Propuesta", parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await LoadAsync();
+    }
+
+    private static string GetLabel(ExchangeProposalState s) => s switch
+    {
+        ExchangeProposalState.Pending   => "Pendientes",
+        ExchangeProposalState.Accepted  => "Aceptadas",
+        ExchangeProposalState.Rejected  => "Rechazadas",
+        ExchangeProposalState.Cancelled => "Canceladas",
+        _                               => s.ToString()
+    };
+}

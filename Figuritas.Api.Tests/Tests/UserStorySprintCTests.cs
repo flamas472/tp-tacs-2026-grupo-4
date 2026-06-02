@@ -317,7 +317,8 @@ public class UserStorySprintCTests : IAsyncLifetime
                 Mock.Of<IMissingStickerRepository>(),
                 new AuctionWatchlistService(
                     Mock.Of<IAuctionWatchlistRepository>(),
-                    Mock.Of<IAuctionRepository>()))
+                    Mock.Of<IAuctionRepository>()),
+                Mock.Of<IUserRepository>())
         {
             _closeFunc = closeFunc;
         }

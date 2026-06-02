@@ -28,6 +28,21 @@ public static class DtoExtensions
             && (dto.CanBeAuctioned == null || us.CanBeAuctioned == dto.CanBeAuctioned);
     }
 
+    public static Expression<Func<UserSticker, bool>> ToPredicate(this GetUserStickersDTO dto, int userId)
+    {
+        return us =>
+            us.UserId == userId
+            && us.Active
+            && us.Quantity > 0
+            && (dto.Number == null || us.Sticker.Number == dto.Number)
+            && (string.IsNullOrEmpty(dto.Team) || us.Sticker.Team.Contains(dto.Team))
+            && (string.IsNullOrEmpty(dto.NationalTeam) || us.Sticker.NationalTeam.Contains(dto.NationalTeam))
+            && (string.IsNullOrEmpty(dto.Category) || us.Sticker.Category.Contains(dto.Category))
+            && (string.IsNullOrEmpty(dto.Description) || us.Sticker.Description.Contains(dto.Description))
+            && (dto.CanBeDirectlyExchanged == null || us.CanBeDirectlyExchanged == dto.CanBeDirectlyExchanged)
+            && (dto.CanBeAuctioned == null || us.CanBeAuctioned == dto.CanBeAuctioned);
+    }
+
     public static Expression<Func<UserSticker, bool>> ToPredicate(this GetMarketStickersDTO dto, int callerUserId)
     {
         return us =>

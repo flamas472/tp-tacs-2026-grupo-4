@@ -9,4 +9,10 @@ public class ExchangeProposalResponseDTO
     public List<int> OfferedUserStickerIds { get; set; } = new();
     public string State { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+
+    // Enriched sticker info (populated by server)
+    public StickerPreviewDTO? RequestedSticker { get; set; }
+    public List<StickerPreviewDTO> OfferedStickers { get; set; } = new();
+    public string ProponentUsername { get; set; } = string.Empty;
+    public string ProposedUsername { get; set; } = string.Empty;
 }

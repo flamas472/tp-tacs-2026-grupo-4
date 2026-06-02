@@ -1,28 +1,31 @@
 @using Figuritas.Shared.Model
 
-
-<MudCard Style="max-width: 280px; cursor: pointer;" @onclick="HandleCardClick">
-    <MudCardMedia Image="@sticker.ImageUrl" Alt="@sticker.Description" Style="width: 100%; height: auto; aspect-ratio: 5 / 6.5; object-fit: cover;" />
-    <MudCardContent>
-        <MudText class="text-sm" Color="Color.Secondary">@sticker.Number.ToString("D3")</MudText>
-        <MudText class="text-lg text-bold">@sticker.Description</MudText>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem;">
-            <MudText Class="text-md">@sticker.NationalTeam</MudText>
-            <MudText class="text-sm" Color="Color.Secondary">@sticker.Category</MudText>
+<MudCard Class="sticker-card" Elevation="2" @onclick="HandleCardClick">
+    <div class="sticker-image-container">
+        <img src="@Sticker.ImageUrl" alt="@Sticker.Description" class="sticker-image" />
+        <span class="sticker-number-badge">@Sticker.Number.ToString("D3")</span>
+        @if (Quantity > 0)
+        {
+            <span class="sticker-quantity-badge">@Quantity</span>
+        }
+    </div>
+    <MudCardContent Class="sticker-info">
+        <MudText Typo="Typo.subtitle2" Class="sticker-description">@Sticker.Description</MudText>
+        <div class="sticker-meta">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@Sticker.NationalTeam</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Tertiary">@Sticker.Category</MudText>
         </div>
     </MudCardContent>
 </MudCard>
 
 @code {
-    [Parameter] [EditorRequired] public Sticker sticker { get; set; }
-
+    [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
+    [Parameter] public int Quantity { get; set; } = 0;
     [Parameter] public EventCallback<Sticker> OnStickerClick { get; set; }
 
     private async Task HandleCardClick()
     {
         if (OnStickerClick.HasDelegate)
-        {
-            await OnStickerClick.InvokeAsync(sticker);
-        }
+            await OnStickerClick.InvokeAsync(Sticker);
     }
 }

@@ -199,6 +199,29 @@ public class UserService(
         return _inventoryRepo.GetPaginated(queryParams.Page, queryParams.PageSize, filter);
     }
 
+    public List<MarketStickerResponseDTO> GetUserStickersByUserId(int userId, GetUserStickersDTO dto)
+    {
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
+
+        var filter = dto.ToPredicate(userId);
+        return _inventoryRepo.GetPaginated(dto.Page, dto.PageSize, filter)
+            .Select(us => new MarketStickerResponseDTO
+            {
+                UserStickerId = us.Id,
+                OwnerId = us.UserId,
+                StickerNumber = us.Sticker.Number,
+                StickerNationalTeam = us.Sticker.NationalTeam,
+                StickerTeam = us.Sticker.Team,
+                StickerCategory = us.Sticker.Category,
+                StickerDescription = us.Sticker.Description,
+                StickerImageUrl = us.Sticker.ImageUrl,
+                Quantity = us.Quantity,
+                CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
+                CanBeAuctioned = us.CanBeAuctioned
+            }).ToList();
+    }
+
     public List<MarketStickerResponseDTO> SearchMarketStickers(GetMarketStickersDTO dto, int callerUserId)
     {
         var filter = dto.ToPredicate(callerUserId);

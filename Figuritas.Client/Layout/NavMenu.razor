@@ -1,4 +1,43 @@
+@inject AuthStateService AuthState
+
 <MudNavMenu>
-    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-    <MudNavLink Href="catalogo" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">catalogo</MudNavLink>
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Inicio</MudNavLink>
+    <MudNavLink Href="catalogo" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.MenuBook">Catálogo</MudNavLink>
+
+    <AuthorizeView>
+        <Authorized>
+            <MudNavGroup Title="Mi Colección"
+                         Icon="@Icons.Material.Filled.CollectionsBookmark"
+                         Expanded="true">
+                <MudNavLink Href="repetidas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ContentCopy">Repetidas</MudNavLink>
+                <MudNavLink Href="faltantes" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Bookmark">Faltantes</MudNavLink>
+            </MudNavGroup>
+
+            <MudNavGroup Title="Mercado"
+                         Icon="@Icons.Material.Filled.Storefront"
+                         Expanded="true">
+                <MudNavLink Href="mercado" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Style">Figuritas</MudNavLink>
+                <MudNavLink Href="subastas" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Gavel">Subastas</MudNavLink>
+                <MudNavLink Href="sugerencias" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Lightbulb">Sugerencias</MudNavLink>
+            </MudNavGroup>
+
+            <MudNavGroup Title="Mis Operaciones"
+                         Icon="@Icons.Material.Filled.SwapHoriz"
+                         Expanded="true">
+                <MudNavLink Href="propuestas" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.CompareArrows">Propuestas</MudNavLink>
+                <MudNavLink Href="intercambios" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Handshake">Intercambios</MudNavLink>
+                <MudNavLink Href="mis-subastas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Gavel">Mis subastas</MudNavLink>
+                <MudNavLink Href="mis-pujas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PriceChange">Mis pujas</MudNavLink>
+            </MudNavGroup>
+
+            @if (AuthState.IsAdmin)
+            {
+                <MudNavGroup Title="Administración"
+                             Icon="@Icons.Material.Filled.AdminPanelSettings"
+                             Expanded="false">
+                    <MudNavLink Href="admin/estadisticas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BarChart">Estadísticas</MudNavLink>
+                </MudNavGroup>
+            }
+        </Authorized>
+    </AuthorizeView>
 </MudNavMenu>

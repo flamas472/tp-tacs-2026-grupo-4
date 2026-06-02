@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Figuritas.Client;
+using Figuritas.Client.Auth;
 using Figuritas.Client.Requests;
 using MudBlazor.Services;
 
@@ -22,8 +24,28 @@ else
     apiBaseAddress = builder.HostEnvironment.BaseAddress;
 }
 
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseAddress) });
+builder.Services.AddScoped<AuthStateProvider>();
+builder.Services.AddScoped(sp =>
+{
+    var authProvider = sp.GetRequiredService<AuthStateProvider>();
+    var handler = new BearerTokenHandler(authProvider) { InnerHandler = new HttpClientHandler() };
+    return new HttpClient(handler) { BaseAddress = new Uri(apiBaseAddress) };
+});
 builder.Services.AddScoped<StickerHttpClient>();
+builder.Services.AddScoped<AuthHttpClient>();
+builder.Services.AddScoped<UserHttpClient>();
+builder.Services.AddScoped<InventoryStickerHttpClient>();
+builder.Services.AddScoped<TeamHttpClient>();
+builder.Services.AddScoped<CategoryHttpClient>();
+builder.Services.AddScoped<NationalTeamHttpClient>();
+builder.Services.AddScoped<ExchangeHttpClient>();
+builder.Services.AddScoped<ExchangeProposalHttpClient>();
+builder.Services.AddScoped<AuctionHttpClient>();
+builder.Services.AddScoped<DashboardHttpClient>();
+builder.Services.AddScoped<AdminHttpClient>();
+builder.Services.AddAuthorizationCore();
+builder.Services.AddScoped<AuthenticationStateProvider>(p => p.GetRequiredService<AuthStateProvider>());
+builder.Services.AddScoped<AuthStateService>();
 builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();

@@ -110,51 +110,758 @@ code {
 }
 
 
-/* Personalizadas */
-.text-sm {
-    font-size: 11px; /* Celular */
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIGURITAS — estilos globales de componentes
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Ancho responsivo de la tarjeta de figurita ───────────────────────────
+   Relación real: 5cm × 6.5cm → aspect-ratio 10/13
+   Gap del flex container: 12px  |  Padding de página: 16px c/lado (32px)
+   xs  360px  → 328px disponibles → 2 por fila → 140px
+   sm  600px  → 568px disponibles → 3 por fila → 170px
+       768px  → 736px disponibles → 4 por fila  (170×4 + 12×3 = 716 ✓)
+   md  960px  → 928px disponibles → 4 por fila → 195px
+   lg 1366px  →1334px disponibles → 6 por fila → 210px
+   xl 1920px  →1648px con drawer  → 6 por fila → 245px                    */
+:root {
+    --sticker-width: 140px;
 }
-@media (min-width: 600px) {
-    .text-sm { font-size: 12px; } /* Tablet */
-}
-@media (min-width: 960px) {
-    .text-sm { font-size: 13px; } /* Monitor */
+@media (min-width: 600px)  { :root { --sticker-width: 170px; } }
+@media (min-width: 960px)  { :root { --sticker-width: 195px; } }
+@media (min-width: 1280px) { :root { --sticker-width: 210px; } }
+@media (min-width: 1920px) { :root { --sticker-width: 245px; } }
+
+
+/* ─── StickerComponent ──────────────────────────────────────────────────── */
+.sticker-card {
+    width: var(--sticker-width);
+    cursor: pointer;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.text-md {
-    font-size: 13px; /* Celular */
-    line-height: 1.2;
-}
-@media (min-width: 600px) {
-    .text-md { font-size: 15px; } /* Tablet */
-}
-@media (min-width: 960px) {
-    .text-md { font-size: 16px; } /* Monitor */
+.sticker-card:hover {
+    transform: translateY(-4px) scale(1.03);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25) !important;
 }
 
-.text-lg {
-    font-size: 16px; /* Celular */
-    font-weight: bold;
-}
-@media (min-width: 600px) {
-    .text-lg { font-size: 18px; } /* Tablet */
-}
-@media (min-width: 960px) {
-    .text-lg { font-size: 20px; } /* Monitor */
+.sticker-image-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 10 / 13;
+    overflow: hidden;
+    background-color: var(--mud-palette-background-gray);
 }
 
-.text-xl {
-    font-size: 18px; /* Celular */
-    font-weight: bold;
-}
-@media (min-width: 600px) {
-    .text-xl { font-size: 20px; } /* Tablet */
-}
-@media (min-width: 960px) {
-    .text-xl { font-size: 22px; } /* Monitor */
+.sticker-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
-/* AUXILIAR: Negrita genérica por si querés combinar */
-.text-bold {
-    font-weight: bold;
+.sticker-number-badge {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #ffffff;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    letter-spacing: 0.08em;
+    backdrop-filter: blur(2px);
+}
+
+.sticker-quantity-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: var(--mud-palette-primary);
+    color: #ffffff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 10px;
+    letter-spacing: 0.04em;
+    z-index: 1;
+    min-width: 22px;
+    text-align: center;
+    backdrop-filter: blur(2px);
+}
+
+.sticker-info {
+    padding: 7px 9px 9px !important;
+}
+
+.sticker-description {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-bottom: 3px;
+}
+
+.sticker-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+
+/* ─── StickerListComponent ──────────────────────────────────────────────── */
+.sticker-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-start;
+    align-items: flex-start;
+}
+
+.sticker-list-feedback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    width: 100%;
+}
+
+.sticker-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem 0 0.5rem;
+    gap: 0.25rem;
+}
+
+.pagination-label {
+    min-width: 6rem;
+    text-align: center;
+    font-weight: 500;
+}
+
+
+/* ─── Catálogo — panel de filtros ───────────────────────────────────────── */
+.filters-panel {
+    padding: 1.25rem 1.5rem 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+    border-left: 4px solid var(--mud-palette-primary);
+}
+
+.filters-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mud-palette-primary);
+    margin-bottom: 0.75rem;
+}
+
+.filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    align-items: flex-end;
+}
+
+.filter-select {
+    flex: 1;
+    min-width: 200px;
+}
+
+@media (min-width: 960px) {
+    .filters-panel {
+        padding: 1.5rem 2rem 1.75rem;
+    }
+
+    .filters-title {
+        font-size: 0.8rem;
+    }
+
+    .filter-select {
+        font-size: 1.05rem;
+    }
+}
+
+
+/* ─── StickerActionDialog ───────────────────────────────────────────────── */
+.dialog-sticker-preview {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+}
+
+.action-mode-selector {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.action-mode-btn {
+    flex: 1;
+    text-transform: none !important;
+    border-radius: 8px;
+}
+
+
+/* ─── Ingresar page ─────────────────────────────────────────────────────── */
+.login-wrapper {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.login-card {
+    width: 100%;
+    max-width: 420px;
+}
+
+.login-header {
+    padding: 2rem 2rem 0;
+    text-align: center;
+}
+
+.password-requirements {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 6px;
+}
+
+.requirement {
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.15s;
+}
+
+.requirement.met   { color: var(--mud-palette-success); }
+.requirement.unmet { color: var(--mud-palette-text-secondary); }
+
+
+/* ─── UnderConstruction component ──────────────────────────────────────── */
+.under-construction-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.construction-icons {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.uc-divider {
+    width: 100%;
+    max-width: 520px;
+}
+
+.uc-stories-header {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.uc-stories-list {
+    width: 100%;
+    max-width: 560px;
+    text-align: left;
+}
+
+.uc-story-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(126, 111, 255, 0.06);
+    border-left: 3px solid var(--mud-palette-primary);
+}
+
+.uc-story-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+
+/* ─── Home page ─────────────────────────────────────────────────────────── */
+.home-section-header {
+    display: flex;
+    align-items: center;
+}
+
+.home-stories {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 720px;
+}
+
+.home-story-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 8px;
+    background: rgba(126, 111, 255, 0.04);
+    border-left: 3px solid var(--mud-palette-primary);
+    transition: background 0.15s;
+}
+
+.home-story-row:hover {
+    background: rgba(126, 111, 255, 0.09);
+}
+
+.home-story-num {
+    flex-shrink: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--mud-palette-primary);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-story-text {
+    flex: 1;
+    line-height: 1.4;
+}
+
+.home-story-badge {
+    flex-shrink: 0;
+}
+
+.home-story-action {
+    flex-shrink: 0;
+    margin: -6px -4px;
+}
+
+
+/* ─── SuggestionRowComponent ─────────────────────────────────────────────── */
+.suggestion-row:hover {
+    border-color: var(--mud-palette-success) !important;
+    background: rgba(61, 203, 108, 0.05) !important;
+}
+
+.suggestion-row-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.suggestion-username {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* ─── StickerSelectionComponent ─────────────────────────────────────────── */
+.ssc-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.ssc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    min-height: 180px;
+}
+
+.ssc-card {
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 0.5rem 0.3rem;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    transition: border-color 0.15s, background 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.ssc-card:hover {
+    border-color: var(--mud-palette-primary);
+    background: rgba(126, 111, 255, 0.1);
+}
+
+.ssc-img {
+    width: 100%;
+    max-width: 56px;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.ssc-num {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--mud-palette-primary);
+}
+
+.ssc-desc {
+    font-size: 0.62rem;
+    line-height: 1.25;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    width: 100%;
+}
+
+.ssc-meta {
+    font-size: 0.58rem;
+    color: var(--mud-palette-text-secondary);
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ssc-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.ssc-loading,
+.ssc-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 160px;
+}
+
+
+/* ─── SelectedStickerListComponent ──────────────────────────────────────── */
+.ssl-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.ssl-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.ssl-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.2rem 0.2rem 0.6rem;
+    border-radius: 16px;
+    background: rgba(126, 111, 255, 0.12);
+    border: 1px solid rgba(126, 111, 255, 0.3);
+}
+
+.ssl-chip-label {
+    font-size: 0.75rem;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ssl-empty {
+    font-style: italic;
+    padding: 0.25rem 0;
+}
+
+
+/* ─── NewAuctionRequestComponent ─────────────────────────────────────────── */
+.auction-sticker-preview {
+    border-radius: 8px;
+    background: rgba(255, 181, 69, 0.06);
+    border: 1px solid rgba(255, 181, 69, 0.2);
+}
+
+.auction-preview-img {
+    width: 48px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.auction-datetime-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.auction-datetime-row > * {
+    flex: 1;
+}
+
+
+/* ─── AuctionCardComponent ───────────────────────────────────────────────── */
+.auction-card {
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.auction-card:hover {
+    border-color: var(--mud-palette-warning) !important;
+    background: rgba(255, 181, 69, 0.06);
+}
+
+.auction-status-badge {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.auction-open {
+    background: rgba(61, 203, 108, 0.85);
+    color: #fff;
+}
+
+.auction-closed {
+    background: rgba(100, 100, 120, 0.75);
+    color: #ddd;
+}
+
+.auction-offer-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 2px;
+}
+
+.auction-detail-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+
+/* ─── ProposalRowComponent ───────────────────────────────────────────────── */
+.proposal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.proposal-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.75rem;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: background 0.12s, border-color 0.12s;
+}
+
+.proposal-row:hover {
+    background: rgba(126, 111, 255, 0.06);
+    border-color: var(--mud-palette-primary);
+}
+
+.proposal-sticker-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    width: 50px;
+}
+
+.proposal-sticker-mini img {
+    width: 50px;
+    aspect-ratio: 10 / 13;
+    object-fit: cover;
+    border-radius: 3px;
+}
+
+.proposal-sticker-placeholder {
+    width: 50px;
+    aspect-ratio: 10 / 13;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.proposal-sticker-num {
+    font-size: 0.55rem;
+    font-weight: 700;
+    color: var(--mud-palette-primary);
+    white-space: nowrap;
+}
+
+.proposal-arrow {
+    flex-shrink: 0;
+}
+
+.proposal-offered-list {
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.proposal-state {
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* Mobile: círculo de color, chip oculto */
+.proposal-state .mud-chip { display: none; }
+
+.proposal-state-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.proposal-dot-pending   { background: var(--mud-palette-warning); }
+.proposal-dot-accepted  { background: var(--mud-palette-success); }
+.proposal-dot-rejected  { background: var(--mud-palette-error); }
+.proposal-dot-cancelled { background: rgba(120, 120, 140, 0.7); }
+
+/* Desktop: chip visible, círculo oculto */
+@media (min-width: 1280px) {
+    .proposal-state .mud-chip { display: inline-flex; }
+    .proposal-state-dot { display: none; }
+}
+
+/* Separación entre filas */
+.proposal-row + .proposal-row {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Ícono de intercambio: centrado en desktop (columna flex), rotado en mobile */
+.proposal-swap-icon {
+    align-self: center;
+    flex-shrink: 0;
+}
+
+/* Mobile: layout vertical del detalle */
+@media (max-width: 1279px) {
+    .proposal-detail-sides {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .proposal-detail-side {
+        width: 100%;
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .proposal-swap-icon {
+        align-self: center;
+        transform: rotate(90deg);
+    }
+}
+
+.proposal-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1rem;
+    gap: 0.5rem;
+}
+
+
+/* ─── ProposalDetailDialog ───────────────────────────────────────────────── */
+.proposal-detail-sides {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.proposal-detail-side {
+    flex: 1;
+    min-width: 0;
+}
+
+.proposal-detail-sticker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    text-align: center;
+}
+
+.proposal-detail-sticker img {
+    width: 64px;
+    height: 84px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.proposal-offered-large {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.proposal-panel {
+    border-radius: 12px;
+    padding: 1rem 1rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Desktop: altura fija ~6 intercambios con scroll + previews más grandes */
+@media (min-width: 1280px) {
+    .proposal-list-scroll {
+        height: 420px;
+        overflow-y: auto;
+        min-height: 0;
+    }
+
+    .proposal-sticker-mini {
+        width: 86px;
+    }
+
+    .proposal-sticker-mini img,
+    .proposal-sticker-placeholder {
+        width: 80px;
+    }
+}
+
+.proposal-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.75rem;
 }

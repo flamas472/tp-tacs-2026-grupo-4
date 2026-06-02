@@ -1,0 +1,35 @@
+@using Figuritas.Shared.DTO.response
+
+<div class="proposal-row suggestion-row" @onclick="HandleClick">
+    <div class="proposal-sticker-mini">
+        <img src="@Suggestion.StickerImageUrl"
+             alt="#@Suggestion.StickerNumber.ToString("D3")"
+             title="#@Suggestion.StickerNumber.ToString("D3") — @Suggestion.StickerDescription" />
+    </div>
+
+    <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Secondary" Class="proposal-arrow" />
+
+    <div class="suggestion-row-info">
+        <MudText Typo="Typo.body2" Class="suggestion-username">@Suggestion.SuggestedUsername</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary">
+            #@Suggestion.StickerNumber.ToString("D3") — @Suggestion.StickerDescription
+        </MudText>
+    </div>
+
+    <div class="proposal-state">
+        @if (Suggestion.IsPerfectMatch)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled"
+                     title="Ellos también necesitan algo que vos tenés">
+                ⭐ Match
+            </MudChip>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter][EditorRequired] public ExchangeSuggestionResponseDTO Suggestion { get; set; } = default!;
+    [Parameter] public EventCallback<ExchangeSuggestionResponseDTO> OnClick { get; set; }
+
+    private async Task HandleClick() => await OnClick.InvokeAsync(Suggestion);
+}

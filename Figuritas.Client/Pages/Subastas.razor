@@ -1,0 +1,96 @@
+@page "/subastas"
+@attribute [Authorize]
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.DTO.response
+
+@inject AuctionHttpClient AuctionHttp
+@inject IDialogService DialogService
+
+<PageTitle>Subastas activas — FiguriTACS</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Subastas activas</MudText>
+
+@if (auctions == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando subastas...</MudText>
+    </div>
+}
+else if (!auctions.Any())
+{
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Outlined.Gavel" Style="font-size: 3rem;" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">No hay subastas disponibles</MudText>
+    </div>
+}
+else
+{
+    <div class="sticker-list">
+        @foreach (var auction in auctions)
+        {
+            <AuctionCardComponent Auction="@auction"
+                                  @key="auction.Id"
+                                  OnClick="OnAuctionClick" />
+        }
+    </div>
+
+    <div class="sticker-pagination">
+        <MudTooltip Text="Página anterior">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Primary"
+                           Disabled="@(!hasPrevPage)"
+                           OnClick="HandlePrevPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+        <MudText Typo="Typo.body1" Class="pagination-label">Página @currentPage</MudText>
+        <MudTooltip Text="Página siguiente">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Primary"
+                           Disabled="@(!hasNextPage)"
+                           OnClick="HandleNextPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+    </div>
+}
+
+@code {
+    private const int PageSize = 24;
+
+    private List<AuctionResponseDTO>? auctions;
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    protected override async Task OnInitializedAsync() => await FetchPage();
+
+    private async Task FetchPage()
+    {
+        auctions = null;
+        StateHasChanged();
+
+        var response = await AuctionHttp.GetAuctionsAsync(currentPage, PageSize);
+        auctions = response.Success ? (response.Data ?? new()) : new();
+        hasNextPage = auctions.Count == PageSize;
+    }
+
+    private async Task HandleNextPage() { currentPage++; await FetchPage(); }
+    private async Task HandlePrevPage() { if (currentPage > 1) { currentPage--; await FetchPage(); } }
+
+    private async Task OnAuctionClick(AuctionResponseDTO auction)
+    {
+        var parameters = new DialogParameters<AuctionDetailDialog>
+        {
+            { d => d.Auction, auction }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        await DialogService.ShowAsync<AuctionDetailDialog>(
+            $"#{auction.StickerNumber:D3} — {auction.StickerDescription}",
+            parameters, options);
+    }
+}
