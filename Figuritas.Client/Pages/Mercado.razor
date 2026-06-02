@@ -65,9 +65,10 @@ else
     <div class="sticker-list">
         @foreach (var dto in displayStickers)
         {
-            <StickerComponent Sticker="@AsSticker(dto)"
+            <StickerComponent @key="@($"{dto.OwnerId}_{dto.UserStickerId}")"
+                              Sticker="@AsSticker(dto)"
                               Quantity="@dto.Quantity"
-                              @key="@($"{dto.OwnerId}_{dto.UserStickerId}")"
+                              OwnerUsername="@dto.OwnerUsername"
                               OnStickerClick="@(_ => OnStickerClick(dto))" />
         }
     </div>

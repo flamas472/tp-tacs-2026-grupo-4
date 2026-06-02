@@ -15,6 +15,15 @@
             <MudText Typo="Typo.caption" Color="Color.Secondary">@Sticker.NationalTeam</MudText>
             <MudText Typo="Typo.caption" Color="Color.Tertiary">@Sticker.Category</MudText>
         </div>
+        @if (!string.IsNullOrEmpty(OwnerUsername))
+        {
+            <div class="sticker-owner-label">
+                <MudIcon Icon="@Icons.Material.Filled.Person"
+                         Size="Size.Small"
+                         Style="font-size:0.7rem;vertical-align:middle;" />
+                <MudText Typo="Typo.caption">@OwnerUsername</MudText>
+            </div>
+        }
     </MudCardContent>
 </MudCard>
 
@@ -22,6 +31,8 @@
     [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
     [Parameter] public int Quantity { get; set; } = 0;
     [Parameter] public EventCallback<Sticker> OnStickerClick { get; set; }
+    /// <summary>Username del propietario a mostrar debajo de la selección. Si es null o vacío, no se renderiza.</summary>
+    [Parameter] public string? OwnerUsername { get; set; }
 
     private async Task HandleCardClick()
     {

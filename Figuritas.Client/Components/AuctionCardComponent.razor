@@ -13,9 +13,14 @@
         <MudText Typo="Typo.subtitle2" Class="sticker-description">@Auction.StickerDescription</MudText>
         <div class="sticker-meta">
             <MudText Typo="Typo.caption" Color="Color.Secondary">@Auction.StickerNationalTeam</MudText>
-            <MudText Typo="Typo.caption" Color="@(IsOpen ? Color.Warning : Color.Secondary)">
-                @TimeRemaining
-            </MudText>
+            @if (IsOpen)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Warning">@TimeRemaining</MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@ClosedLabel</MudText>
+            }
         </div>
         <div class="auction-card-footer mt-1">
             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="auction-card-auctioneer">
@@ -65,6 +70,13 @@
         "Active" when IsOpen => Icons.Material.Filled.Timer,
         "Cancelled"          => Icons.Material.Filled.Cancel,
         _                    => Icons.Material.Filled.CheckCircle
+    };
+
+    /// <summary>Texto estático para subastas que ya no están activas.</summary>
+    private string ClosedLabel => Auction.Status switch
+    {
+        "Cancelled" => "Cancelada",
+        _           => "Finalizada"
     };
 
     private string TimeRemaining

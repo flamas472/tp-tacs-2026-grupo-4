@@ -23,9 +23,9 @@
         {
             <StickerDialogContent Sticker="@AsSticker()">
                 <div class="auction-detail-meta mt-2">
-                    <div class="d-flex align-center gap-1 mb-1">
-                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@Auction.AuctioneerUsername</MudText>
+                    <div class="d-flex align-center gap-1 mb-1 auction-detail-owner">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:var(--mud-palette-text-secondary);" />
+                        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">@Auction.AuctioneerUsername</MudText>
                     </div>
                     <div class="d-flex align-center gap-1 mb-1">
                         <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small"
@@ -35,7 +35,7 @@
                         </MudText>
                     </div>
 
-                    @* Temporizador dinámico para subastas activas *@
+                    @* Temporizador dinámico para subastas activas; etiqueta estática para el resto *@
                     @if (IsOpen)
                     {
                         <div class="d-flex align-center gap-1 mb-1">
@@ -43,6 +43,13 @@
                             <MudText Typo="Typo.body2" Color="Color.Warning" Style="font-variant-numeric: tabular-nums;">
                                 @CountdownDisplay
                             </MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex align-center gap-1 mb-1">
+                            <MudIcon Icon="@ClosedStatusIcon" Size="Size.Small" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@ClosedStatusLabel</MudText>
                         </div>
                     }
 
@@ -194,6 +201,20 @@
     private System.Threading.Timer? _timer;
 
     private bool IsOpen => Auction.Status == "Active" && Auction.EndsAt > DateTime.UtcNow;
+
+    /// <summary>Etiqueta estática para subastas que ya no están activas.</summary>
+    private string ClosedStatusLabel => Auction.Status switch
+    {
+        "Cancelled" => "Cancelada",
+        _           => "Finalizada"
+    };
+
+    /// <summary>Ícono para el estado cerrado en el diálogo de detalle.</summary>
+    private string ClosedStatusIcon => Auction.Status switch
+    {
+        "Cancelled" => Icons.Material.Filled.Cancel,
+        _           => Icons.Material.Filled.CheckCircle
+    };
 
     private string CountdownDisplay
     {

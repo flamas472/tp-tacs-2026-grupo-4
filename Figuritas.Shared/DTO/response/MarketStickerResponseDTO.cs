@@ -15,4 +15,6 @@ public class MarketStickerResponseDTO
     public int Quantity { get; set; }
     public bool CanBeDirectlyExchanged { get; set; }
     public bool CanBeAuctioned { get; set; }
+    /// <summary>Username of the sticker owner, populated server-side to avoid N+1 on the client.</summary>
+    public string OwnerUsername { get; set; } = string.Empty;
 }

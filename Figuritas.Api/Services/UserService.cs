@@ -228,6 +228,11 @@ public class UserService(
         var filter = dto.ToPredicate(callerUserId);
         var userStickers = _inventoryRepo.GetPaginated(dto.Page, dto.PageSize, filter, sortDescending: true);
 
+        // Resolve all owner usernames in a single batch query to avoid N+1 calls.
+        var ownerIds = userStickers.Select(us => us.UserId).Distinct().ToList();
+        var ownerMap = _userRepo.GetByIds(ownerIds)
+            .ToDictionary(u => u.Id, u => u.Username);
+
         return userStickers.Select(us => new MarketStickerResponseDTO
         {
             UserStickerId = us.Id,
@@ -241,7 +246,8 @@ public class UserService(
             StickerImageUrl = us.Sticker.ImageUrl,
             Quantity = us.Quantity,
             CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
-            CanBeAuctioned = us.CanBeAuctioned
+            CanBeAuctioned = us.CanBeAuctioned,
+            OwnerUsername = ownerMap.GetValueOrDefault(us.UserId, string.Empty)
         }).ToList();
     }
 
