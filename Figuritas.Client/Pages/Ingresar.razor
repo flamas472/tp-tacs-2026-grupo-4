@@ -153,9 +153,12 @@
         ? Icons.Material.Filled.CheckCircle
         : Icons.Material.Outlined.RadioButtonUnchecked;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (AuthState.UserId != 0)
+        // Leer el token directamente desde localStorage — no depende de que
+        // AuthState.InitializeAsync() haya completado (evita el loop inicio↔ingresar).
+        var token = await AuthState.GetTokenAsync();
+        if (!string.IsNullOrEmpty(token))
             Nav.NavigateTo("/");
     }
 
