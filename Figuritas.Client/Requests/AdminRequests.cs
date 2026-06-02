@@ -15,6 +15,86 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
+        /// <summary>
+        /// Returns a paginated list of all platform users.
+        /// Requires backend endpoint: GET /api/admin/users?page={page}&pageSize={pageSize}
+        /// Restricted to Admin and SuperAdmin.
+        /// </summary>
+        public async Task<ApiResponse<List<UserResponseDTO>>> GetAllUsersAsync(
+            int page = 1, int pageSize = 20)
+        {
+            try
+            {
+                var response = await _http.GetAsync(
+                    $"api/admin/users?page={page}&pageSize={pageSize}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<List<UserResponseDTO>>();
+                    return ApiResponse<List<UserResponseDTO>>.Ok(
+                        data ?? new List<UserResponseDTO>());
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<List<UserResponseDTO>>.Fail(
+                    $"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<List<UserResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Bans the user with the given ID.
+        /// Requires backend endpoint: POST /api/admin/users/{userId}/ban
+        /// Restricted to Admin and SuperAdmin.
+        /// </summary>
+        public async Task<ApiResponse<bool>> BanUserAsync(int userId)
+        {
+            try
+            {
+                var response = await _http.PostAsync(
+                    $"api/admin/users/{userId}/ban", null);
+
+                if (response.IsSuccessStatusCode)
+                    return ApiResponse<bool>.Ok(true);
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<bool>.Fail(
+                    $"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Unbans the user with the given ID.
+        /// Requires backend endpoint: POST /api/admin/users/{userId}/unban
+        /// Restricted to Admin and SuperAdmin.
+        /// </summary>
+        public async Task<ApiResponse<bool>> UnbanUserAsync(int userId)
+        {
+            try
+            {
+                var response = await _http.PostAsync(
+                    $"api/admin/users/{userId}/unban", null);
+
+                if (response.IsSuccessStatusCode)
+                    return ApiResponse<bool>.Ok(true);
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<bool>.Fail(
+                    $"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
         public async Task<ApiResponse<PlatformSummaryResponseDTO>> GetAnalyticsSummaryAsync()
         {
             try
@@ -106,6 +186,29 @@ namespace Figuritas.Client.Requests
             catch (Exception ex)
             {
                 return ApiResponse<AdminUserResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Revokes admin privileges from an Admin-role user, demoting them to regular User.
+        /// Calls DELETE /api/admin/admins/{id}/role.
+        /// Restricted to SuperAdmin.
+        /// </summary>
+        public async Task<ApiResponse<bool>> RevokeAdminRoleAsync(int id)
+        {
+            try
+            {
+                var response = await _http.DeleteAsync($"api/admin/admins/{id}/role");
+
+                if (response.IsSuccessStatusCode)
+                    return ApiResponse<bool>.Ok(true);
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<bool>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
             }
         }
     }

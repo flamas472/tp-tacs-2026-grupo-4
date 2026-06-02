@@ -220,7 +220,8 @@ public class UsersController : ControllerBase
         {
             Id = user.Id,
             Username = user.Username,
-            Reputation = user.Reputation
+            Reputation = user.Reputation,
+            Banned = user.Banned
         });
     }
 
@@ -234,7 +235,8 @@ public class UsersController : ControllerBase
         {
             Id = user.Id,
             Username = user.Username,
-            Reputation = user.Reputation
+            Reputation = user.Reputation,
+            Banned = user.Banned
         });
     }
 
@@ -255,7 +257,8 @@ public class UsersController : ControllerBase
             {
                 Id = user.Id,
                 Username = user.Username,
-                Reputation = user.Reputation
+                Reputation = user.Reputation,
+                Banned = user.Banned
             };
             return Ok(response);
         }

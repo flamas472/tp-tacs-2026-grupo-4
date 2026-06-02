@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Figuritas.Api.Services;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
@@ -14,11 +15,13 @@ public class AdminController : ControllerBase
 {
     private readonly AdminAnalyticsService _analyticsService;
     private readonly AdminService _adminService;
+    private readonly AuthService _authService;
 
-    public AdminController(AdminAnalyticsService analyticsService, AdminService adminService)
+    public AdminController(AdminAnalyticsService analyticsService, AdminService adminService, AuthService authService)
     {
         _analyticsService = analyticsService;
         _adminService = adminService;
+        _authService = authService;
     }
 
     // ─── Analytics ────────────────────────────────────────────────────────────
@@ -97,6 +100,91 @@ public class AdminController : ControllerBase
         catch (ArgumentException ex)
         {
             return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Revokes admin privileges from an Admin-role user, demoting them to regular User.
+    /// Cannot be used against SuperAdmin accounts or the caller themselves.
+    /// Restricted to SuperAdmin.
+    /// </summary>
+    [HttpDelete("admins/{id}/role")]
+    [Authorize(Roles = "SuperAdmin")]
+    public ActionResult RevokeAdminRole(int id)
+    {
+        try
+        {
+            var callerSuperAdminId = _authService.GetUserIdFromToken(User);
+            _adminService.RevokeAdmin(id, callerSuperAdminId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    // ─── User management ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lists all platform users with pagination.
+    /// Accessible by Admin and SuperAdmin.
+    /// </summary>
+    [HttpGet("users")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public ActionResult<List<UserResponseDTO>> GetUsers(
+        [FromQuery][Range(1, int.MaxValue)] int page = 1,
+        [FromQuery][Range(1, 100)] int pageSize = 20)
+    {
+        var users = _adminService.GetAllUsers(page, pageSize);
+        return Ok(users);
+    }
+
+    /// <summary>
+    /// Bans a regular user account.
+    /// Accessible by Admin and SuperAdmin.
+    /// Cannot ban another administrator or oneself.
+    /// </summary>
+    [HttpPost("users/{userId}/ban")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public ActionResult BanUser(int userId)
+    {
+        try
+        {
+            var callerAdminId = _authService.GetUserIdFromToken(User);
+            _adminService.BanUser(userId, callerAdminId);
+            return Ok();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Removes the ban from a user account, restoring active status.
+    /// Accessible by Admin and SuperAdmin.
+    /// </summary>
+    [HttpPost("users/{userId}/unban")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
+    public ActionResult UnbanUser(int userId)
+    {
+        try
+        {
+            _adminService.UnbanUser(userId);
+            return Ok();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
         }
     }
 }

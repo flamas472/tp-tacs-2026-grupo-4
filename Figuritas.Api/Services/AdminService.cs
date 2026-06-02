@@ -76,6 +76,65 @@ public class AdminService
         return MapToDto(user);
     }
 
+    /// <summary>
+    /// Revokes admin privileges from a user, setting their role back to regular User.
+    /// Cannot be used to revoke a SuperAdmin's role.
+    /// </summary>
+    public void RevokeAdmin(int userId, int callerSuperAdminId)
+    {
+        if (userId == callerSuperAdminId)
+            throw new ArgumentException("Cannot revoke your own admin privileges.");
+
+        var user = _userRepo.GetById(userId)
+            ?? throw new KeyNotFoundException("User not found");
+
+        if (user.Role == UserRole.SuperAdmin)
+            throw new ArgumentException("Cannot revoke a SuperAdmin's privileges via this endpoint. Demote them to Admin first.");
+
+        if (user.Role == UserRole.User)
+            throw new ArgumentException("User does not have admin privileges.");
+
+        user.Role = UserRole.User;
+        _userRepo.Update(user);
+    }
+
+    public List<UserResponseDTO> GetAllUsers(int page, int pageSize)
+    {
+        return _userRepo.GetAllPaginated(page, pageSize)
+            .Select(u => new UserResponseDTO
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Reputation = u.Reputation,
+                Banned = u.Banned
+            })
+            .ToList();
+    }
+
+    public void BanUser(int userId, int callerAdminId)
+    {
+        if (userId == callerAdminId)
+            throw new ArgumentException("Administrators cannot ban themselves.");
+
+        var user = _userRepo.GetById(userId)
+            ?? throw new KeyNotFoundException("User not found");
+
+        if (user.Role == UserRole.Admin || user.Role == UserRole.SuperAdmin)
+            throw new ArgumentException("Cannot ban an administrator account.");
+
+        user.Banned = true;
+        _userRepo.Update(user);
+    }
+
+    public void UnbanUser(int userId)
+    {
+        var user = _userRepo.GetById(userId)
+            ?? throw new KeyNotFoundException("User not found");
+
+        user.Banned = false;
+        _userRepo.Update(user);
+    }
+
     private static AdminUserResponseDTO MapToDto(User user) => new()
     {
         Id = user.Id,

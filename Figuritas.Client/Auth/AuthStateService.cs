@@ -81,8 +81,12 @@ public class AuthStateService
             "unique_name",
             "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name") ?? string.Empty;
 
-        IsAdmin = TryGetString(doc.RootElement, "IsAdmin")
-            ?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? false;
+        // The backend emits ClaimTypes.Role ("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")
+        // with value "Admin" or "SuperAdmin". Check both the long-form and short-form "role" key.
+        var roleValue = TryGetString(doc.RootElement,
+            "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+            "role");
+        IsAdmin = roleValue == "Admin" || roleValue == "SuperAdmin";
     }
 
     private static int TryGetInt(JsonElement root, params string[] keys)
