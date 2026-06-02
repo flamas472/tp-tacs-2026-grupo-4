@@ -46,6 +46,12 @@ public class AuctionService
         return auction == null ? null : MapToDto(auction);
     }
 
+    public async Task<List<AuctionOfferResponseDTO>> GetOffersForAuctionAsync(int auctionId)
+    {
+        var offers = await _offerRepo.GetAllByAuctionIdAsync(auctionId);
+        return offers.Select(MapOfferToDto).ToList();
+    }
+
     public AuctionResponseDTO CreateAuction(int callerUserId, PostAuctionRequestDTO dto)
     {
         var us = _userStickerRepo.GetById(dto.UserStickerId);
@@ -159,6 +165,7 @@ public class AuctionService
         {
             // Mark the previous offer as superseded
             previousOffer.Status = AuctionOfferStatus.Superseded;
+            previousOffer.State = AuctionOfferState.Lost;
             _offerRepo.Update(previousOffer);
 
             // Release the stock reserved by the previous offer to avoid duplicate blocking
@@ -187,7 +194,8 @@ public class AuctionService
             AuctionId = auctionId,
             BidderId = bidderId,
             OfferedUserStickerIds = dto.OfferedUserStickerIds,
-            Status = AuctionOfferStatus.Active
+            Status = AuctionOfferStatus.Active,
+            State = AuctionOfferState.Pending
         };
 
         _offerRepo.Add(offer);
@@ -202,7 +210,66 @@ public class AuctionService
         return MapOfferToDto(offer);
     }
 
-    public async Task<AuctionResponseDTO> CloseAuction(int auctionId, int? winningOfferId, int callerUserId)
+    /// <summary>
+    /// Allows the auctioneer to manually accept a specific offer, closing the auction.
+    /// Enforces ownership, active-status, offer-membership, and pending-state guards.
+    /// Uses an atomic MongoDB update to prevent race conditions with the expiration worker.
+    /// </summary>
+    public async Task<AuctionResponseDTO> AcceptOfferAsync(int auctionId, int offerId, int callerUserId)
+    {
+        var auction = _auctionRepo.GetById(auctionId);
+        if (auction == null)
+            throw new KeyNotFoundException("Auction not found.");
+
+        // Guard: only the auctioneer can accept offers.
+        if (auction.AuctioneerId != callerUserId)
+            throw new UnauthorizedAccessException("Only the auctioneer can accept offers on their auction.");
+
+        if (auction.Status != AuctionStatus.Active)
+            throw new InvalidOperationException("The auction is not active.");
+
+        // Guard: the offer must belong to this auction.
+        var offer = _offerRepo.GetById(offerId);
+        if (offer == null || offer.AuctionId != auctionId)
+            throw new KeyNotFoundException("The specified offer does not belong to this auction.");
+
+        // Guard: only Pending offers can be accepted.
+        if (offer.State != AuctionOfferState.Pending)
+            throw new InvalidOperationException("The offer is no longer pending and cannot be accepted.");
+
+        // Persist the auctioneer's explicit choice using a partial $set update conditioned on
+        // Status == Active.  This avoids replacing the full document (which would reinstate
+        // Status = Active if a concurrent worker already moved it to Closed/Cancelled).
+        // ModifiedCount == 0 means the auction is already in a terminal state → abort.
+        var selectionPersisted = await _auctionRepo.TrySetUserSelectedBestOfferAsync(auctionId, offerId);
+        if (!selectionPersisted)
+            throw new InvalidOperationException("Auction is no longer active and cannot be accepted.");
+
+        // Atomic close: Active → Closed in MongoDB.
+        // If ModifiedCount == 0, the worker closed the auction between our $set and this call.
+        // The worker will use UserSelectedBestOfferId (just persisted) as the winning offer,
+        // so we can abort gracefully — the correct winner is already guaranteed.
+        var claimed = await _auctionRepo.TryCloseAuctionAtomicallyAsync(auctionId);
+        if (!claimed)
+            throw new InvalidOperationException("Auction is no longer active and cannot be accepted.");
+
+        // Finalize: transition offer states and transfer inventory.
+        await FinalizeClosedAuctionAsync(auctionId, winningOfferId: offerId);
+
+        return MapToDto(_auctionRepo.GetById(auctionId)!);
+    }
+
+    /// <summary>
+    /// Closes an expired auction automatically (called by the background worker, not by the auctioneer).
+    /// Applies priority logic:
+    ///   A) UserSelectedBestOfferId != null → that offer wins.
+    ///   B) BestCurrentOfferId != null → system-ranked best offer wins.
+    ///   C) No pending offers → auction is cancelled, auctioneer's stock restored.
+    ///
+    /// Uses an atomic MongoDB update to prevent race conditions with manual acceptance.
+    /// Virtual to allow unit-test mocking without requiring an interface extraction.
+    /// </summary>
+    public virtual async Task<AuctionResponseDTO> CloseAuctionAutomatically(int auctionId)
     {
         var auction = _auctionRepo.GetById(auctionId);
         if (auction == null)
@@ -211,14 +278,73 @@ public class AuctionService
         if (auction.Status != AuctionStatus.Active)
             throw new InvalidOperationException("The auction is not active.");
 
+        // Determine winning offer using priority order.
+        int? winningOfferId = auction.UserSelectedBestOfferId ?? auction.BestCurrentOfferId;
+
+        if (winningOfferId == null)
+        {
+            // Case C: no offers — cancel the auction and restore auctioneer's stock.
+            var cancelled = await _auctionRepo.TryCancelAuctionAtomicallyAsync(auctionId);
+            if (!cancelled)
+                throw new InvalidOperationException("Auction is no longer active.");
+
+            var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
+            if (auctionedSticker != null)
+            {
+                auctionedSticker.Quantity++;
+                auctionedSticker.Active = true;
+                _userStickerRepo.Update(auctionedSticker);
+            }
+        }
+        else
+        {
+            // Cases A & B: close and finalize with a winner.
+            var closed = await _auctionRepo.TryCloseAuctionAtomicallyAsync(auctionId);
+            if (!closed)
+                throw new InvalidOperationException("Auction is no longer active.");
+
+            await FinalizeClosedAuctionAsync(auctionId, winningOfferId);
+        }
+
+        return MapToDto(_auctionRepo.GetById(auctionId)!);
+    }
+
+    /// <summary>
+    /// Legacy endpoint: auctioneer closes their auction with an optional explicit winner.
+    /// Preserved for backward compatibility with the existing POST /api/auctions/{id}/close endpoint.
+    /// </summary>
+    public async Task<AuctionResponseDTO> CloseAuction(int auctionId, int? winningOfferId, int callerUserId)
+    {
+        var auction = _auctionRepo.GetById(auctionId);
+        if (auction == null)
+            throw new KeyNotFoundException("Auction not found.");
+
+        // Ownership validation before any side-effects.
         if (auction.AuctioneerId != callerUserId)
             throw new InvalidOperationException("Only the auctioneer can close their own auction.");
 
-        var allOffers = await _offerRepo.GetByAuctionIdAsync(auctionId);
+        // Atomic close: transition Active → Closed/Cancelled BEFORE executing any side-effects.
+        // This prevents a double-execution scenario where a concurrent worker closes the auction
+        // between our in-memory status check and the final Update, which would cause all
+        // inventory side-effects (stock transfers, offer state changes) to run twice.
+        bool atomicallyClosed;
+        if (winningOfferId == null)
+        {
+            atomicallyClosed = await _auctionRepo.TryCancelAuctionAtomicallyAsync(auctionId);
+        }
+        else
+        {
+            atomicallyClosed = await _auctionRepo.TryCloseAuctionAtomicallyAsync(auctionId);
+        }
+
+        if (!atomicallyClosed)
+            throw new InvalidOperationException("The auction is not active.");
+
+        var allOffers = await _offerRepo.GetAllByAuctionIdAsync(auctionId);
 
         if (winningOfferId == null || !allOffers.Any())
         {
-            // No winner: return reserved stock of auctioned sticker to seller
+            // No winner: return reserved stock of auctioned sticker to seller.
             var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
             if (auctionedSticker != null)
             {
@@ -232,6 +358,9 @@ public class AuctionService
             var activeOffers = allOffers.Where(o => o.Status == AuctionOfferStatus.Active).ToList();
             foreach (var offer in activeOffers)
             {
+                offer.State = AuctionOfferState.Lost;
+                _offerRepo.Update(offer);
+
                 var bidderStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(offer.OfferedUserStickerIds);
                 foreach (var bidderSticker in bidderStickers)
                 {
@@ -243,11 +372,11 @@ public class AuctionService
         }
         else
         {
-            // There is a winner
+            // There is a winner.
             var winningOffer = allOffers.FirstOrDefault(o => o.Id == winningOfferId)
                 ?? throw new InvalidOperationException("The specified winning offer was not found for this auction.");
 
-            // Transfer auctioned sticker (reserved/inactive) to winner's inventory
+            // Transfer auctioned sticker (reserved/inactive) to winner's inventory.
             var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
             if (auctionedSticker != null)
             {
@@ -274,7 +403,7 @@ public class AuctionService
                 }
             }
 
-            // Transfer winning offer stickers (reserved/inactive) to auctioneer
+            // Transfer winning offer stickers (reserved/inactive) to auctioneer.
             var winningStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(winningOffer.OfferedUserStickerIds);
             foreach (var winningSticker in winningStickers)
             {
@@ -301,7 +430,7 @@ public class AuctionService
                 }
             }
 
-            // Automation: clean up MissingStickers for winner and auctioneer
+            // Automation: clean up MissingSticker records for winner and auctioneer.
             if (auctionedSticker != null)
             {
                 await _missingStickerRepo.DeleteAsync(winningOffer.BidderId, auctionedSticker.Sticker.Id);
@@ -311,6 +440,10 @@ public class AuctionService
                 await _missingStickerRepo.DeleteAsync(auction.AuctioneerId, winningSticker.Sticker.Id);
             }
 
+            // Mark winning offer as Won.
+            winningOffer.State = AuctionOfferState.Won;
+            _offerRepo.Update(winningOffer);
+
             // Return losing bidders' reserved stickers.
             // Skip Superseded offers: their stock was already released when they were superseded.
             var losingOffers = allOffers
@@ -318,6 +451,9 @@ public class AuctionService
                 .ToList();
             foreach (var losingOffer in losingOffers)
             {
+                losingOffer.State = AuctionOfferState.Lost;
+                _offerRepo.Update(losingOffer);
+
                 var loserStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(losingOffer.OfferedUserStickerIds);
                 foreach (var loserSticker in loserStickers)
                 {
@@ -328,31 +464,147 @@ public class AuctionService
             }
         }
 
-        auction.Status = AuctionStatus.Closed;
-        _auctionRepo.Update(auction);
-
-        return MapToDto(auction);
+        // The atomic operation already persisted the terminal status; reload to return current state.
+        return MapToDto(_auctionRepo.GetById(auctionId)!);
     }
 
     /// <summary>
-    /// Closes an expired auction automatically (called by the background worker, not by the auctioneer).
-    /// Applies exactly the same business rules as <see cref="CloseAuction"/> but:
-    /// - Skips the caller-ownership check (the worker has no user identity).
-    /// - Automatically selects the winner based on <see cref="Auction.BestCurrentOfferId"/>.
-    /// Virtual to allow unit-test mocking without requiring an interface extraction.
+    /// Core finalization logic shared by <see cref="AcceptOfferAsync"/> and
+    /// <see cref="CloseAuctionAutomatically"/>. Called after the auction status has
+    /// already been atomically transitioned to Closed.
+    ///
+    /// Responsibilities:
+    /// - Marks the winning offer as <see cref="AuctionOfferState.Won"/>.
+    /// - Marks all other Pending offers as <see cref="AuctionOfferState.Lost"/> and restores
+    ///   their bidders' reserved stock (Quantity++, Active = true).
+    /// - Transfers the auctioned sticker to the winner's inventory.
+    /// - Transfers the winning offer's stickers to the auctioneer's inventory.
+    /// - Cleans up MissingSticker records for both parties.
     /// </summary>
-    public virtual async Task<AuctionResponseDTO> CloseAuctionAutomatically(int auctionId)
+    private async Task FinalizeClosedAuctionAsync(int auctionId, int? winningOfferId)
     {
-        var auction = _auctionRepo.GetById(auctionId);
-        if (auction == null)
-            throw new KeyNotFoundException("Auction not found.");
+        var auction = _auctionRepo.GetById(auctionId)
+            ?? throw new KeyNotFoundException($"Auction {auctionId} not found during finalization.");
 
-        if (auction.Status != AuctionStatus.Active)
-            throw new InvalidOperationException("The auction is not active.");
+        var allOffers = await _offerRepo.GetAllByAuctionIdAsync(auctionId);
 
-        // Delegate to the shared closure logic using the recorded best offer as winner.
-        // Passing callerUserId = auction.AuctioneerId satisfies the ownership guard in CloseAuction.
-        return await CloseAuction(auctionId, auction.BestCurrentOfferId, auction.AuctioneerId);
+        if (winningOfferId == null || !allOffers.Any(o => o.State == AuctionOfferState.Pending))
+        {
+            // Desert auction: restore auctioneer's stock and mark all pending offers as Lost.
+            var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
+            if (auctionedSticker != null)
+            {
+                auctionedSticker.Quantity++;
+                auctionedSticker.Active = true;
+                _userStickerRepo.Update(auctionedSticker);
+            }
+
+            var pendingOffers = allOffers.Where(o => o.State == AuctionOfferState.Pending).ToList();
+            foreach (var offer in pendingOffers)
+            {
+                offer.State = AuctionOfferState.Lost;
+                _offerRepo.Update(offer);
+
+                var bidderStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(offer.OfferedUserStickerIds);
+                foreach (var bidderSticker in bidderStickers)
+                {
+                    bidderSticker.Quantity++;
+                    bidderSticker.Active = true;
+                    _userStickerRepo.Update(bidderSticker);
+                }
+            }
+            return;
+        }
+
+        var winningOffer = allOffers.FirstOrDefault(o => o.Id == winningOfferId)
+            ?? throw new InvalidOperationException($"Winning offer {winningOfferId} not found for auction {auctionId}.");
+
+        // Transfer auctioned sticker (reserved/inactive) to winner's inventory.
+        var auctionedStickerForTransfer = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
+        if (auctionedStickerForTransfer != null)
+        {
+            var winnerExisting = _userStickerRepo.GetByUserId(winningOffer.BidderId)
+                .FirstOrDefault(s => s.Sticker.Id == auctionedStickerForTransfer.Sticker.Id);
+            if (winnerExisting != null)
+            {
+                winnerExisting.Quantity++;
+                winnerExisting.Active = true;
+                _userStickerRepo.Update(winnerExisting);
+            }
+            else
+            {
+                var newWinnerSticker = new UserSticker
+                {
+                    Sticker = auctionedStickerForTransfer.Sticker,
+                    UserId = winningOffer.BidderId,
+                    Quantity = 1,
+                    Active = true,
+                    CanBeDirectlyExchanged = false,
+                    CanBeAuctioned = false
+                };
+                _userStickerRepo.Add(newWinnerSticker);
+            }
+        }
+
+        // Transfer winning offer stickers (reserved/inactive) to auctioneer.
+        var winningStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(winningOffer.OfferedUserStickerIds);
+        foreach (var winningSticker in winningStickers)
+        {
+            var auctioneerExisting = _userStickerRepo.GetByUserId(auction.AuctioneerId)
+                .FirstOrDefault(s => s.Sticker.Id == winningSticker.Sticker.Id);
+            if (auctioneerExisting != null)
+            {
+                auctioneerExisting.Quantity++;
+                auctioneerExisting.Active = true;
+                _userStickerRepo.Update(auctioneerExisting);
+            }
+            else
+            {
+                var newAuctioneerSticker = new UserSticker
+                {
+                    Sticker = winningSticker.Sticker,
+                    UserId = auction.AuctioneerId,
+                    Quantity = 1,
+                    Active = true,
+                    CanBeDirectlyExchanged = false,
+                    CanBeAuctioned = false
+                };
+                _userStickerRepo.Add(newAuctioneerSticker);
+            }
+        }
+
+        // Clean up MissingSticker records for winner and auctioneer.
+        if (auctionedStickerForTransfer != null)
+        {
+            await _missingStickerRepo.DeleteAsync(winningOffer.BidderId, auctionedStickerForTransfer.Sticker.Id);
+        }
+        foreach (var winningSticker in winningStickers)
+        {
+            await _missingStickerRepo.DeleteAsync(auction.AuctioneerId, winningSticker.Sticker.Id);
+        }
+
+        // Mark winning offer as Won.
+        winningOffer.State = AuctionOfferState.Won;
+        _offerRepo.Update(winningOffer);
+
+        // Mark all remaining Pending offers as Lost and restore their stock.
+        // Superseded offers already had their stock released at supersession time.
+        var losingOffers = allOffers
+            .Where(o => o.Id != winningOfferId && o.State == AuctionOfferState.Pending)
+            .ToList();
+        foreach (var losingOffer in losingOffers)
+        {
+            losingOffer.State = AuctionOfferState.Lost;
+            _offerRepo.Update(losingOffer);
+
+            var loserStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(losingOffer.OfferedUserStickerIds);
+            foreach (var loserSticker in loserStickers)
+            {
+                loserSticker.Quantity++;
+                loserSticker.Active = true;
+                _userStickerRepo.Update(loserSticker);
+            }
+        }
     }
 
     /// <summary>
@@ -375,11 +627,11 @@ public class AuctionService
         var auctioneerMissingIds = (await _missingStickerRepo.GetStickerIdsByUserIdAsync(auction.AuctioneerId))
                                    .ToHashSet();
 
-        // Batch 2: all active offers for this auction.
-        var allOffers = await _offerRepo.GetByAuctionIdAsync(auction.Id);
-        var activeOffers = allOffers.Where(o => o.Status == AuctionOfferStatus.Active).ToList();
+        // Batch 2: all Pending offers for this auction (server-side filtered).
+        var activeOffers = await _offerRepo.GetByAuctionIdAsync(auction.Id);
+        var rankableOffers = activeOffers.Where(o => o.Status == AuctionOfferStatus.Active).ToList();
 
-        if (activeOffers.Count == 0)
+        if (rankableOffers.Count == 0)
         {
             auction.BestCurrentOfferId = null;
             _auctionRepo.Update(auction);
@@ -387,7 +639,7 @@ public class AuctionService
         }
 
         // Batch 3: all UserStickers referenced by active offers in a single query.
-        var allOfferedIds = activeOffers
+        var allOfferedIds = rankableOffers
             .SelectMany(o => o.OfferedUserStickerIds)
             .Distinct()
             .ToList();
@@ -397,7 +649,7 @@ public class AuctionService
             .ToDictionary(us => us.Id);
 
         // Rank each offer by the three criteria.
-        var bestOffer = activeOffers
+        var bestOffer = rankableOffers
             .OrderByDescending(o =>
             {
                 // Criterion 1: count of the auctioneer's missing stickers covered by this offer.
@@ -434,6 +686,7 @@ public class AuctionService
         AuctionId = offer.AuctionId,
         BidderId = offer.BidderId,
         OfferedUserStickerIds = offer.OfferedUserStickerIds,
-        CreatedAt = offer.CreatedAt
+        CreatedAt = offer.CreatedAt,
+        State = offer.State.ToString()
     };
 }

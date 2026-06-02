@@ -131,4 +131,46 @@ public class AuctionRepository : IAuctionRepository
         var result = await _auctions.UpdateOneAsync(filter, update);
         return result.ModifiedCount == 1;
     }
+
+    /// <inheritdoc/>
+    public async Task<bool> TryCloseAuctionAtomicallyAsync(int auctionId)
+    {
+        // Guard: only transition from Active → Closed.
+        // If another process (e.g., the expiration worker) already closed this auction,
+        // ModifiedCount == 0 and the caller should abort gracefully.
+        var filter = Builders<Auction>.Filter.And(
+            Builders<Auction>.Filter.Eq(a => a.Id, auctionId),
+            Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active)
+        );
+        var update = Builders<Auction>.Update.Set(a => a.Status, AuctionStatus.Closed);
+        var result = await _auctions.UpdateOneAsync(filter, update);
+        return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> TryCancelAuctionAtomicallyAsync(int auctionId)
+    {
+        var filter = Builders<Auction>.Filter.And(
+            Builders<Auction>.Filter.Eq(a => a.Id, auctionId),
+            Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active)
+        );
+        var update = Builders<Auction>.Update.Set(a => a.Status, AuctionStatus.Cancelled);
+        var result = await _auctions.UpdateOneAsync(filter, update);
+        return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> TrySetUserSelectedBestOfferAsync(int auctionId, int offerId)
+    {
+        // Partial $set update — only writes UserSelectedBestOfferId, never touches Status or
+        // any other field.  The Status == Active guard ensures we do not overwrite a document
+        // that a concurrent worker has already moved to Closed/Cancelled.
+        var filter = Builders<Auction>.Filter.And(
+            Builders<Auction>.Filter.Eq(a => a.Id, auctionId),
+            Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active)
+        );
+        var update = Builders<Auction>.Update.Set(a => a.UserSelectedBestOfferId, offerId);
+        var result = await _auctions.UpdateOneAsync(filter, update);
+        return result.ModifiedCount == 1;
+    }
 }

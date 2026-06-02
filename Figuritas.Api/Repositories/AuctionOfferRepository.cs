@@ -30,6 +30,14 @@ public class AuctionOfferRepository : IAuctionOfferRepository
                 .Ascending(o => o.BidderId)
                 .Ascending(o => o.Status),
             new CreateIndexOptions { Name = "idx_auctionoffer_auction_bidder_status" }));
+
+        // Compound index: AuctionId + State — accelerates the server-side filter in
+        // GetByAuctionIdAsync (Pending offers only) and closure bulk updates.
+        _offers.Indexes.CreateOne(new CreateIndexModel<AuctionOffer>(
+            Builders<AuctionOffer>.IndexKeys
+                .Ascending(o => o.AuctionId)
+                .Ascending(o => o.State),
+            new CreateIndexOptions { Name = "idx_auctionoffer_auction_state" }));
     }
 
     public List<AuctionOffer> GetAll() => _offers.Find(_ => true).ToList();
@@ -49,7 +57,19 @@ public class AuctionOfferRepository : IAuctionOfferRepository
             throw new ArgumentException("AuctionOffer not found");
     }
 
+    /// <inheritdoc/>
     public async Task<List<AuctionOffer>> GetByAuctionIdAsync(int auctionId)
+    {
+        // Server-side filter: only Pending offers. Backed by idx_auctionoffer_auction_state.
+        var filter = Builders<AuctionOffer>.Filter.And(
+            Builders<AuctionOffer>.Filter.Eq(o => o.AuctionId, auctionId),
+            Builders<AuctionOffer>.Filter.Eq(o => o.State, AuctionOfferState.Pending)
+        );
+        return await _offers.Find(filter).ToListAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<AuctionOffer>> GetAllByAuctionIdAsync(int auctionId)
     {
         var filter = Builders<AuctionOffer>.Filter.Eq(o => o.AuctionId, auctionId);
         return await _offers.Find(filter).ToListAsync();

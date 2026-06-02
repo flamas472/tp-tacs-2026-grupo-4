@@ -30,4 +30,32 @@ public interface IAuctionRepository
     /// Prevents multiple worker instances from closing the same auction simultaneously.
     /// </summary>
     Task<bool> TryClaimAutomaticClosureAsync(int auctionId);
+
+    /// <summary>
+    /// Atomically transitions the auction from <see cref="AuctionStatus.Active"/> to
+    /// <see cref="AuctionStatus.Closed"/> using a MongoDB filter that includes the
+    /// current status as a condition.
+    /// Returns true if the update was applied (the auction was Active and is now Closed).
+    /// Returns false if the auction was already in a terminal state (Closed or Cancelled),
+    /// which indicates a concurrent closure won the race — the caller should abort gracefully.
+    /// </summary>
+    Task<bool> TryCloseAuctionAtomicallyAsync(int auctionId);
+
+    /// <summary>
+    /// Atomically transitions the auction from <see cref="AuctionStatus.Active"/> to
+    /// <see cref="AuctionStatus.Cancelled"/> using a MongoDB filter that includes the
+    /// current status as a condition.
+    /// Returns true if the update was applied; false if already in a terminal state.
+    /// </summary>
+    Task<bool> TryCancelAuctionAtomicallyAsync(int auctionId);
+
+    /// <summary>
+    /// Atomically sets <c>UserSelectedBestOfferId</c> to <paramref name="offerId"/> only if the
+    /// auction is still <see cref="AuctionStatus.Active"/>.
+    /// Uses a MongoDB <c>$set</c> partial update (not a full document replace) so that a concurrent
+    /// worker closure of the same auction does not get overwritten.
+    /// Returns true if the field was updated (auction was Active); false if the auction is already
+    /// in a terminal state, meaning the caller should abort without proceeding to close.
+    /// </summary>
+    Task<bool> TrySetUserSelectedBestOfferAsync(int auctionId, int offerId);
 }

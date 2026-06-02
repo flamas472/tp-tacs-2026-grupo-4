@@ -81,6 +81,14 @@ public class AuctionsController : ControllerBase
         }
     }
 
+    [HttpGet("{auctionId}/offers")]
+    [AllowAnonymous]
+    public async Task<ActionResult<List<AuctionOfferResponseDTO>>> GetAuctionOffers(int auctionId)
+    {
+        var offers = await _auctionService.GetOffersForAuctionAsync(auctionId);
+        return Ok(offers);
+    }
+
     [HttpPost("{auctionId}/offers")]
     public async Task<ActionResult<AuctionOfferResponseDTO>> PostAuctionOffer(int auctionId, [FromBody] PostAuctionOfferRequestDTO dto)
     {
@@ -93,6 +101,29 @@ public class AuctionsController : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("{auctionId}/offers/{offerId}/accept")]
+    public async Task<ActionResult<AuctionResponseDTO>> AcceptOffer(int auctionId, int offerId)
+    {
+        try
+        {
+            var callerUserId = _authService.GetUserIdFromToken(User);
+            var auction = await _auctionService.AcceptOfferAsync(auctionId, offerId, callerUserId);
+            return Ok(auction);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
         }
         catch (InvalidOperationException ex)
         {
