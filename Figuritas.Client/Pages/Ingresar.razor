@@ -4,13 +4,13 @@
 @inject AuthStateService AuthState
 @inject NavigationManager Nav
 
-<PageTitle>Ingresar — Figuritas</PageTitle>
+<PageTitle>Ingresar — FiguriTACS</PageTitle>
 
 <div class="login-wrapper">
     <MudPaper Class="login-card" Elevation="4">
         <div class="login-header">
             <MudIcon Icon="@Icons.Material.Filled.Style" Size="Size.Large" Color="Color.Primary" />
-            <MudText Typo="Typo.h5" Class="mt-1">Figuritas</MudText>
+            <MudText Typo="Typo.h5" Class="mt-1">Figuri<span style="color:var(--mud-palette-primary);font-weight:800">TACS</span></MudText>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-1">Gestioná tu colección</MudText>
         </div>
 
@@ -81,7 +81,7 @@
                 <div class="password-requirements mb-3">
                     <span class="@ReqClass(PwLen)">
                         <MudIcon Icon="@ReqIcon(PwLen)" Size="Size.Small" />
-                        Más de 8 caracteres
+                        Al menos 8 caracteres
                     </span>
                     <span class="@ReqClass(PwUpper)">
                         <MudIcon Icon="@ReqIcon(PwUpper)" Size="Size.Small" />
@@ -139,7 +139,7 @@
     private string _registerConfirm = "";
     private string? _registerError;
 
-    private bool PwLen   => _registerPassword.Length > 8;
+    private bool PwLen   => _registerPassword.Length >= 8;
     private bool PwUpper => _registerPassword.Any(char.IsUpper);
     private bool PwDigit => _registerPassword.Any(char.IsDigit);
     private bool PwLower => _registerPassword.Any(char.IsLower);
