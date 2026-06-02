@@ -17,19 +17,19 @@ La solución está dividida en 2 partes principales:
 - **Código compartido**: `Figuritas.Shared`
   - Contiene los modelos y tipos usados por la API y por el cliente.
 
+## Variables de entorno
+crear un el archivo `.env` en la raiz del proyecto con los siguientes datos
+Estos valores deben ser secretos en producción, usar otro valor y no subirlo a ningún repositorio.
+```bash
+JWT_KEY=ClaveS3cr3t4SuperLargaDeAlMenos32Caracteres
+```
+
 ## Ejecución con Docker Compose
 
 Para levantar el sistema se usa `docker-compose`.
 
 - El backend se expone en el puerto **5000** del equipo. La URL raíz redirige a la documentación swagger.
 - El frontend se expone en el puerto **5001** del equipo.
-
-### Variables de entorno
-crear un el archivo `.env` en la raiz del proyecto con los siguientes datos
-Estos valores deben ser secretos en producción, usar otro valor y no subirlo a ningún repositorio.
-```bash
-JWT_KEY=ClaveS3cr3t4SuperLargaDeAlMenos32Caracteres
-```
 
 ### Comando (ejecuta entorno de desarrollo por defecto)
 ```bash
@@ -90,12 +90,13 @@ ejecutar `dotnet watch run` para ejecutar con hot reload para ver cambios en tim
  - Utilizamos GitHub Copilot para realizar refactorizaciones importantes a la solución que de forma manual hubieran llevado mucho más tiempo y complicaciones.
  - Utilizamos Gemini para consultas generales de arquitectura, ecosistema .NET, sintaxis de C#, buenas prácticas y organización del proyecto.
  - Utilizamos Gemini para generar porciones de código a modo de plantilla para introducirnos a conceptos y al lenguaje que los integrantes del equipo utilizamos por primera vez.
+ - Utilizamos Claude con VSCode para creación de código para terminar api, tests y para la creación de UI.
 
 
-## Decisiones de diseño
+## Decisiones de diseño (PENDIENTE ACTUALIZACIOONO)
  - Como equipo, decidimos implementar la solución utilizando el ecosistema .NET por interés particular y porque tiene todas las herramientas necesarias para cumplir con todos los requisitos del trabajo práctico utilizando un único lenguaje de programación: C#.
   - Utilizamos ASP.NET Core 10 como framework principal para implementar el backend (API REST).
-  - Utilizamos Blazor WebAssembly (WASM) como framework principal para implementar el frontend. Blazor permite ejecutar código C# directamente en el navegador del cliente a través de un entorno de ejecución binario. Este framework incorpora la sintaxis Razor que permite combinar HTML y C# para crear componentes dinámicos e interactivos. **TODO: actualmente el frontend utiliza bootstrap, pero posiblemente cambiemos a Tailwind**.
+  - Utilizamos Blazor WebAssembly (WASM) como framework principal para implementar el frontend. Blazor permite ejecutar código C# directamente en el navegador del cliente a través de un entorno de ejecución binario. Este framework incorpora la sintaxis Razor que permite combinar HTML y C# para crear componentes dinámicos e interactivos.
  - Para servir la aplicación frontend (client-side SPA) incluimos `nginx` que también hace de proxy reverso para las consultas HTTP REST que deben dirigirse a la API backend.
  - Separamos la lógica de modelo en el proyecto Shared que puede ser utilizado por los proyectos Figuritas.Api (backend) y Figuritas.Client (frontend).
  - Aprovechamos el motor de Inyección de Dependencias nativo de .NET para gestionar el ciclo de vida de los servicios y el estado de la aplicación. Esto desacopla la lógica de negocio y evita problemas comunes de otros frameworks como el prop drilling en React, eliminando la necesidad de hooks complejos para el manejo de servicios globales.
