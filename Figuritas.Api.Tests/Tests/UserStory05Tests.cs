@@ -578,6 +578,108 @@ public class UserStory05Tests : IAsyncLifetime
         Assert.Equal("Cancelled", result!.State);
     }
 
+    /// <summary>
+    /// GAP-06 — Concurrency: double simultaneous accept of the same ExchangeProposal.
+    ///
+    /// Two requests fire POST /api/exchange-proposals/{id}/accept at the same time.
+    /// The AcceptProposalAtomically guard (MongoDB $set conditioned on State == Pending) ensures
+    /// that exactly one request transitions the proposal to Accepted and the other receives a
+    /// controlled error (409 Conflict or 400 BadRequest).
+    ///
+    /// Invariants verified after both tasks complete:
+    ///   1. Exactly one accept succeeded (HTTP 200).
+    ///   2. The proposal state is "Accepted".
+    ///   3. The stock of UserA and UserB is correct — no double-transfer.
+    /// </summary>
+    [Fact]
+    public async Task Concurrency_DoubleAccept_OnlyOneSucceeds_StockCorrect()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"us05_da_a_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us05_da_b_{suffix}", "password123");
+        var tokenA = await LoginAsync($"us05_da_a_{suffix}", "password123");
+        var tokenB = await LoginAsync($"us05_da_b_{suffix}", "password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(tokenB);
+
+        // Use quantity=1 so any double-transfer is detectable (quantity would become negative or wrong)
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+        var stickerX = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id, quantity: 1);
+        var stickerY = await PublishStickerAsync(clientB, userB.Id, catalogStickers[1 % catalogStickers.Count].Id, quantity: 1);
+
+        var proposalDto = new PostExchangeProposalRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerX.Id },
+            RequestedUserStickerId = stickerY.Id,
+            ProposedUserId = userB.Id
+        };
+        var createResponse = await clientA.PostAsJsonAsync("/api/exchange-proposals", proposalDto);
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(created);
+
+        // Fire two simultaneous accept requests from two different clients for userB
+        var clientB1 = ClientWithToken(tokenB);
+        var clientB2 = ClientWithToken(tokenB);
+
+        var task1 = clientB1.PostAsync($"/api/exchange-proposals/{created!.Id}/accept", null);
+        var task2 = clientB2.PostAsync($"/api/exchange-proposals/{created.Id}/accept", null);
+
+        await Task.WhenAll(task1, task2);
+
+        var r1 = await task1;
+        var r2 = await task2;
+
+        // Invariant 1: exactly one request must have succeeded (HTTP 200 OK)
+        var successCount = new[] { r1.StatusCode, r2.StatusCode }
+            .Count(s => s == HttpStatusCode.OK);
+        Assert.Equal(1, successCount);
+
+        // The other must be a controlled error (400 or 409 — not 500)
+        var errorStatus = r1.StatusCode == HttpStatusCode.OK ? r2.StatusCode : r1.StatusCode;
+        Assert.True(
+            errorStatus == HttpStatusCode.BadRequest || errorStatus == HttpStatusCode.Conflict,
+            $"Expected 400 or 409 for second accept but got {(int)errorStatus}.");
+
+        // Invariant 2: proposal state must be "Accepted"
+        var getResponse = await clientA.GetAsync($"/api/exchange-proposals/{created.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var proposal = await getResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(proposal);
+        Assert.Equal("Accepted", proposal!.State);
+
+        // Invariant 3: stock must be coherent — no double transfer.
+        // stickerX (UserA offered, qty=1): after reservation it was qty=0. After trade, it moves to UserB.
+        // stickerY (UserB offered, qty=1): after trade it moves to UserA.
+        // UserA should now have stickerY (or an equivalent for catalogStickers[1]).
+        // UserA should NOT still see stickerX as active (transferred to B).
+        var stickerXAfter = await clientA.GetAsync($"/api/users/{userA.Id}/stickers/{stickerX.Id}");
+        // stickerX was offered and accepted → quantity=0, Active=false
+        // GetById filters Active=true, so it may return 404 or a sticker with qty=0
+        // Either outcome is acceptable (stock not doubled)
+        if (stickerXAfter.StatusCode == HttpStatusCode.OK)
+        {
+            var xDto = await stickerXAfter.Content.ReadFromJsonAsync<UserStickerResponseDTO>(
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            // If still visible, quantity must be 0 (fully consumed)
+            Assert.True(xDto == null || xDto.Quantity == 0,
+                $"stickerX should be consumed but Quantity={xDto?.Quantity}.");
+        }
+
+        // stickerY belongs to UserB; after trade it was decremented. Check it is not double-decremented.
+        var stickerYAfter = await clientB.GetAsync($"/api/users/{userB.Id}/stickers/{stickerY.Id}");
+        if (stickerYAfter.StatusCode == HttpStatusCode.OK)
+        {
+            var yDto = await stickerYAfter.Content.ReadFromJsonAsync<UserStickerResponseDTO>(
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            // yDto.Quantity must be >= 0 (not negative from double-decrement)
+            Assert.True(yDto == null || yDto.Quantity >= 0,
+                $"stickerY quantity cannot be negative but got {yDto?.Quantity}.");
+        }
+    }
+
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────
 
     public async Task InitializeAsync() => await _factory.CleanMutableCollectionsAsync();

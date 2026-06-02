@@ -24,5 +24,6 @@ public interface IUserStickerRepository
     List<UserSticker> GetByStickerIds(List<int> stickerIds, int excludeUserId);
     List<UserSticker> GetByUserId(int userId);
     List<UserSticker> GetByUserId(int userId, IClientSessionHandle session);
+    Task<UserSticker?> GetByUserIdAndCatalogIdIncludingInactiveAsync(int userId, int catalogStickerId);
     List<UserSticker> GetByUserIdPaginated(int userId, int page, int pageSize);
 }

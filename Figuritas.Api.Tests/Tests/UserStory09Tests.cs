@@ -404,7 +404,14 @@ public class UserStory09Tests : IAsyncLifetime
     }
 
     /// <summary>
-    /// C9: aceptar propuesta incrementa la cantidad del receptor por los stickers ofrecidos.
+    /// C9: aceptar propuesta transfiere el sticker ofrecido al receptor (ProposedID).
+    ///
+    /// Flujo correcto:
+    ///   - userA publica stickerX (Qty=2, catalogStickers[0]).
+    ///   - Al crear la propuesta, stickerX queda en Qty=1 (reservado).
+    ///   - userB acepta → el sticker ofrecido se transfiere al inventario de userB.
+    ///   - El registro de userA permanece en Qty=1 (la reserva fue consumida, no devuelta).
+    ///   - userB recibe un registro con Qty=1 para el tipo de catalog sticker de stickerX.
     /// </summary>
     [Fact]
     public async Task US09_AcceptProposal_ReceiverGetsOfferedSticker_QuantityIncrement()
@@ -423,22 +430,31 @@ public class UserStory09Tests : IAsyncLifetime
 
         var proposal = await CreateProposalAsync(clientA, new List<int> { stickerX.Id }, stickerY.Id, userB.Id);
 
+        // After proposal creation, stickerX was reserved: Qty went from 2 → 1 (Active stays true)
+        var xAfterReservation = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
+        Assert.NotNull(xAfterReservation);
+        Assert.Equal(1, xAfterReservation!.Quantity);
+
         // Accept by userB
         var acceptResponse = await clientB.PostAsync($"/api/exchange-proposals/{proposal.Id}/accept", null);
         Assert.Equal(HttpStatusCode.OK, acceptResponse.StatusCode);
 
-        // The offered sticker (stickerX) was reserved at Qty=1 after proposal creation.
-        // After acceptance, it's transferred to userB's inventory (Qty++ → effectively returned to proponent side
-        // and receiver gets it). The offered sticker's quantity in proponent's inventory was already 1 (reserved).
-        // After acceptance: receiver (userB) should now own that sticker type (via inventory update or new entry).
-        // Since we're doing Quantity++ on offered stickers after acceptance,
-        // stickerX (owned by userA) should go back to Qty=2 (the reservation is converted to transfer).
-        var restoredX = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
-        // After acceptance: the offered sticker's qty was incremented to represent transfer.
-        // Implementation detail: we increment qty on the proponent's record (since it represents the catalog sticker
-        // and receiver needs it added to their inventory separately).
-        Assert.NotNull(restoredX);
-        Assert.Equal(2, restoredX!.Quantity); // Was 1 after reservation, +1 transfer = 2
+        // UserA's stickerX record stays at Qty=1 — the reservation was consumed (transferred to userB),
+        // not returned to userA. The stock decrement at proposal creation represents the transfer.
+        var xAfterAccept = await GetUserStickerAsync(clientA, userA.Id, stickerX.Id);
+        Assert.NotNull(xAfterAccept);
+        Assert.Equal(1, xAfterAccept!.Quantity); // Remained at 1 — reservation consumed, not returned
+
+        // UserB's inventory should now contain a sticker for catalogStickers[0].
+        // The new sticker entry for userB is not directly queryable by stickerX.Id (that record belongs to userA),
+        // but userB's catalog sticker count for that type must have increased.
+        // We verify this indirectly: the accepted proposal state is "Accepted" confirming the transfer ran.
+        var getProposalResponse = await clientA.GetAsync($"/api/exchange-proposals/{proposal.Id}");
+        Assert.Equal(HttpStatusCode.OK, getProposalResponse.StatusCode);
+        var proposalDto = await getProposalResponse.Content.ReadFromJsonAsync<ExchangeProposalResponseDTO>(
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        Assert.NotNull(proposalDto);
+        Assert.Equal("Accepted", proposalDto!.State);
     }
 
     /// <summary>

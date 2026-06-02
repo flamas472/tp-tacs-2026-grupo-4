@@ -84,4 +84,36 @@ public class AuctionOfferRepository : IAuctionOfferRepository
         );
         return await _offers.Find(filter).FirstOrDefaultAsync();
     }
+
+    /// <inheritdoc/>
+    public async Task<bool> TryCancelOfferAtomicallyAsync(int offerId)
+    {
+        // Guard: only transition Pending → Cancelled.
+        // If the offer is already in Won, Lost, or Cancelled state, ModifiedCount == 0
+        // and the caller should abort without releasing stock.
+        var filter = Builders<AuctionOffer>.Filter.And(
+            Builders<AuctionOffer>.Filter.Eq(o => o.Id, offerId),
+            Builders<AuctionOffer>.Filter.Eq(o => o.State, AuctionOfferState.Pending)
+        );
+        var update = Builders<AuctionOffer>.Update.Set(o => o.State, AuctionOfferState.Cancelled);
+        var result = await _offers.UpdateOneAsync(filter, update);
+        return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> AppendOfferedStickersAsync(int offerId, List<int> additionalStickerIds)
+    {
+        // Guard: only append while the offer is still Pending.
+        // If the auction closed concurrently, ModifiedCount == 0 and the caller aborts
+        // without reserving stock — no inconsistency (Escenario D).
+        // Using $push/$each guarantees that two concurrent PATCH requests both land in
+        // MongoDB sequentially without either overwriting the other (Escenario B).
+        var filter = Builders<AuctionOffer>.Filter.And(
+            Builders<AuctionOffer>.Filter.Eq(o => o.Id, offerId),
+            Builders<AuctionOffer>.Filter.Eq(o => o.State, AuctionOfferState.Pending)
+        );
+        var update = Builders<AuctionOffer>.Update.PushEach(o => o.OfferedUserStickerIds, additionalStickerIds);
+        var result = await _offers.UpdateOneAsync(filter, update);
+        return result.ModifiedCount == 1;
+    }
 }

@@ -29,7 +29,7 @@ public class ExchangeService
         return _exchangeRepo.GetByProposalId(proposalId);
     }
 
-    public Exchange CreateExchange(ExchangeProposal proposal)
+    public async Task<Exchange> CreateExchange(ExchangeProposal proposal)
     {
         // Attempt a multi-document ACID transaction when the server supports it (replica set / sharded cluster).
         // If the topology is a standalone (e.g., local dev / test), fall back to the non-transactional path
@@ -53,7 +53,7 @@ public class ExchangeService
 
         try
         {
-            var exchange = ExecuteExchangeOperations(proposal, transactionSupported ? session : null);
+            var exchange = await ExecuteExchangeOperations(proposal, transactionSupported ? session : null);
 
             if (transactionSupported)
                 session.CommitTransaction();
@@ -68,7 +68,7 @@ public class ExchangeService
         }
     }
 
-    private Exchange ExecuteExchangeOperations(ExchangeProposal proposal, IClientSessionHandle? session)
+    private async Task<Exchange> ExecuteExchangeOperations(ExchangeProposal proposal, IClientSessionHandle? session)
     {
         var exchange = new Exchange
         {
@@ -86,23 +86,47 @@ public class ExchangeService
             _exchangeRepo.Add(exchange);
 
         // The offered stickers were already reserved (decremented) at proposal creation time.
-        // Use inclusive query because stickers may be inactive (Qty=0, Active=false) due to reservation.
-        // Now transfer ownership: give offered stickers to the receiver (ProposedID).
+        // They belong to ProponentID. We must transfer ownership to ProposedID (the receiver).
+        // Strategy: for each offered sticker, find or create a UserSticker for the receiver
+        // using the inclusive lookup (captures Quantity=0, Active=false documents).
         var offeredStickers = session != null
             ? _inventoryRepo.GetMultipleByIdIncludingInactive(proposal.OfferedUserStickerIds, session)
             : _inventoryRepo.GetMultipleByIdIncludingInactive(proposal.OfferedUserStickerIds);
 
-        foreach (var userSticker in offeredStickers)
+        foreach (var offeredSticker in offeredStickers)
         {
-            userSticker.Quantity++;
-            userSticker.Active = true;
-            if (session != null)
-                _inventoryRepo.Update(userSticker, session);
+            var catalogId = offeredSticker.Sticker.Id;
+            var receiverExisting = await _inventoryRepo.GetByUserIdAndCatalogIdIncludingInactiveAsync(
+                proposal.ProposedID, catalogId);
+
+            if (receiverExisting != null)
+            {
+                receiverExisting.Quantity++;
+                receiverExisting.Active = true;
+                if (session != null)
+                    _inventoryRepo.Update(receiverExisting, session);
+                else
+                    _inventoryRepo.Update(receiverExisting);
+            }
             else
-                _inventoryRepo.Update(userSticker);
+            {
+                var newReceiverSticker = new UserSticker
+                {
+                    Sticker = offeredSticker.Sticker,
+                    UserId = proposal.ProposedID,
+                    Quantity = 1,
+                    Active = true,
+                    CanBeDirectlyExchanged = false,
+                    CanBeAuctioned = false
+                };
+                if (session != null)
+                    _inventoryRepo.Add(newReceiverSticker, session);
+                else
+                    _inventoryRepo.Add(newReceiverSticker);
+            }
         }
 
-        // Transfer requested sticker: decrement from receiver, add to proponent
+        // Transfer requested sticker: decrement from receiver (ProposedID), add to proponent (ProponentID).
         var requestedSticker = session != null
             ? _inventoryRepo.GetByIdIncludingInactive(proposal.RequestedUserStickerId, session)
             : _inventoryRepo.GetByIdIncludingInactive(proposal.RequestedUserStickerId);
@@ -119,13 +143,11 @@ public class ExchangeService
             else
                 _inventoryRepo.Update(requestedSticker);
 
-            // Increment proponent's inventory for the sticker type they requested
-            var proponentInventory = session != null
-                ? _inventoryRepo.GetByUserId(proposal.ProponentID, session)
-                : _inventoryRepo.GetByUserId(proposal.ProponentID);
-
-            var proponentExistingSticker = proponentInventory
-                .FirstOrDefault(s => s.Sticker.Id == requestedSticker.Sticker.Id);
+            // Credit the proponent with the requested sticker type.
+            // Use inclusive lookup to avoid creating duplicates when the proponent already has
+            // an inactive (Qty=0) record for this catalog sticker.
+            var proponentExistingSticker = await _inventoryRepo.GetByUserIdAndCatalogIdIncludingInactiveAsync(
+                proposal.ProponentID, requestedSticker.Sticker.Id);
 
             if (proponentExistingSticker != null)
             {

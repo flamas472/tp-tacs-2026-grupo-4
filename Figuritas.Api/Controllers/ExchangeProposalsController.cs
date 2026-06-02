@@ -65,7 +65,7 @@ public class ExchangeProposalsController : ControllerBase
     }
 
     [HttpPost("{id}/accept")]
-    public ActionResult AcceptProposal(int id)
+    public async Task<ActionResult> AcceptProposal(int id)
     {
         try
         {
@@ -86,7 +86,7 @@ public class ExchangeProposalsController : ControllerBase
 
             var accepted = _proposalService.AcceptProposalAtomically(id);
 
-            _exchangeService.CreateExchange(accepted);
+            await _exchangeService.CreateExchange(accepted);
 
             return Ok();
         }

@@ -127,6 +127,15 @@ public class UserStickerRepository : IUserStickerRepository
     public List<UserSticker> GetByUserId(int userId, IClientSessionHandle session) =>
         _userStickers.Find(session, us => us.UserId == userId && us.Active).ToList();
 
+    public async Task<UserSticker?> GetByUserIdAndCatalogIdIncludingInactiveAsync(int userId, int catalogStickerId)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.UserId, userId),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Id, catalogStickerId)
+        );
+        return await _userStickers.Find(filter).FirstOrDefaultAsync();
+    }
+
     public List<UserSticker> GetByUserIdPaginated(int userId, int page, int pageSize)
     {
         var filter = Builders<UserSticker>.Filter.And(

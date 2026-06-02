@@ -42,9 +42,13 @@ public class AuctionRepository : IAuctionRepository
 
     public List<Auction> GetAll(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null)
     {
-        var filter = excludeAuctioneerId.HasValue
-            ? Builders<Auction>.Filter.Ne(a => a.AuctioneerId, excludeAuctioneerId.Value)
-            : Builders<Auction>.Filter.Empty;
+        // Only return Active auctions — Closed and Cancelled auctions are not browsable in the marketplace.
+        var filter = Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active);
+
+        if (excludeAuctioneerId.HasValue)
+            filter = Builders<Auction>.Filter.And(
+                filter,
+                Builders<Auction>.Filter.Ne(a => a.AuctioneerId, excludeAuctioneerId.Value));
 
         return _auctions.Find(filter)
             .SortByDescending(a => a.Id)
@@ -114,18 +118,17 @@ public class AuctionRepository : IAuctionRepository
 
     public async Task<bool> TryClaimAutomaticClosureAsync(int auctionId)
     {
-        // DEUDA TÉCNICA [C-05]
-        // Claim huérfano posible.
-        // Si el worker finaliza entre el claim y el cierre efectivo,
-        // la subasta puede quedar Active con AutoClosureClaimedAt seteado.
-        // Futuro endurecimiento:
-        // permitir re-claim cuando AutoClosureClaimedAt supere un TTL.
+        // Allow re-claim when AutoClosureClaimedAt was set more than 5 minutes ago.
+        // This unblocks auctions whose original claiming worker process died before completing the
+        // closure (orphaned claim), which would otherwise leave the auction stuck in Active forever.
+        var staleClaimThreshold = DateTime.UtcNow.AddMinutes(-5);
 
-        // Atomically set AutoClosureClaimedAt only if it is currently null.
-        // MongoDB FindOneAndUpdate guarantees that exactly one process wins the race.
         var filter = Builders<Auction>.Filter.And(
             Builders<Auction>.Filter.Eq(a => a.Id, auctionId),
-            Builders<Auction>.Filter.Eq(a => a.AutoClosureClaimedAt, (DateTime?)null)
+            Builders<Auction>.Filter.Or(
+                Builders<Auction>.Filter.Eq(a => a.AutoClosureClaimedAt, (DateTime?)null),
+                Builders<Auction>.Filter.Lt(a => a.AutoClosureClaimedAt, staleClaimThreshold)
+            )
         );
         var update = Builders<Auction>.Update.Set(a => a.AutoClosureClaimedAt, DateTime.UtcNow);
         var result = await _auctions.UpdateOneAsync(filter, update);
