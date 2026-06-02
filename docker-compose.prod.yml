@@ -1,4 +1,17 @@
 services:
+  mongo-tacs:
+    image: mongodb/mongodb-community-server:latest
+    container_name: mongo-tacs
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017 --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
   web-api:
     build:
       context: .

@@ -1,12 +1,13 @@
+using Figuritas.Api.Repositories;
 using Figuritas.Shared.Model;
 
 namespace Figuritas.Api.Services;
 
 public class NationalTeamService
 {
-    private readonly NationalTeamRepository _nationalTeamRepository;
+    private readonly INationalTeamRepository _nationalTeamRepository;
 
-    public NationalTeamService(NationalTeamRepository nationalTeamRepository)
+    public NationalTeamService(INationalTeamRepository nationalTeamRepository)
     {
         _nationalTeamRepository = nationalTeamRepository;
     }

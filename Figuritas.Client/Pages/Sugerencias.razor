@@ -1,0 +1,154 @@
+@page "/sugerencias"
+@attribute [Authorize]
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.DTO.response
+
+@inject InventoryStickerHttpClient MarketHttp
+@inject IDialogService DialogService
+
+<PageTitle>Sugerencias — FiguriTACS</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-1">Sugerencias de intercambio</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Intercambios mutuos: ellos tienen algo que te falta y vos tenés algo que les falta a ellos.
+</MudText>
+
+@if (suggestions == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Buscando sugerencias...</MudText>
+    </div>
+}
+else if (!suggestions.Any())
+{
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Style="font-size:3rem" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">Sin sugerencias por ahora</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+            Agregá figuritas a tus faltantes para recibir sugerencias de intercambio.
+        </MudText>
+    </div>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @foreach (var suggestion in suggestions)
+        {
+            <MudItem xs="12" md="6" @key="@($"{suggestion.SuggestedUserId}_{suggestion.TheirUserStickerId}")">
+                <MudCard Elevation="2" Style="border-radius:12px; height:100%;">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <div class="d-flex align-center gap-2 flex-wrap">
+                                <MudIcon Icon="@Icons.Material.Filled.Person" Color="Color.Secondary" Size="Size.Small" />
+                                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@suggestion.SuggestedUsername</MudText>
+                                @if (suggestion.IsPerfectMatch)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">
+                                        ⭐ Match perfecto
+                                    </MudChip>
+                                }
+                            </div>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                                    Figurita que vas a recibir
+                                </MudText>
+                                <OfferPreviewComponent Stickers="@BuildTheirStickers(suggestion)" MaxVisible="4" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                                    Figuritas que podrías ofrecer a cambio
+                                </MudText>
+                                <OfferPreviewComponent Stickers="@suggestion.CallerMatchedStickers" MaxVisible="4" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.SwapHoriz"
+                                   OnClick="@(() => OpenSuggestionDialog(suggestion))">
+                            Iniciar Intercambio
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+
+    <div class="sticker-pagination">
+        <MudTooltip Text="Página anterior">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Primary"
+                           Disabled="@(!hasPrevPage)"
+                           OnClick="HandlePrevPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+        <MudText Typo="Typo.body1" Class="pagination-label">Página @currentPage</MudText>
+        <MudTooltip Text="Página siguiente">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Primary"
+                           Disabled="@(!hasNextPage)"
+                           OnClick="HandleNextPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+    </div>
+}
+
+@code {
+    private const int PageSize = 20;
+
+    private List<ExchangeSuggestionResponseDTO>? suggestions;
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    protected override async Task OnInitializedAsync() => await FetchPage();
+
+    private async Task FetchPage()
+    {
+        suggestions = null;
+        StateHasChanged();
+
+        var response = await MarketHttp.GetSuggestionsAsync(currentPage, PageSize);
+        suggestions = response.Success ? (response.Data ?? new()) : new();
+        hasNextPage = suggestions.Count == PageSize;
+    }
+
+    private async Task HandleNextPage() { currentPage++; await FetchPage(); }
+    private async Task HandlePrevPage() { if (currentPage > 1) { currentPage--; await FetchPage(); } }
+
+    /// <summary>Construye la lista de una figurita que el usuario sugerido tiene para ofrecer.</summary>
+    private static List<StickerPreviewDTO> BuildTheirStickers(ExchangeSuggestionResponseDTO s) =>
+        new()
+        {
+            new StickerPreviewDTO
+            {
+                UserStickerId = s.TheirUserStickerId,
+                Number        = s.StickerNumber,
+                ImageUrl      = s.StickerImageUrl,
+                Description   = s.StickerDescription
+            }
+        };
+
+    private async Task OpenSuggestionDialog(ExchangeSuggestionResponseDTO suggestion)
+    {
+        var parameters = new DialogParameters<SuggestionDetailDialog>
+        {
+            { d => d.Suggestion, suggestion }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        await DialogService.ShowAsync<SuggestionDetailDialog>(
+            $"Sugerencia — {suggestion.SuggestedUsername}",
+            parameters, options);
+    }
+}

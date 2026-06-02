@@ -1,0 +1,54 @@
+@inject NavigationManager Nav
+
+<div class="under-construction-wrapper">
+    <MudIcon Icon="@Icons.Material.Filled.Construction"
+             Color="Color.Warning"
+             Style="font-size:5rem" />
+
+    <MudText Typo="Typo.h5" Class="mt-3 mb-1">@Section</MudText>
+    <MudText Typo="Typo.body1" Color="Color.Secondary">Esta sección está en construcción</MudText>
+
+    <div class="construction-icons mt-3 mb-2">
+        <MudIcon Icon="@Icons.Material.Filled.Handyman"    Color="Color.Warning" />
+        <MudIcon Icon="@Icons.Material.Filled.Build"       Color="Color.Warning" />
+        <MudIcon Icon="@Icons.Material.Filled.BuildCircle" Color="Color.Warning" />
+        <MudIcon Icon="@Icons.Material.Filled.Settings"    Color="Color.Warning" />
+        <MudIcon Icon="@Icons.Material.Outlined.Engineering" Color="Color.Warning" />
+    </div>
+
+    @if (Stories.Length > 0)
+    {
+        <MudDivider Class="my-4 uc-divider" />
+
+        <div class="uc-stories-header mb-3">
+            <MudIcon Icon="@Icons.Material.Outlined.Assignment"
+                     Size="Size.Small"
+                     Color="Color.Primary"
+                     Class="mr-1" />
+            <MudText Typo="Typo.subtitle2" Color="Color.Primary">Lo que viene:</MudText>
+        </div>
+
+        <div class="uc-stories-list">
+            @foreach (var story in Stories)
+            {
+                <div class="home-story-row">
+                    <span class="home-story-num">@story.Number</span>
+                    <MudText Typo="Typo.body2" Class="home-story-text">@story.Text</MudText>
+                </div>
+            }
+        </div>
+    }
+
+    <MudButton Variant="Variant.Outlined"
+               Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Home"
+               OnClick="@(() => Nav.NavigateTo("/"))"
+               Class="mt-5">
+        Volver al inicio
+    </MudButton>
+</div>
+
+@code {
+    [Parameter] public string Section { get; set; } = "";
+    [Parameter] public (int Number, string Text)[] Stories { get; set; } = Array.Empty<(int, string)>();
+}

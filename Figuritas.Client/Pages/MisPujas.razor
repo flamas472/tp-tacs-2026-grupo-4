@@ -1,0 +1,450 @@
+@page "/mis-pujas"
+@attribute [Authorize]
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.DTO.response
+
+@inject DashboardHttpClient DashboardHttp
+@inject AuctionHttpClient AuctionHttp
+@inject AuthStateService AuthState
+@inject IDialogService DialogService
+@inject NavigationManager Nav
+
+<PageTitle>Mis Pujas — FiguriTACS</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">Mis Pujas</MudText>
+
+@* ── Chips de filtro por estado ──────────────────────────────────────────── *@
+<div class="auction-filter-row mb-4">
+    <MudChipSet T="string" SelectionMode="SelectionMode.SingleSelection"
+                SelectedValue="@selectedFilter"
+                SelectedValueChanged="OnFilterChanged"
+                Class="auction-filter-chipset">
+        <MudChip T="string" Value="@FilterAll"
+                 Color="@(selectedFilter == FilterAll ? Color.Primary : Color.Default)"
+                 Variant="@(selectedFilter == FilterAll ? Variant.Filled : Variant.Outlined)">Todas</MudChip>
+        <MudChip T="string" Value="@FilterActive"
+                 Color="@(selectedFilter == FilterActive ? Color.Success : Color.Default)"
+                 Variant="@(selectedFilter == FilterActive ? Variant.Filled : Variant.Outlined)">Activas</MudChip>
+        <MudChip T="string" Value="@FilterClosed"
+                 Color="@(selectedFilter == FilterClosed ? Color.Secondary : Color.Default)"
+                 Variant="@(selectedFilter == FilterClosed ? Variant.Filled : Variant.Outlined)">Cerradas</MudChip>
+        <MudChip T="string" Value="@FilterCancelled"
+                 Color="@(selectedFilter == FilterCancelled ? Color.Error : Color.Default)"
+                 Variant="@(selectedFilter == FilterCancelled ? Variant.Filled : Variant.Outlined)">Canceladas</MudChip>
+    </MudChipSet>
+</div>
+
+@* ── Estado de carga ─────────────────────────────────────────────────────── *@
+@if (allBids == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando pujas...</MudText>
+    </div>
+}
+else if (errorMessage is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@errorMessage</MudAlert>
+}
+else if (!FilteredBids.Any())
+{
+    @* ── Estado vacío ────────────────────────────────────────────────────── *@
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Filled.Gavel"
+                 Style="font-size: 3rem;"
+                 Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">
+            @(selectedFilter == FilterAll
+                ? "Todavía no hiciste ninguna puja."
+                : $"No hay pujas {BidFilterLabel(selectedFilter)}.")
+        </MudText>
+        @if (selectedFilter == FilterAll)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Filled.Gavel"
+                       Class="mt-3"
+                       OnClick="@(() => Nav.NavigateTo("/subastas"))">
+                Ver subastas disponibles
+            </MudButton>
+        }
+    </div>
+}
+else
+{
+    @* ── Mobile cards (xs / sm) ───────────────────────────────────────────── *@
+    <div class="bids-cards-mobile">
+        @foreach (var bid in FilteredBids)
+        {
+            <MudCard @key="@($"bid_{bid.OfferId}")"
+                     Class="@($"mb-3 my-bid-card {GetAuctionStatusBorderClass(bid.AuctionStatus)}")">
+                <MudCardContent Class="pb-1">
+                    @* Auction sticker info *@
+                    <div class="d-flex align-center justify-space-between mb-1">
+                        <div>
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                                #@bid.StickerNumber.ToString("D3") — @bid.StickerDescription
+                            </MudText>
+                            @if (!string.IsNullOrWhiteSpace(bid.StickerNationalTeam))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @bid.StickerNationalTeam
+                                    @if (!string.IsNullOrWhiteSpace(bid.StickerTeam))
+                                    {
+                                        <span> · @bid.StickerTeam</span>
+                                    }
+                                </MudText>
+                            }
+                        </div>
+                        @* Winner / outbid / final chip *@
+                        <div>
+                            @BidStatusChip(bid)
+                        </div>
+                    </div>
+
+                    @* Date + auction status *@
+                    <div class="d-flex align-center gap-2 mb-1">
+                        <MudIcon Icon="@Icons.Material.Filled.AccessTime"
+                                 Size="Size.Small"
+                                 Color="Color.Secondary" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @bid.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")
+                        </MudText>
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Color="@GetAuctionStatusColor(bid.AuctionStatus)"
+                                 Variant="Variant.Outlined"
+                                 Class="my-bid-auction-status-chip">
+                            @AuctionStatusLabel(bid.AuctionStatus)
+                        </MudChip>
+                    </div>
+                </MudCardContent>
+
+                @* Botones de acción *@
+                <MudCardActions Class="pt-0 flex-wrap gap-1">
+                    <MudButton Size="Size.Small"
+                               Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.OpenInNew"
+                               OnClick="@(() => OpenAuctionDetailAsync(bid))">
+                        Ver subasta
+                    </MudButton>
+                    <MudTooltip Text="@(bid.IsCurrentWinner ? "Tu puja está ganando actualmente — no se puede modificar" : "Modificar puja")"
+                                Placement="Placement.Top">
+                        <MudButton Size="Size.Small"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Warning"
+                                   StartIcon="@Icons.Material.Filled.Edit"
+                                   Disabled="@(bid.AuctionStatus != AuctionStatusActive || bid.IsCurrentWinner)"
+                                   OnClick="@(() => OpenAuctionDetailAsync(bid))">
+                            Modificar
+                        </MudButton>
+                    </MudTooltip>
+                    <MudTooltip Text="@(bid.IsCurrentWinner ? "Tu puja está ganando actualmente — no se puede cancelar" : "Cancelar puja")"
+                                Placement="Placement.Top">
+                        <MudButton Size="Size.Small"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.Cancel"
+                                   Disabled="@(bid.AuctionStatus != AuctionStatusActive || bid.IsCurrentWinner || actionBidId == bid.OfferId)"
+                                   OnClick="@(() => CancelOfferAsync(bid))">
+                            @if (actionBidId == bid.OfferId)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                            }
+                            Cancelar
+                        </MudButton>
+                    </MudTooltip>
+                </MudCardActions>
+            </MudCard>
+        }
+    </div>
+
+    @* ── Desktop table (md+) ──────────────────────────────────────────────── *@
+    <div class="bids-table-desktop">
+        <MudTable Items="FilteredBids"
+                  Hover="true"
+                  Dense="true"
+                  Breakpoint="Breakpoint.None"
+                  Class="my-bids-table">
+            <HeaderContent>
+                <MudTh>Figurita</MudTh>
+                <MudTh>Subasta</MudTh>
+                <MudTh>Fecha</MudTh>
+                <MudTh>Estado</MudTh>
+                <MudTh Style="text-align:right;">Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Figurita" @key="@($"row_{context.OfferId}")">
+                    <div>
+                        <MudText Typo="Typo.body2" Style="font-weight:600;">
+                            #@context.StickerNumber.ToString("D3") — @context.StickerDescription
+                        </MudText>
+                        @if (!string.IsNullOrWhiteSpace(context.StickerNationalTeam))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @context.StickerNationalTeam
+                                @if (!string.IsNullOrWhiteSpace(context.StickerTeam))
+                                {
+                                    <span> · @context.StickerTeam</span>
+                                }
+                            </MudText>
+                        }
+                    </div>
+                </MudTd>
+                <MudTd DataLabel="Subasta">
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@GetAuctionStatusColor(context.AuctionStatus)"
+                             Variant="Variant.Outlined">
+                        @AuctionStatusLabel(context.AuctionStatus)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Fecha">
+                    <MudText Typo="Typo.body2">
+                        @context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Estado">
+                    @BidStatusChip(context)
+                </MudTd>
+                <MudTd DataLabel="Acciones" Style="text-align:right;">
+                    <div class="d-flex justify-end gap-1 flex-wrap">
+                        <MudTooltip Text="Ver subasta" Placement="Placement.Top">
+                            <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                           Size="Size.Small"
+                                           Color="Color.Primary"
+                                           OnClick="@(() => OpenAuctionDetailAsync(context))" />
+                        </MudTooltip>
+                        <MudTooltip Text="@(context.IsCurrentWinner ? "Tu puja está ganando actualmente — no se puede modificar" : "Modificar puja")"
+                                    Placement="Placement.Top">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                           Size="Size.Small"
+                                           Color="Color.Warning"
+                                           Disabled="@(context.AuctionStatus != AuctionStatusActive || context.IsCurrentWinner)"
+                                           OnClick="@(() => OpenAuctionDetailAsync(context))" />
+                        </MudTooltip>
+                        <MudTooltip Text="@(context.IsCurrentWinner ? "Tu puja está ganando actualmente — no se puede cancelar" : "Cancelar puja")"
+                                    Placement="Placement.Top">
+                            <MudIconButton Icon="@Icons.Material.Filled.Cancel"
+                                           Size="Size.Small"
+                                           Color="Color.Error"
+                                           Disabled="@(context.AuctionStatus != AuctionStatusActive || context.IsCurrentWinner || actionBidId == context.OfferId)"
+                                           OnClick="@(() => CancelOfferAsync(context))" />
+                        </MudTooltip>
+                    </div>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </div>
+
+    @* ── Paginación ───────────────────────────────────────────────────────── *@
+    <div class="sticker-pagination">
+        <MudTooltip Text="Página anterior">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Primary"
+                           Disabled="@(!hasPrevPage)"
+                           OnClick="HandlePrevPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+        <MudText Typo="Typo.body1" Class="pagination-label">Página @currentPage</MudText>
+        <MudTooltip Text="Página siguiente">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Primary"
+                           Disabled="@(!hasNextPage)"
+                           OnClick="HandleNextPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+    </div>
+}
+
+@code {
+    private const int PageSize = 20;
+    private const string FilterAll       = "All";
+    private const string FilterActive    = "Active";
+    private const string FilterClosed    = "Closed";
+    private const string FilterCancelled = "Cancelled";
+    private const string AuctionStatusActive = "Active";
+
+    private List<MyBidResponseDTO>? allBids;
+    private string? errorMessage;
+    private string selectedFilter = FilterAll;
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    /// <summary>Tracks which offer is currently being cancelled to show inline spinner.</summary>
+    private int? actionBidId;
+
+    private IEnumerable<MyBidResponseDTO> FilteredBids =>
+        selectedFilter == FilterAll
+            ? (allBids ?? Enumerable.Empty<MyBidResponseDTO>())
+            : (allBids ?? Enumerable.Empty<MyBidResponseDTO>())
+                .Where(b => b.AuctionStatus == selectedFilter);
+
+    protected override async Task OnInitializedAsync() => await FetchPageAsync();
+
+    private async Task FetchPageAsync()
+    {
+        allBids = null;
+        errorMessage = null;
+        StateHasChanged();
+
+        var result = await DashboardHttp.GetMyBidsAsync(currentPage, PageSize);
+
+        if (result.Success)
+        {
+            allBids = result.Data ?? new();
+            hasNextPage = allBids.Count == PageSize;
+        }
+        else
+        {
+            allBids = new();
+            errorMessage = result.ErrorMessage ?? "No se pudieron cargar las pujas.";
+        }
+    }
+
+    private async Task OnFilterChanged(string? value)
+    {
+        selectedFilter = value ?? FilterAll;
+        currentPage = 1;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleNextPage() { currentPage++; await FetchPageAsync(); }
+    private async Task HandlePrevPage() { if (currentPage > 1) { currentPage--; await FetchPageAsync(); } }
+
+    /// <summary>
+    /// Loads the full auction and opens AuctionDetailDialog.
+    /// Both "View Auction" and "Modify Offer" flow through here so the dialog
+    /// can handle offer management (cancel / modify) natively.
+    /// </summary>
+    private async Task OpenAuctionDetailAsync(MyBidResponseDTO bid)
+    {
+        var auctionResult = await AuctionHttp.GetAuctionAsync(bid.AuctionId);
+        if (!auctionResult.Success || auctionResult.Data is null) return;
+
+        var parameters = new DialogParameters<AuctionDetailDialog>
+        {
+            { d => d.Auction, auctionResult.Data }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<AuctionDetailDialog>(
+            $"#{bid.StickerNumber:D3} — {bid.StickerDescription}",
+            parameters, options);
+        var result = await dialog.Result;
+
+        // If the user modified or cancelled within the dialog, refresh the list
+        if (result is { Canceled: false })
+            await FetchPageAsync();
+    }
+
+    /// <summary>Cancels the offer directly from the list without opening the detail dialog.</summary>
+    private async Task CancelOfferAsync(MyBidResponseDTO bid)
+    {
+        if (bid.AuctionStatus != AuctionStatusActive) return;
+
+        actionBidId = bid.OfferId;
+        StateHasChanged();
+
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var result = await AuctionHttp.CancelOfferAsync(bid.AuctionId, bid.OfferId, token);
+
+        actionBidId = null;
+
+        if (result.Success)
+        {
+            // Remove the cancelled bid from the local list immediately
+            allBids?.RemoveAll(b => b.OfferId == bid.OfferId);
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage ?? "No se pudo cancelar la puja.";
+        }
+
+        StateHasChanged();
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+
+    /// <summary>Returns the accent CSS border class for a bid card based on auction status.</summary>
+    private static string GetAuctionStatusBorderClass(string auctionStatus) => auctionStatus switch
+    {
+        "Active"    => "auction-border-active",
+        "Closed"    => "auction-border-closed",
+        "Cancelled" => "auction-border-cancelled",
+        _           => string.Empty
+    };
+
+    /// <summary>Returns the MudBlazor Color for an auction status chip.</summary>
+    private static Color GetAuctionStatusColor(string auctionStatus) => auctionStatus switch
+    {
+        "Active"    => Color.Success,
+        "Closed"    => Color.Secondary,
+        "Cancelled" => Color.Error,
+        _           => Color.Default
+    };
+
+    /// <summary>Returns a Spanish adjective for the bid empty-state message based on the active filter.</summary>
+    private static string BidFilterLabel(string filter) => filter switch
+    {
+        "Active"    => "activas",
+        "Closed"    => "cerradas",
+        "Cancelled" => "canceladas",
+        _           => filter.ToLower()
+    };
+
+    /// <summary>Returns a localized label for the auction status chip displayed inline in bid cards.</summary>
+    private static string AuctionStatusLabel(string status) => status switch
+    {
+        "Active"    => "Activa",
+        "Closed"    => "Cerrada",
+        "Cancelled" => "Cancelada",
+        _           => status
+    };
+
+    /// <summary>Renders the winning/outbid/state chip for a bid row.</summary>
+    private RenderFragment BidStatusChip(MyBidResponseDTO bid) => __builder =>
+    {
+        // If the bid has a lifecycle state (Won / Lost / Cancelled), show that
+        if (!string.IsNullOrWhiteSpace(bid.State) && bid.State != "Pending")
+        {
+            var (color, icon, label) = bid.State switch
+            {
+                "Won"       => (Color.Success,   Icons.Material.Filled.EmojiEvents, "Ganada"),
+                "Lost"      => (Color.Default,   Icons.Material.Filled.ThumbDown,   "Perdida"),
+                "Cancelled" => (Color.Error,     Icons.Material.Filled.Cancel,      "Cancelada"),
+                _           => (Color.Default,   string.Empty,                      bid.State)
+            };
+
+            <MudChip T="string" Color="@color" Icon="@icon" Size="Size.Small" Variant="Variant.Filled">
+                @label
+            </MudChip>
+        }
+        else if (bid.IsCurrentWinner)
+        {
+            <MudChip T="string"
+                     Color="Color.Success"
+                     Icon="@Icons.Material.Filled.EmojiEvents"
+                     Size="Size.Small"
+                     Variant="Variant.Filled"
+                     Class="auction-winner-chip">
+                Ganando
+            </MudChip>
+        }
+        else
+        {
+            <MudChip T="string"
+                     Color="Color.Warning"
+                     Size="Size.Small"
+                     Variant="Variant.Filled">
+                Superado
+            </MudChip>
+        }
+    };
+}

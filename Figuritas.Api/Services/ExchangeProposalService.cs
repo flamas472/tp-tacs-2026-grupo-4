@@ -1,74 +1,239 @@
+using Figuritas.Api.Repositories;
+using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Intercambios;
+using Figuritas.Shared.Model.Notificaciones;
 
 namespace Figuritas.Api.Services;
 
 public class ExchangeProposalService
 {
-    private readonly UserStickerRepository _inventoryRepo;
+    private readonly IUserStickerRepository _inventoryRepo;
+    private readonly IExchangeProposalRepository _exchangePropRepo;
+    private readonly IMissingStickerRepository _missingStickerRepo;
+    private readonly INotificationService _notificationService;
+    private readonly IUserRepository _userRepo;
+    private readonly int _rateLimitWindowSeconds;
 
-    private readonly ExchangeProposalRepository _exchangePropRepo;
-
-    public ExchangeProposalService(UserStickerRepository inventoryRepo, ExchangeProposalRepository exchangePropRepo)
+    public ExchangeProposalService(
+        IUserStickerRepository inventoryRepo,
+        IExchangeProposalRepository exchangePropRepo,
+        IMissingStickerRepository missingStickerRepo,
+        INotificationService notificationService,
+        IUserRepository userRepo,
+        IConfiguration configuration)
     {
         _inventoryRepo = inventoryRepo;
         _exchangePropRepo = exchangePropRepo;
+        _missingStickerRepo = missingStickerRepo;
+        _notificationService = notificationService;
+        _userRepo = userRepo;
+        _rateLimitWindowSeconds = configuration.GetValue<int>("RateLimit:ExchangeProposalWindowSeconds", defaultValue: 3);
     }
 
-    public ExchangeProposal CreateExchangeProposal(int proponentID, int proposedID, List<int> offeredStickersID, int requestedStickerID)
+    public async Task<ExchangeProposalResponseDTO> CreateExchangeProposalAsync(int callerUserId, PostExchangeProposalRequestDTO dto)
     {
-        var offered = offeredStickersID
-            .Select(id => _inventoryRepo.GetById(id))
+        if (callerUserId == dto.ProposedUserId)
+            throw new InvalidOperationException("A user cannot propose an exchange to themselves.");
+
+        if (dto.OfferedUserStickerIds == null || dto.OfferedUserStickerIds.Count == 0)
+            throw new InvalidOperationException("At least one offered sticker is required.");
+
+        var duplicateIds = dto.OfferedUserStickerIds
+            .GroupBy(id => id)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
             .ToList();
 
-        var requested = _inventoryRepo.GetById(requestedStickerID);   
+        if (duplicateIds.Any())
+            throw new InvalidOperationException(
+                $"Duplicate sticker IDs are not allowed in a single proposal. Repeated ID(s): {string.Join(", ", duplicateIds)}");
+
+        var offeredStickers = _inventoryRepo.GetMultipleById(dto.OfferedUserStickerIds);
+
+        if (offeredStickers.Count != dto.OfferedUserStickerIds.Count)
+            throw new InvalidOperationException("One or more offered stickers were not found.");
+
+        foreach (var sticker in offeredStickers)
+        {
+            if (sticker.UserId != callerUserId)
+                throw new InvalidOperationException("All offered stickers must belong to the proponent.");
+
+            if (!sticker.Active || sticker.Quantity <= 0)
+                throw new InvalidOperationException("All offered stickers must have quantity greater than zero.");
+
+            if (!sticker.CanBeDirectlyExchanged)
+                throw new InvalidOperationException("All offered stickers must be available for direct exchange.");
+        }
+
+        var requestedSticker = _inventoryRepo.GetById(dto.RequestedUserStickerId);
+        if (requestedSticker == null)
+            throw new InvalidOperationException("The requested sticker was not found.");
+
+        if (requestedSticker.UserId != dto.ProposedUserId)
+            throw new InvalidOperationException("The requested sticker does not belong to the proposed recipient.");
+
+        if (!requestedSticker.Active)
+            throw new InvalidOperationException("The requested sticker is not available for direct exchange.");
+
+        if (!requestedSticker.CanBeDirectlyExchanged)
+            throw new InvalidOperationException("The requested sticker is not available for direct exchange.");
+
+        if (_rateLimitWindowSeconds > 0 && _exchangePropRepo.HasRecentProposal(callerUserId, _rateLimitWindowSeconds))
+            throw new InvalidOperationException("Please wait a few seconds before submitting another exchange proposal.");
 
         var proposal = new ExchangeProposal
         {
-            Id = 0,
-            ProponentID = proponentID,
-            ProposedID = proposedID,
-            OfferedStickers = offered,
-            RequestedSticker = requested,
+            ProponentID = callerUserId,
+            ProposedID = dto.ProposedUserId,
+            RequestedUserStickerId = dto.RequestedUserStickerId,
+            OfferedUserStickerIds = dto.OfferedUserStickerIds,
             State = ExchangeProposalState.Pending
         };
 
-        if (!proposal.IsValid())
-        {
-            return null;
-        }
-
         _exchangePropRepo.Add(proposal);
 
-        return proposal;
+        // Reserve stock: decrement quantity for each offered sticker
+        foreach (var userSticker in offeredStickers)
+        {
+            userSticker.Quantity--;
+            if (userSticker.Quantity <= 0)
+            {
+                userSticker.Active = false;
+            }
+            _inventoryRepo.Update(userSticker);
+        }
+
+        // Notify the recipient about the new proposal
+        await _notificationService.SendNotificationAsync(
+            dto.ProposedUserId,
+            NotificationType.NewProposal,
+            "New Exchange Proposal",
+            $"User {callerUserId} sent you a new exchange proposal.");
+
+        return MapToResponseDto(proposal);
     }
 
-    public List<ExchangeProposal> GetAllSentProposals(int userID)
+    public List<ExchangeProposalResponseDTO> GetAllSentProposals(int userID, GetMyProposalsDTO? dto = null)
     {
-        return _exchangePropRepo.GetAllUserSentProposals(userID)
-                                .Where(p => p.State == ExchangeProposalState.Pending).ToList();
+        int page = dto?.Page ?? 1;
+        int pageSize = dto?.PageSize ?? 20;
+        var proposals = _exchangePropRepo.GetAllUserSentProposals(userID, dto?.State, page, pageSize);
+        return EnrichAndMap(proposals);
     }
 
-    public List<ExchangeProposal> GetAllReceivedProposals(int userID)
+    public List<ExchangeProposalResponseDTO> GetAllReceivedProposals(int userID, GetMyProposalsDTO? dto = null)
     {
-        return _exchangePropRepo.GetAllUserReceivedProposals(userID)
-                                .Where(p => p.State == ExchangeProposalState.Pending).ToList();
+        int page = dto?.Page ?? 1;
+        int pageSize = dto?.PageSize ?? 20;
+        var proposals = _exchangePropRepo.GetAllUserReceivedProposals(userID, dto?.State, page, pageSize);
+        return EnrichAndMap(proposals);
     }
 
-    public ExchangeProposal GetProposalByID(int proposalID)
+    private List<ExchangeProposalResponseDTO> EnrichAndMap(List<ExchangeProposal> proposals)
+    {
+        var allStickerIds = proposals
+            .SelectMany(p => p.OfferedUserStickerIds.Append(p.RequestedUserStickerId))
+            .Distinct().ToList();
+
+        var stickers = _inventoryRepo.GetMultipleByIdIncludingInactive(allStickerIds)
+            .ToDictionary(us => us.Id);
+
+        var userIds = proposals.SelectMany(p => new[] { p.ProponentID, p.ProposedID })
+            .Distinct().ToList();
+        var users = _userRepo.GetByIds(userIds).ToDictionary(u => u.Id);
+
+        return proposals.Select(p => MapToResponseDto(p, stickers, users)).ToList();
+    }
+
+    public ExchangeProposal? GetProposalByID(int proposalID)
     {
         return _exchangePropRepo.GetById(proposalID);
+    }
+
+    public ExchangeProposalResponseDTO? GetProposalDtoByID(int proposalID)
+    {
+        var proposal = _exchangePropRepo.GetById(proposalID);
+        if (proposal == null) return null;
+        return MapToResponseDto(proposal);
     }
 
     public void ChangeProposalStatus(int proposalID, ExchangeProposalState newState)
     {
         var proposal = _exchangePropRepo.GetById(proposalID);
         if (proposal == null)
-            throw new ArgumentException("Propuesta no encontrada");
+            throw new ArgumentException("Proposal not found.");
+
+        // Return stock to proponent when proposal is rejected or cancelled
+        if (newState == ExchangeProposalState.Rejected || newState == ExchangeProposalState.Cancelled)
+        {
+            // Use inclusive query to also find stickers that were deactivated by the reservation
+            var offeredStickers = _inventoryRepo.GetMultipleByIdIncludingInactive(proposal.OfferedUserStickerIds);
+            foreach (var userSticker in offeredStickers)
+            {
+                userSticker.Quantity++;
+                userSticker.Active = true;
+                _inventoryRepo.Update(userSticker);
+            }
+        }
 
         proposal.State = newState;
         _exchangePropRepo.Update(proposal);
     }
+
+    public ExchangeProposal AcceptProposalAtomically(int proposalId)
+    {
+        var accepted = _exchangePropRepo.AcceptAtomically(proposalId);
+        if (accepted == null)
+            throw new InvalidOperationException("Proposal not found or is no longer pending.");
+        return accepted;
+    }
+
+    private static ExchangeProposalResponseDTO MapToResponseDto(
+        ExchangeProposal proposal,
+        Dictionary<int, UserSticker>? stickers = null,
+        Dictionary<int, User>? users = null)
+    {
+        UserSticker? requested = null;
+        stickers?.TryGetValue(proposal.RequestedUserStickerId, out requested);
+
+        User? proponent = null;
+        User? proposed = null;
+        users?.TryGetValue(proposal.ProponentID, out proponent);
+        users?.TryGetValue(proposal.ProposedID, out proposed);
+
+        return new ExchangeProposalResponseDTO
+        {
+            Id = proposal.Id,
+            ProponentUserId = proposal.ProponentID,
+            ProposedUserId = proposal.ProposedID,
+            RequestedUserStickerId = proposal.RequestedUserStickerId,
+            OfferedUserStickerIds = proposal.OfferedUserStickerIds,
+            State = proposal.State.ToString(),
+            CreatedAt = proposal.CreatedAt,
+            RequestedSticker = requested == null ? null : new StickerPreviewDTO
+            {
+                UserStickerId = requested.Id,
+                Number = requested.Sticker.Number,
+                ImageUrl = requested.Sticker.ImageUrl,
+                Description = requested.Sticker.Description
+            },
+            OfferedStickers = proposal.OfferedUserStickerIds
+                .Select(id => stickers != null && stickers.TryGetValue(id, out var us)
+                    ? new StickerPreviewDTO
+                    {
+                        UserStickerId = us.Id,
+                        Number = us.Sticker.Number,
+                        ImageUrl = us.Sticker.ImageUrl,
+                        Description = us.Sticker.Description
+                    }
+                    : null)
+                .Where(s => s != null)
+                .Select(s => s!)
+                .ToList(),
+            ProponentUsername = proponent?.Username ?? string.Empty,
+            ProposedUsername = proposed?.Username ?? string.Empty
+        };
+    }
 }
-
-
-

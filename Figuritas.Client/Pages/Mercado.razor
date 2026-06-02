@@ -1,0 +1,209 @@
+@page "/mercado"
+@attribute [Authorize]
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Shared.Model
+
+@inject InventoryStickerHttpClient MarketHttp
+@inject NationalTeamHttpClient NationalTeamHttp
+@inject CategoryHttpClient CategoryHttp
+@inject IDialogService DialogService
+
+<PageTitle>Mercado — FiguriTACS</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Mercado de figuritas</MudText>
+
+<MudPaper Class="filters-panel" Elevation="1">
+    <p class="filters-title">Filtros</p>
+    <div class="filters-row">
+        <MudSelect T="string" Label="Selección" Value="@filtroNT" ValueChanged="OnFiltroNTChanged"
+                   Class="filter-select" Clearable="true">
+            <MudSelectItem Value="@(string.Empty)">Todas las selecciones</MudSelectItem>
+            @foreach (var nt in nationalTeams ?? new List<NationalTeam>())
+            {
+                <MudSelectItem Value="@nt.Description">@nt.Description</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudSelect T="string" Label="Categoría" Value="@filtroCat" ValueChanged="OnFiltroCatChanged"
+                   Class="filter-select" Clearable="true">
+            <MudSelectItem Value="@(string.Empty)">Todas las categorías</MudSelectItem>
+            @foreach (var cat in categories ?? new List<Category>())
+            {
+                <MudSelectItem Value="@cat.Description">@cat.Description</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudTextField T="string" Label="Número" Value="@filtroNum"
+                      ValueChanged="OnNumChanged"
+                      Immediate="true" Class="filter-select"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Tag" />
+
+        <MudTextField T="string" Label="Jugador" Value="@filtroDesc"
+                      ValueChanged="OnDescChanged"
+                      Immediate="true" Class="filter-select"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+    </div>
+</MudPaper>
+
+@if (displayStickers == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando mercado...</MudText>
+    </div>
+}
+else if (!displayStickers.Any())
+{
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 3rem;" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">No hay figuritas disponibles</MudText>
+    </div>
+}
+else
+{
+    <div class="sticker-list">
+        @foreach (var dto in displayStickers)
+        {
+            <StickerComponent @key="@($"{dto.OwnerId}_{dto.UserStickerId}")"
+                              Sticker="@AsSticker(dto)"
+                              Quantity="@dto.Quantity"
+                              OwnerUsername="@dto.OwnerUsername"
+                              OnStickerClick="@(_ => OnStickerClick(dto))" />
+        }
+    </div>
+
+    <div class="sticker-pagination">
+        <MudTooltip Text="Página anterior">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Primary"
+                           Disabled="@(!hasPrevPage)"
+                           OnClick="HandlePrevPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+        <MudText Typo="Typo.body1" Class="pagination-label">Página @currentPage</MudText>
+        <MudTooltip Text="Página siguiente">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Primary"
+                           Disabled="@(!hasNextPage)"
+                           OnClick="HandleNextPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+    </div>
+}
+
+@code {
+    private const int PageSize = 24;
+    private const int BatchSize = 100;
+
+    private List<MarketStickerResponseDTO> allStickers = new();
+    private List<MarketStickerResponseDTO>? displayStickers;
+    private List<NationalTeam>? nationalTeams;
+    private List<Category>? categories;
+
+    private string filtroNT = string.Empty;
+    private string filtrocat_field = string.Empty;
+    private string filtroNum = string.Empty;
+    private string filtroDesc = string.Empty;
+    private string filtroCat
+    {
+        get => filtrocat_field;
+        set => filtrocat_field = value;
+    }
+
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var ntTask = NationalTeamHttp.GetNationalTeamsAsync();
+        var catTask = CategoryHttp.GetCategoriesAsync();
+        await Task.WhenAll(ntTask, catTask);
+
+        if (ntTask.Result.Success)
+            nationalTeams = ntTask.Result.Data?.OrderBy(nt => nt.Description).ToList();
+        if (catTask.Result.Success)
+            categories = catTask.Result.Data?.OrderBy(c => c.Description).ToList();
+
+        await FetchFromApi();
+    }
+
+    private async Task FetchFromApi()
+    {
+        displayStickers = null;
+        StateHasChanged();
+
+        var response = await MarketHttp.GetMarketStickersAsync(
+            page: 1,
+            pageSize: BatchSize,
+            nationalTeam: string.IsNullOrEmpty(filtroNT) ? null : filtroNT,
+            category: string.IsNullOrEmpty(filtrocat_field) ? null : filtrocat_field);
+
+        allStickers = response.Success ? (response.Data ?? new()) : new();
+        currentPage = 1;
+        ApplyLocalFilter();
+    }
+
+    private void ApplyLocalFilter()
+    {
+        var result = allStickers.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(filtroNum) && int.TryParse(filtroNum, out var num))
+            result = result.Where(s => s.StickerNumber == num);
+
+        if (!string.IsNullOrWhiteSpace(filtroDesc))
+            result = result.Where(s => s.StickerDescription.Contains(filtroDesc, StringComparison.OrdinalIgnoreCase));
+
+        var filtered = result.OrderBy(s => s.StickerNumber).ToList();
+        var skip = (currentPage - 1) * PageSize;
+        displayStickers = filtered.Skip(skip).Take(PageSize).ToList();
+        hasNextPage = filtered.Count > skip + PageSize;
+        StateHasChanged();
+    }
+
+    private async Task OnFiltroNTChanged(string value)
+    {
+        filtroNT = value;
+        await FetchFromApi();
+    }
+
+    private async Task OnFiltroCatChanged(string value)
+    {
+        filtrocat_field = value;
+        await FetchFromApi();
+    }
+
+    private void OnNumChanged(string value) { filtroNum = value; currentPage = 1; ApplyLocalFilter(); }
+    private void OnDescChanged(string value) { filtroDesc = value; currentPage = 1; ApplyLocalFilter(); }
+
+    private void HandleNextPage() { currentPage++; ApplyLocalFilter(); }
+    private void HandlePrevPage() { if (currentPage > 1) { currentPage--; ApplyLocalFilter(); } }
+
+    private async Task OnStickerClick(MarketStickerResponseDTO dto)
+    {
+        var parameters = new DialogParameters<MarketStickerActionDialog>
+        {
+            { d => d.MarketSticker, dto }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        await DialogService.ShowAsync<MarketStickerActionDialog>(
+            $"#{dto.StickerNumber:D3} — {dto.StickerDescription}",
+            parameters, options);
+    }
+
+    private static Sticker AsSticker(MarketStickerResponseDTO dto) => new Sticker
+    {
+        Number = dto.StickerNumber,
+        Description = dto.StickerDescription,
+        NationalTeam = dto.StickerNationalTeam,
+        Team = dto.StickerTeam,
+        Category = dto.StickerCategory,
+        ImageUrl = dto.StickerImageUrl
+    };
+}

@@ -1,0 +1,155 @@
+@page "/mis-subastas"
+@attribute [Authorize]
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.DTO.response
+
+@inject DashboardHttpClient DashboardHttp
+@inject IDialogService DialogService
+
+<PageTitle>Mis Subastas — FiguriTACS</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-3">Mis Subastas</MudText>
+
+@* ── Chips de filtro por estado ──────────────────────────────────────────── *@
+<div class="auction-filter-row mb-4">
+    <MudChipSet T="string" SelectionMode="SelectionMode.SingleSelection"
+                SelectedValue="@selectedStatus"
+                SelectedValueChanged="OnFilterChanged"
+                Class="auction-filter-chipset">
+        <MudChip T="string" Value="@FilterAll"
+                 Color="@(selectedStatus == FilterAll ? Color.Primary : Color.Default)"
+                 Variant="@(selectedStatus == FilterAll ? Variant.Filled : Variant.Outlined)">Todas</MudChip>
+        <MudChip T="string" Value="@FilterActive"
+                 Color="@(selectedStatus == FilterActive ? Color.Success : Color.Default)"
+                 Variant="@(selectedStatus == FilterActive ? Variant.Filled : Variant.Outlined)">Activas</MudChip>
+        <MudChip T="string" Value="@FilterClosed"
+                 Color="@(selectedStatus == FilterClosed ? Color.Secondary : Color.Default)"
+                 Variant="@(selectedStatus == FilterClosed ? Variant.Filled : Variant.Outlined)">Cerradas</MudChip>
+        <MudChip T="string" Value="@FilterCancelled"
+                 Color="@(selectedStatus == FilterCancelled ? Color.Error : Color.Default)"
+                 Variant="@(selectedStatus == FilterCancelled ? Variant.Filled : Variant.Outlined)">Canceladas</MudChip>
+    </MudChipSet>
+</div>
+
+@if (auctions == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando subastas...</MudText>
+    </div>
+}
+else if (!auctions.Any())
+{
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Outlined.Gavel" Style="font-size: 3rem;" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">
+            @(selectedStatus == FilterAll ? "Aún no tenés subastas." : $"No hay subastas {StatusLabelForEmpty(selectedStatus)}.")
+        </MudText>
+    </div>
+}
+else
+{
+    <div class="sticker-list">
+        @foreach (var auction in auctions)
+        {
+            <AuctionCardComponent Auction="@auction"
+                                  @key="auction.Id"
+                                  OnClick="OnAuctionClick" />
+        }
+    </div>
+
+    <div class="sticker-pagination">
+        <MudTooltip Text="Página anterior">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Primary"
+                           Disabled="@(!hasPrevPage)"
+                           OnClick="HandlePrevPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+        <MudText Typo="Typo.body1" Class="pagination-label">Página @currentPage</MudText>
+        <MudTooltip Text="Página siguiente">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Primary"
+                           Disabled="@(!hasNextPage)"
+                           OnClick="HandleNextPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+    </div>
+}
+
+@code {
+    private const int PageSize = 24;
+    private const string FilterAll       = "All";
+    private const string FilterActive    = "Active";
+    private const string FilterClosed    = "Closed";
+    private const string FilterCancelled = "Cancelled";
+
+    private List<AuctionResponseDTO>? auctions;
+    private string selectedStatus = FilterAll;
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    /// <summary>Maps the UI chip constant to the backend status string accepted by the API.</summary>
+    private static string? MapFilterToStatus(string filter) => filter switch
+    {
+        FilterActive    => "Active",
+        FilterClosed    => "Closed",
+        FilterCancelled => "Cancelled",
+        _ => null
+    };
+
+    private async Task OnFilterChanged(string? value)
+    {
+        selectedStatus = value ?? FilterAll;
+        currentPage = 1;
+        await FetchPage();
+    }
+
+    protected override async Task OnInitializedAsync() => await FetchPage();
+
+    private async Task FetchPage()
+    {
+        auctions = null;
+        StateHasChanged();
+
+        var status = MapFilterToStatus(selectedStatus);
+        var response = await DashboardHttp.GetMyAuctionsAsync(currentPage, PageSize, status);
+        auctions = response.Success ? (response.Data ?? new()) : new();
+        hasNextPage = auctions.Count == PageSize;
+    }
+
+    private async Task HandleNextPage() { currentPage++; await FetchPage(); }
+    private async Task HandlePrevPage() { if (currentPage > 1) { currentPage--; await FetchPage(); } }
+
+    /// <summary>Returns a Spanish adjective for the empty-state message based on the active filter.</summary>
+    private static string StatusLabelForEmpty(string status) => status switch
+    {
+        "Active"    => "activas",
+        "Closed"    => "cerradas",
+        "Cancelled" => "canceladas",
+        _           => status.ToLower()
+    };
+
+    private async Task OnAuctionClick(AuctionResponseDTO auction)
+    {
+        var parameters = new DialogParameters<AuctionOwnerDetailDialog>
+        {
+            { d => d.Auction, auction }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<AuctionOwnerDetailDialog>(
+            $"#{auction.StickerNumber:D3} — {auction.StickerDescription}",
+            parameters, options);
+        var result = await dialog.Result;
+
+        // Refresh the list if the owner performed an action (cancel / accept)
+        if (result is { Canceled: false })
+            await FetchPage();
+    }
+}

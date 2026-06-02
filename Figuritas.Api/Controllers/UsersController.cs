@@ -1,87 +1,152 @@
 using Figuritas.Shared.Model;
-using Figuritas.Shared.Utils;
 using Figuritas.Shared.DTO;
+using Figuritas.Shared.DTO.request;
+using Figuritas.Shared.DTO.response;
 using Figuritas.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Figuritas.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-
-// Endpoints: api/users
+[Authorize]
 public class UsersController : ControllerBase
 {
-
     private readonly UserService _userService;
+    private readonly AuthService _authService;
 
-
-    public UsersController(UserService userService)
+    public UsersController(UserService userService, AuthService authService)
     {
         _userService = userService;
+        _authService = authService;
     }
 
-
-    //* ENDPOINT_US01
     [HttpPost("{userId}/stickers")]
-    public ActionResult<UserSticker> PostUserSticker(int userId, PostUserStickerRequestDTO data)
+    public async Task<ActionResult<UserStickerResponseDTO>> PostUserSticker(int userId, PostUserStickerRequestDTO data)
     {
         try
         {
-            var userSticker = _userService.CreateUserSticker(userId, data);
+            var authenticatedUserId = _authService.GetUserIdFromToken(User);
+            if (authenticatedUserId != userId)
+                return StatusCode(403, "You can only publish stickers for your own account.");
 
-            return CreatedAtAction( nameof(PostUserSticker), userSticker );
+            var userSticker = await _userService.CreateUserStickerAsync(userId, data);
+            var responseDto = new UserStickerResponseDTO
+            {
+                Id = userSticker.Id,
+                UserId = userSticker.UserId,
+                Quantity = userSticker.Quantity,
+                CanBeDirectlyExchanged = userSticker.CanBeDirectlyExchanged,
+                CanBeAuctioned = userSticker.CanBeAuctioned,
+                Active = userSticker.Active
+            };
+            return CreatedAtAction(nameof(GetUserStickerById), new { userId = userId, stickerId = userSticker.Id }, responseDto);
         }
         catch (ArgumentException ex)
         {
-            if(ex.Message.Equals("User not found")) return NotFound(ex.Message);
-            if(ex.Message.Equals("Inventory already registered")) return Conflict(ex.Message);
-            
+            if (ex.Message.Equals("User not found")) return NotFound(ex.Message);
+            if (ex.Message.Equals("Inventory already registered")) return Conflict(ex.Message);
+            if (ex.Message.Equals("Sticker not found in catalog")) return NotFound(ex.Message);
             return StatusCode(500);
         }
     }
 
-
-    //* ENDPOINT_US02
-    [HttpPost("{userId}/missing-stickers")]
-    public ActionResult<List<Sticker>> PostMissingSticker(int userId, PostMissingStickerRequestDTO data)
-    {
-        try
-        {
-            Sticker sticker = data.Sticker.ToDomain();
-            var missingSticker = _userService.AddMissingStickerToUser(userId, sticker);
-
-            return CreatedAtAction( nameof(PostMissingSticker), missingSticker );
-        }
-        catch (ArgumentException ex)
-        {
-            if(ex.Message.Equals("User not found")) return NotFound(ex.Message);
-            if(ex.Message.Equals("Missing sticker already registered")) return Conflict(ex.Message);
-            return StatusCode(500);
-        }
-        
-    }
-    
     [HttpGet("{userId}/stickers")]
-    public ActionResult<List<UserSticker>> GetUserStickers(int userId)
+    [AllowAnonymous]
+    public ActionResult<List<MarketStickerResponseDTO>> GetUserStickers(int userId, [FromQuery] GetUserStickersDTO dto)
     {
-        var userStickers = _userService.GetAllUserStickers().FindAll(us => us.UserId == userId);
-        return Ok(userStickers);
+        try
+        {
+            var stickers = _userService.GetUserStickersByUserId(userId, dto);
+            return Ok(stickers);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpGet("{userId}/stickers/{stickerId}")]
+    public ActionResult<UserSticker> GetUserStickerById(int userId, int stickerId)
+    {
+        var userSticker = _userService.GetUserStickerById(userId, stickerId);
+        if (userSticker == null) return NotFound("Sticker not found in user inventory.");
+        return Ok(userSticker);
+    }
+
+    [HttpPost("{userId}/missing-stickers")]
+    public async Task<ActionResult<MissingSticker>> PostMissingSticker(int userId, PostMissingStickerRequestDTO data)
+    {
+        try
+        {
+            var authenticatedUserId = _authService.GetUserIdFromToken(User);
+            if (authenticatedUserId != userId)
+                return StatusCode(403, "You can only manage your own missing stickers.");
+
+            var missingSticker = await _userService.AddMissingStickerToUser(userId, data.StickerId);
+            return CreatedAtAction(nameof(GetMissingStickers), new { userId = userId }, missingSticker);
+        }
+        catch (ArgumentException ex)
+        {
+            if (ex.Message.Equals("User not found")) return NotFound(ex.Message);
+            if (ex.Message.Equals("Missing sticker already registered")) return Conflict(ex.Message);
+            if (ex.Message.Equals("Sticker not found in catalog")) return NotFound(ex.Message);
+            return StatusCode(500);
+        }
+    }
+
+    [HttpGet("{userId}/missing-stickers")]
+    public async Task<ActionResult<List<MissingSticker>>> GetMissingStickers(int userId)
+    {
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != userId)
+            return StatusCode(403, "You can only view your own missing stickers.");
+
+        try
+        {
+            var missing = await _userService.GetMissingStickers(userId);
+            return Ok(missing);
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
+
+    [HttpDelete("{userId}/missing-stickers/{stickerId}")]
+    public async Task<ActionResult> DeleteMissingSticker(int userId, int stickerId)
+    {
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != userId)
+            return StatusCode(403, "You can only manage your own missing stickers.");
+
+        var deleted = await _userService.RemoveMissingSticker(userId, stickerId);
+        if (!deleted) return NotFound("Missing sticker not found.");
+        return NoContent();
     }
 
     [HttpPatch("{userId}/stickers/{stickerId}")]
-    public ActionResult<UserSticker> PatchUserSticker(int userId, int userStickerId, PatchUserStickerDto patchDto)
+    public ActionResult<UserSticker> PatchUserSticker(int userId, int stickerId, PatchUserStickerDTO patchDto)
     {
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != userId)
+            return Forbid();
+
         try
         {
-            if(patchDto.quantity < 0)
-                return BadRequest("La cantidad ingresada no puede ser negativa.");
+            if (patchDto.Quantity < 0)
+                return BadRequest("Quantity cannot be negative.");
 
-            if(patchDto.canBeExchanged == null && patchDto.quantity == null)
-                return BadRequest("Debe proporcionar al menos un campo para actualizar.");
-            
-            var userSticker = _userService.UpdateUserSticker(userStickerId, patchDto.canBeExchanged, patchDto.quantity);
+            if (patchDto.CanBeDirectlyExchanged == null && patchDto.CanBeAuctioned == null && patchDto.Quantity == null)
+                return BadRequest("At least one field must be provided for update.");
+
+            var userSticker = _userService.UpdateUserSticker(stickerId, patchDto.CanBeDirectlyExchanged, patchDto.CanBeAuctioned, patchDto.Quantity, authenticatedUserId);
             return Ok(userSticker);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
         catch (ArgumentException ex)
         {
@@ -90,28 +155,35 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{userId}/stickers/{stickerId}")]
-    public ActionResult<UserSticker> DeleteUserSticker(int userId, int userStickerId)
+    public ActionResult<UserSticker> DeleteUserSticker(int userId, int stickerId)
     {
         try
         {
-            _userService.DeleteUserSticker(userStickerId);
+            var authenticatedUserId = _authService.GetUserIdFromToken(User);
+            _userService.DeleteUserSticker(stickerId, authenticatedUserId);
             return Ok();
         }
+        catch (UnauthorizedAccessException)
+        {
+            return StatusCode(403, "You do not own this sticker resource.");
+        }
         catch (ArgumentException ex)
         {
             return NotFound(ex.Message);
         }
     }
-   
 
-    //* ENDPOINT_US10
-    [HttpGet("{userID}/ratings")]
-    public ActionResult<List<Rate>> GetUserRatings(int userID)
+    /// <remarks>
+    /// Public by design: any authenticated user can view another user's rating history
+    /// to evaluate reputation before proposing a trade. No ownership check is applied.
+    /// </remarks>
+    [HttpGet("{userId}/ratings")]
+    public ActionResult<List<RatingResponseDTO>> GetUserRatings(int userId, [FromQuery] GetUserRatingsDTO dto)
     {
         try
         {
-            var userRatings = _userService.GetAllUserRatings(userID);
-            return Ok(userRatings);
+            var ratings = _userService.GetAllUserRatings(userId, dto.Page, dto.PageSize);
+            return Ok(ratings);
         }
         catch (ArgumentException ex)
         {
@@ -119,6 +191,7 @@ public class UsersController : ControllerBase
         }
     }
 
+    [AllowAnonymous]
     [HttpGet("{userId}/reputation")]
     public ActionResult<double> GetUserReputation(int userId)
     {
@@ -133,44 +206,62 @@ public class UsersController : ControllerBase
         }
     }
 
-    // Rutas REST para gestión de usuarios.
+    [AllowAnonymous]
     [HttpGet]
-    public ActionResult<List<User>> GetUsers()
+    public ActionResult<UserResponseDTO> GetUserByUsername([FromQuery] string username)
     {
-        var users = _userService.GetAllUsers();
-        return Ok(users);
+        if (string.IsNullOrWhiteSpace(username))
+            return BadRequest("The 'username' query parameter is required.");
+
+        var user = _userService.GetUserByUsername(username);
+        if (user == null) return NotFound("User not found.");
+
+        return Ok(new UserResponseDTO
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Reputation = user.Reputation
+        });
     }
 
-    [HttpPost]
-    public ActionResult<User> PostUser(PostUserDTO userDTO)
+    [AllowAnonymous]
+    [HttpGet("{id}")]
+    public ActionResult<UserResponseDTO> GetUserById(int id)
     {
-        try
+        var user = _userService.GetUserById(id);
+        if (user == null) return NotFound("User not found.");
+        return Ok(new UserResponseDTO
         {
-            var user = _userService.CreateUser(userDTO);
-            return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, user);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+            Id = user.Id,
+            Username = user.Username,
+            Reputation = user.Reputation
+        });
     }
 
-    [HttpPatch("/{id}")]
-    public ActionResult<User> PatchUser(int userId, PatchUserDTO patchDTO)
+    [HttpPatch("{id}")]
+    public ActionResult<UserResponseDTO> PatchUser(int id, PatchUserDTO patchDTO)
     {
+        var authenticatedUserId = _authService.GetUserIdFromToken(User);
+        if (authenticatedUserId != id)
+            return StatusCode(403, "You can only modify your own account.");
+
         try
         {
-            if(patchDTO.Username == null && patchDTO.Password == null)
-                return BadRequest("Debe proporcionar al menos un campo para actualizar.");
-            
-            var user = _userService.UpdateUser(userId, patchDTO);
-            return Ok(user);
+            if (patchDTO.Username == null && patchDTO.Password == null)
+                return BadRequest("At least one field must be provided for update.");
+
+            var user = _userService.UpdateUser(id, patchDTO);
+            var response = new UserResponseDTO
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Reputation = user.Reputation
+            };
+            return Ok(response);
         }
         catch (ArgumentException ex)
         {
             return NotFound(ex.Message);
         }
     }
-
 }
-

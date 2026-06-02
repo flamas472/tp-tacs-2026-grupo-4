@@ -1,7 +1,9 @@
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class TeamRepository
+namespace Figuritas.Api.Repositories;
+
+public class TeamRepository : ITeamRepository
 {
     private readonly IMongoCollection<Team> _teams;
     private readonly IIdGenerator _idGenerator;

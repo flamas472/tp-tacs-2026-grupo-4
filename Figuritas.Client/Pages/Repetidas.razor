@@ -1,0 +1,128 @@
+@page "/repetidas"
+@attribute [Authorize]
+@using Figuritas.Client.Models
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.Model
+
+@inject IDialogService DialogService
+@inject AuthStateService AuthState
+@inject DashboardHttpClient DashboardHttp
+@inject StickerHttpClient StickerHttp
+
+<PageTitle>Mis figuritas repetidas</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Figuritas repetidas</MudText>
+
+<UserStickerListComponent Stickers="@stickers"
+                          OnUserStickerClick="OnUserStickerClick"
+                          OnNextPage="HandleNextPage"
+                          OnPrevPage="HandlePrevPage"
+                          HasNextPage="@hasNextPage"
+                          HasPrevPage="@hasPrevPage"
+                          CurrentPage="@currentPage" />
+
+@code {
+    private const int PageSize = 24;
+
+    private List<UserStickerVm>? stickers;
+    private List<UserStickerVm> allStickers = new();
+
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        stickers = null;
+        StateHasChanged();
+
+        // Traer mis stickers y el catálogo en paralelo
+        var dashTask = DashboardHttp.GetMyStickersAsync(1, 100);
+        var catTask = StickerHttp.GetStickersAsync(1, 500);
+        await Task.WhenAll(dashTask, catTask);
+
+        if (!dashTask.Result.Success)
+        {
+            stickers = new();
+            return;
+        }
+
+        // Filtrar inactivos (Quantity == 0)
+        var dtos = (dashTask.Result.Data ?? new())
+            .Where(s => s.Quantity > 0)
+            .ToList();
+
+        // Indice del catálogo por número de figurita
+        var catalog = (catTask.Result.Data ?? new())
+            .ToDictionary(s => s.Number);
+
+        allStickers = dtos.Select(dto =>
+        {
+            catalog.TryGetValue(dto.Number, out var sticker);
+            sticker ??= new Sticker
+            {
+                Number = dto.Number,
+                Team = dto.Team,
+                Description = dto.Player,
+                NationalTeam = string.Empty,
+                Category = string.Empty
+            };
+            return new UserStickerVm(dto.StickerId, sticker, dto.Quantity,
+                dto.CanBeDirectlyExchanged, dto.CanBeAuctioned);
+        }).OrderBy(vm => vm.Sticker.Number).ToList();
+
+        ApplyPage();
+    }
+
+    private void ApplyPage()
+    {
+        var skip = (currentPage - 1) * PageSize;
+        stickers = allStickers.Skip(skip).Take(PageSize).ToList();
+        hasNextPage = allStickers.Count > skip + PageSize;
+    }
+
+    private void HandleNextPage()
+    {
+        currentPage++;
+        ApplyPage();
+    }
+
+    private void HandlePrevPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            ApplyPage();
+        }
+    }
+
+    private async Task OnUserStickerClick(UserStickerVm vm)
+    {
+        var parameters = new DialogParameters<UserStickerActionDialog>
+        {
+            { d => d.Sticker, vm.Sticker },
+            { d => d.UserStickerId, vm.UserStickerId },
+            { d => d.Quantity, vm.Quantity },
+            { d => d.InitialCanBeDirectlyExchanged, vm.CanBeDirectlyExchanged },
+            { d => d.InitialCanBeAuctioned, vm.CanBeAuctioned }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<UserStickerActionDialog>(
+            $"#{vm.Sticker.Number:D3} — {vm.Sticker.Description}",
+            parameters, options);
+
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await LoadAll();
+    }
+}

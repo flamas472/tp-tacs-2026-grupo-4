@@ -14,7 +14,7 @@ public class StickersController(StickerService stickerService) : ControllerBase
     private readonly StickerService _stickerService = stickerService;
 
     [HttpGet]
-    public ActionResult<List<Sticker>> GetStickers([FromQuery] GetStickersDto queryParams)
+    public ActionResult<List<Sticker>> GetStickers([FromQuery] GetStickersDTO queryParams)
     {
         if(queryParams.Page <= 0 || queryParams.PageSize <= 0)
         {
@@ -22,6 +22,14 @@ public class StickersController(StickerService stickerService) : ControllerBase
         }
         var stickers = _stickerService.Get(queryParams);
 
-        return Ok(stickers);        
+        return Ok(stickers);
+    }
+
+    [HttpGet("{id}")]
+    public ActionResult<Sticker> GetStickerById(int id)
+    {
+        var sticker = _stickerService.GetById(id);
+        if (sticker == null) return NotFound($"Sticker {id} not found.");
+        return Ok(sticker);
     }
 }

@@ -6,12 +6,17 @@ public class Rate
 {
     public int Id { get; set; }
 
-    [Range(1, 10)]
-    public required double Score {get; set; }
+    [Range(1, 5, ErrorMessage = "Stars must be between 1 and 5")]
+    public int Stars { get; set; }
 
-    public required string Comment { get; set; }
-    
-    public int ExchangeID {get; set; }
+    [MaxLength(500)]
+    public string? Comment { get; set; }
 
-    public required int RaterID { get; set; }
+    public int ExchangeId { get; set; }
+
+    public int EvaluatorUserId { get; set; }
+
+    public int TargetUserId { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

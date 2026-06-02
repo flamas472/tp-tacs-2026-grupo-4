@@ -1,4 +1,7 @@
 using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Intercambios;
+using Figuritas.Shared.Model.Notificaciones;
+using Figuritas.Shared.Model.Subastas;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 
@@ -9,7 +12,7 @@ public class MongoDbContext
     public MongoDbContext(IConfiguration configuration)
     {
         var settings = configuration.GetSection("Mongo").Get<MongoDbSettings>()
-            ?? throw new InvalidOperationException("Falta la configuración 'Mongo' en appsettings.json");
+            ?? throw new InvalidOperationException("Missing 'Mongo' configuration in appsettings.json");
 
         var client = new MongoClient(settings.ConnectionString);
         _database = client.GetDatabase(settings.DatabaseName);
@@ -17,6 +20,18 @@ public class MongoDbContext
     }
 
     public IMongoCollection<T> Collection<T>(string collectionName) => _database.GetCollection<T>(collectionName);
+
+    /// <summary>
+    /// Exposes the underlying IMongoDatabase so that test infrastructure can perform
+    /// operations such as dropping collections for isolation between test runs.
+    /// </summary>
+    public IMongoDatabase GetDatabase() => _database;
+
+    /// <summary>
+    /// Exposes the underlying IMongoClient so that services can start multi-document sessions
+    /// for ACID transactions.
+    /// </summary>
+    public IMongoClient GetClient() => _database.Client;
 
     private static void EnsureClassMapsRegistered()
     {
@@ -29,27 +44,35 @@ public class MongoDbContext
         RegisterClassMap<Rate>();
         RegisterClassMap<Exchange>();
         RegisterClassMap<ExchangeProposal>();
-        RegisterClassMap<ExchangeSuggestion>();
         RegisterClassMap<Auction>();
         RegisterClassMap<AuctionOffer>();
+        RegisterClassMap<MissingSticker>();
+        RegisterClassMap<Notification>();
+        RegisterClassMap<AuctionWatchlist>();
     }
+
+    private static readonly object _classMapLock = new();
 
     private static void RegisterClassMap<T>() where T : class
     {
         if (BsonClassMap.IsClassMapRegistered(typeof(T)))
-        {
             return;
-        }
 
-        BsonClassMap.RegisterClassMap<T>(cm =>
+        lock (_classMapLock)
         {
-            cm.AutoMap();
-            var idProperty = typeof(T).GetProperty("Id");
-            if (idProperty != null)
+            if (BsonClassMap.IsClassMapRegistered(typeof(T)))
+                return;
+
+            BsonClassMap.RegisterClassMap<T>(cm =>
             {
-                cm.MapIdMember(idProperty);
-            }
-            cm.SetIgnoreExtraElements(true);
-        });
+                cm.AutoMap();
+                var idProperty = typeof(T).GetProperty("Id");
+                if (idProperty != null)
+                {
+                    cm.MapIdMember(idProperty);
+                }
+                cm.SetIgnoreExtraElements(true);
+            });
+        }
     }
 }

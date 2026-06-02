@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
     <PackageReference Include="MongoDB.Driver" Version="3.8.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
@@ -16,6 +17,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Figuritas.Shared\Figuritas.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>Figuritas.Api.Tests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>

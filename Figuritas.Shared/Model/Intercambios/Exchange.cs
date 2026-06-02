@@ -1,4 +1,4 @@
-namespace Figuritas.Shared.Model;
+namespace Figuritas.Shared.Model.Intercambios;
 
 public class Exchange
 {
@@ -6,9 +6,9 @@ public class Exchange
 
     public DateTime DateCompleted { get; set; }
 
-    public required List<UserSticker> ProponentStickers { get; set; } // Stickers ofrecidos por quien inicio la propuesta de intercambio.
+    public required List<int> ProponentUserStickerIds { get; set; }
 
-    public required UserSticker ProposedSticker { get; set; } // El sticker dado por quien aceptó la oferta de intercambio.
+    public required int ProposedUserStickerId { get; set; }
 
     public required int ExchangeProposalID { get; set; }
 

@@ -1,7 +1,9 @@
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class CategoryRepository
+namespace Figuritas.Api.Repositories;
+
+public class CategoryRepository : ICategoryRepository
 {
     private readonly IMongoCollection<Category> _categories;
     private readonly IIdGenerator _idGenerator;

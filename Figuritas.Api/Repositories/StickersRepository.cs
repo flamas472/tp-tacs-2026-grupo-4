@@ -4,7 +4,9 @@ using System.Linq;
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class StickerRepository
+namespace Figuritas.Api.Repositories;
+
+public class StickerRepository : IStickerRepository
 {
     private readonly IMongoCollection<Sticker> _stickers;
     private readonly IIdGenerator _idGenerator;

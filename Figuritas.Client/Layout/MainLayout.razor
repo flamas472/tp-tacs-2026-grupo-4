@@ -1,4 +1,6 @@
 @inherits LayoutComponentBase
+@inject AuthStateService AuthState
+@inject NavigationManager Nav
 
 <MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
 <MudPopoverProvider />
@@ -8,12 +10,25 @@
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@DrawerToggle" />
-        <MudText Typo="Typo.h6" Class="ml-2">Application</MudText>
+        <MudText Typo="Typo.h6" Class="ml-2">Figuri<span style="color:var(--mud-palette-primary);font-weight:800">TACS</span></MudText>
         <MudSpacer />
         <MudIconButton Icon="@(DarkLightModeButtonIcon)" Color="Color.Inherit" OnClick="@DarkModeToggle" />
-        <MudLink Href="https://learn.microsoft.com/aspnet/core/" Target="_blank" Color="Color.Inherit" Underline="Underline.None">
-            About
-        </MudLink>
+        <AuthorizeView>
+            <Authorized>
+                <MudChip T="string" Icon="@Icons.Material.Filled.Person" Color="Color.Default" Size="Size.Small" Class="mx-1">
+                    @AuthState.Username
+                </MudChip>
+                <MudTooltip Text="Cerrar sesión">
+                    <MudIconButton Icon="@Icons.Material.Filled.Logout" Color="Color.Inherit" OnClick="HandleLogout" />
+                </MudTooltip>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="/ingresar" Color="Color.Inherit" Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.Login" Size="Size.Small">
+                    Ingresar
+                </MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
     </MudAppBar>
 
     <MudDrawer @bind-Open="_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
@@ -93,7 +108,13 @@
 
     public string DarkLightModeButtonIcon => _isDarkMode switch
     {
-        true => Icons.Material.Rounded.AutoMode,
+        true => Icons.Material.Rounded.LightMode,
         false => Icons.Material.Outlined.DarkMode,
     };
+
+    private async Task HandleLogout()
+    {
+        await AuthState.LogoutAsync();
+        Nav.NavigateTo("/ingresar");
+    }
 }

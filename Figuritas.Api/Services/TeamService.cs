@@ -1,12 +1,13 @@
+using Figuritas.Api.Repositories;
 using Figuritas.Shared.Model;
 
 namespace Figuritas.Api.Services;
 
 public class TeamService
 {
-    private readonly TeamRepository _teamRepository;
+    private readonly ITeamRepository _teamRepository;
 
-    public TeamService(TeamRepository teamRepository)
+    public TeamService(ITeamRepository teamRepository)
     {
         _teamRepository = teamRepository;
     }

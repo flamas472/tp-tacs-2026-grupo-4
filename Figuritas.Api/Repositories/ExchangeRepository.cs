@@ -1,7 +1,9 @@
-using Figuritas.Shared.Model;
+using Figuritas.Shared.Model.Intercambios;
 using MongoDB.Driver;
 
-public class ExchangeRepository
+namespace Figuritas.Api.Repositories;
+
+public class ExchangeRepository : IExchangeRepository
 {
     private readonly IMongoCollection<Exchange> _exchanges;
     private readonly IIdGenerator _idGenerator;
@@ -23,8 +25,19 @@ public class ExchangeRepository
         _exchanges.InsertOne(exchange);
     }
 
+    public void Add(Exchange exchange, IClientSessionHandle session)
+    {
+        exchange.Id = _idGenerator.GetNextId<Exchange>();
+        _exchanges.InsertOne(session, exchange);
+    }
+
     public Exchange? GetById(int exchangeId)
     {
         return _exchanges.Find(e => e.Id == exchangeId).FirstOrDefault();
+    }
+
+    public Exchange? GetByProposalId(int proposalId)
+    {
+        return _exchanges.Find(e => e.ExchangeProposalID == proposalId).FirstOrDefault();
     }
 }

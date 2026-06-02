@@ -1,0 +1,95 @@
+@using Figuritas.Shared.DTO.response
+
+<MudCard Class="@($"sticker-card auction-card {StatusBorderClass}")" Elevation="2" @onclick="HandleClick">
+    <div class="sticker-image-container">
+        <img src="@Auction.StickerImageUrl" alt="@Auction.StickerDescription" class="sticker-image" />
+        <span class="sticker-number-badge">@Auction.StickerNumber.ToString("D3")</span>
+        <span class="auction-status-badge @StatusBadgeClass d-flex align-center gap-1">
+            <MudIcon Icon="@StatusIcon" Size="Size.Small" Style="font-size:0.85rem;line-height:1;" />
+            @StatusLabel
+        </span>
+    </div>
+    <MudCardContent Class="sticker-info">
+        <MudText Typo="Typo.subtitle2" Class="sticker-description">@Auction.StickerDescription</MudText>
+        <div class="sticker-meta">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">@Auction.StickerNationalTeam</MudText>
+            @if (IsOpen)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Warning">@TimeRemaining</MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@ClosedLabel</MudText>
+            }
+        </div>
+        <div class="auction-card-footer mt-1">
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="auction-card-auctioneer">
+                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="vertical-align:middle;font-size:0.75rem;" />
+                @Auction.AuctioneerUsername
+            </MudText>
+            @if (Auction.OfferCount > 0)
+            {
+                <div class="auction-offer-indicator">
+                    <MudIcon Icon="@Icons.Material.Filled.Gavel" Size="Size.Small" Color="Color.Warning" />
+                    <MudText Typo="Typo.caption" Color="Color.Warning">@Auction.OfferCount puja@(Auction.OfferCount == 1 ? "" : "s")</MudText>
+                </div>
+            }
+        </div>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter][EditorRequired] public AuctionResponseDTO Auction { get; set; } = default!;
+    [Parameter] public EventCallback<AuctionResponseDTO> OnClick { get; set; }
+
+    private bool IsOpen => Auction.Status == "Active" && Auction.EndsAt > DateTime.UtcNow;
+
+    /// <summary>Clase CSS de borde lateral según el estado de la subasta.</summary>
+    private string StatusBorderClass => Auction.Status switch
+    {
+        "Active" => "auction-border-active",
+        "Cancelled" => "auction-border-cancelled",
+        _ => "auction-border-closed"
+    };
+
+    /// <summary>Clase CSS del badge de estado.</summary>
+    private string StatusBadgeClass => IsOpen ? "auction-open" : "auction-closed";
+
+    /// <summary>Etiqueta legible del estado.</summary>
+    private string StatusLabel => Auction.Status switch
+    {
+        "Active" when IsOpen => "Abierta",
+        "Active" => "Venció",
+        "Cancelled" => "Cancelada",
+        _ => "Cerrada"
+    };
+
+    /// <summary>Ícono diferenciador según el estado de la subasta.</summary>
+    private string StatusIcon => Auction.Status switch
+    {
+        "Active" when IsOpen => Icons.Material.Filled.Timer,
+        "Cancelled"          => Icons.Material.Filled.Cancel,
+        _                    => Icons.Material.Filled.CheckCircle
+    };
+
+    /// <summary>Texto estático para subastas que ya no están activas.</summary>
+    private string ClosedLabel => Auction.Status switch
+    {
+        "Cancelled" => "Cancelada",
+        _           => "Finalizada"
+    };
+
+    private string TimeRemaining
+    {
+        get
+        {
+            var remaining = Auction.EndsAt - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero) return "Venció";
+            if (remaining.TotalDays >= 1) return $"Cierra en {(int)remaining.TotalDays}d {remaining.Hours}h";
+            if (remaining.TotalHours >= 1) return $"Cierra en {(int)remaining.TotalHours}h {remaining.Minutes}m";
+            return $"Cierra en {(int)remaining.TotalMinutes}m";
+        }
+    }
+
+    private async Task HandleClick() => await OnClick.InvokeAsync(Auction);
+}

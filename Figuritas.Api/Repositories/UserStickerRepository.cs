@@ -2,7 +2,9 @@ using System.Linq.Expressions;
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class UserStickerRepository
+namespace Figuritas.Api.Repositories;
+
+public class UserStickerRepository : IUserStickerRepository
 {
     private readonly IMongoCollection<UserSticker> _userStickers;
     private readonly IIdGenerator _idGenerator;
@@ -15,18 +17,26 @@ public class UserStickerRepository
 
     public List<UserSticker> GetAll()
     {
-        return _userStickers.Find(_ => true).ToList();
+        return _userStickers.Find(us => us.Active).ToList();
     }
 
-    public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null)
+    public List<UserSticker> GetPaginated(int page, int pageSize, Expression<Func<UserSticker, bool>>? filter = null, bool sortDescending = false)
     {
         if (page < 1 || pageSize < 1)
         {
-            throw new ArgumentException("Page and PageSize must be grater than 0");
+            throw new ArgumentException("Page and PageSize must be greater than 0");
         }
 
-        var find = _userStickers.Find(filter ?? (_ => true));
-        return find.Skip((page - 1) * pageSize).Limit(pageSize).ToList();
+        var activeFilter = Builders<UserSticker>.Filter.Eq(us => us.Active, true);
+        var combinedFilter = filter != null
+            ? Builders<UserSticker>.Filter.And(activeFilter, filter)
+            : activeFilter;
+
+        var query = _userStickers.Find(combinedFilter);
+        if (sortDescending)
+            query = query.SortByDescending(us => us.Id);
+
+        return query.Skip((page - 1) * pageSize).Limit(pageSize).ToList();
     }
 
     public void Add(UserSticker userSticker)
@@ -35,9 +45,25 @@ public class UserStickerRepository
         _userStickers.InsertOne(userSticker);
     }
 
-    public UserSticker? GetById(int id) => _userStickers.Find(a => a.Id == id).FirstOrDefault();
+    public void Add(UserSticker userSticker, IClientSessionHandle session)
+    {
+        userSticker.Id = _idGenerator.GetNextId<UserSticker>();
+        _userStickers.InsertOne(session, userSticker);
+    }
 
-    public List<UserSticker> GetMultipleById(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id)).ToList();
+    public UserSticker? GetById(int id) => _userStickers.Find(us => us.Id == id && us.Active).FirstOrDefault();
+
+    public UserSticker? GetByIdIncludingInactive(int id) => _userStickers.Find(us => us.Id == id).FirstOrDefault();
+
+    public UserSticker? GetByIdIncludingInactive(int id, IClientSessionHandle session) =>
+        _userStickers.Find(session, us => us.Id == id).FirstOrDefault();
+
+    public List<UserSticker> GetMultipleById(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id) && us.Active).ToList();
+
+    public List<UserSticker> GetMultipleByIdIncludingInactive(List<int> ids) => _userStickers.Find(us => ids.Contains(us.Id)).ToList();
+
+    public List<UserSticker> GetMultipleByIdIncludingInactive(List<int> ids, IClientSessionHandle session) =>
+        _userStickers.Find(session, us => ids.Contains(us.Id)).ToList();
 
     public bool Exists(UserSticker userSticker)
     {
@@ -62,6 +88,15 @@ public class UserStickerRepository
         }
     }
 
+    public void Update(UserSticker userSticker, IClientSessionHandle session)
+    {
+        var result = _userStickers.ReplaceOne(session, us => us.Id == userSticker.Id, userSticker);
+        if (!result.IsAcknowledged || result.MatchedCount == 0)
+        {
+            throw new ArgumentException("UserSticker not found");
+        }
+    }
+
     public void Delete(int userStickerId)
     {
         var result = _userStickers.UpdateOne(
@@ -72,5 +107,46 @@ public class UserStickerRepository
         {
             throw new ArgumentException("UserSticker not found");
         }
+    }
+
+    public List<UserSticker> GetByStickerIds(List<int> stickerIds, int excludeUserId)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.In(us => us.Sticker.Id, stickerIds),
+            Builders<UserSticker>.Filter.Ne(us => us.UserId, excludeUserId),
+            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0),
+            Builders<UserSticker>.Filter.Eq(us => us.Active, true),
+            Builders<UserSticker>.Filter.Eq(us => us.CanBeDirectlyExchanged, true)
+        );
+        return _userStickers.Find(filter).ToList();
+    }
+
+    public List<UserSticker> GetByUserId(int userId) =>
+        _userStickers.Find(us => us.UserId == userId && us.Active).ToList();
+
+    public List<UserSticker> GetByUserId(int userId, IClientSessionHandle session) =>
+        _userStickers.Find(session, us => us.UserId == userId && us.Active).ToList();
+
+    public async Task<UserSticker?> GetByUserIdAndCatalogIdIncludingInactiveAsync(int userId, int catalogStickerId)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.UserId, userId),
+            Builders<UserSticker>.Filter.Eq(us => us.Sticker.Id, catalogStickerId)
+        );
+        return await _userStickers.Find(filter).FirstOrDefaultAsync();
+    }
+
+    public List<UserSticker> GetByUserIdPaginated(int userId, int page, int pageSize)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.UserId, userId),
+            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0),
+            Builders<UserSticker>.Filter.Eq(us => us.Active, true)
+        );
+
+        return _userStickers.Find(filter)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .ToList();
     }
 }

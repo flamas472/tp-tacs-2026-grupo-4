@@ -1,0 +1,116 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO
+@using Figuritas.Client.Models
+@using Figuritas.Client.Requests
+
+@inject AuthStateService AuthState
+@inject UserHttpClient UserHttp
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <StickerDialogContent Sticker="@Sticker"
+                              Quantity="@Quantity"
+                              FeedbackMsg="@feedbackMsg"
+                              FeedbackSuccess="@feedbackSuccess">
+            <MudCheckBox @bind-Value="canBeDirectlyExchanged"
+                         Label="Disponible para intercambio directo"
+                         Color="Color.Primary"
+                         Class="mt-2" />
+            <MudCheckBox @bind-Value="canBeAuctioned"
+                         Label="Disponible para subastar"
+                         Color="Color.Secondary"
+                         Class="mt-0" />
+        </StickerDialogContent>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cancelar</MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Warning"
+                   StartIcon="@Icons.Material.Filled.Gavel"
+                   OnClick="HandleSubastar"
+                   Disabled="loading">
+            Subastar
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="HandleGuardar"
+                   Disabled="loading">
+            @if (loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Guardar
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public Sticker Sticker { get; set; } = default!;
+    [Parameter] public int UserStickerId { get; set; }
+    [Parameter] public int Quantity { get; set; }
+    [Parameter] public bool InitialCanBeDirectlyExchanged { get; set; }
+    [Parameter] public bool InitialCanBeAuctioned { get; set; }
+
+    private bool canBeDirectlyExchanged;
+    private bool canBeAuctioned;
+    private bool loading = false;
+    private string? feedbackMsg = null;
+    private bool feedbackSuccess = false;
+
+    protected override void OnParametersSet()
+    {
+        canBeDirectlyExchanged = InitialCanBeDirectlyExchanged;
+        canBeAuctioned = InitialCanBeAuctioned;
+    }
+
+    private async Task HandleSubastar()
+    {
+        var parameters = new DialogParameters<NewAuctionRequestComponent>
+        {
+            { c => c.UserStickerId, UserStickerId },
+            { c => c.Sticker, Sticker }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+        var dialog = await DialogService.ShowAsync<NewAuctionRequestComponent>(
+            string.Empty, parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            MudDialog.Close();
+    }
+
+    private async Task HandleGuardar()
+    {
+        loading = true;
+        feedbackMsg = null;
+
+        var result = await UserHttp.UpdateUserStickerAsync(
+            AuthState.UserId,
+            UserStickerId,
+            new PatchUserStickerDTO
+            {
+                CanBeDirectlyExchanged = canBeDirectlyExchanged,
+                CanBeAuctioned = canBeAuctioned
+                // Quantity = null → la API no modifica la cantidad
+            });
+
+        loading = false;
+        feedbackSuccess = result.Success;
+        feedbackMsg = result.Success
+            ? "Configuración actualizada."
+            : result.ErrorMessage ?? "Error al guardar los cambios.";
+
+        if (feedbackSuccess)
+        {
+            await Task.Delay(1000);
+            MudDialog.Close();
+        }
+    }
+}

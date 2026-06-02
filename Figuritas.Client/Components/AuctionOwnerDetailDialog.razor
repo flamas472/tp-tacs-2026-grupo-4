@@ -1,0 +1,520 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Shared.DTO.request
+@using Figuritas.Client.Requests
+@implements IDisposable
+
+@inject AuctionHttpClient AuctionHttp
+@inject UserHttpClient UserHttp
+@inject AuthStateService AuthState
+@inject ISnackbar Snackbar
+
+@*
+    AuctionOwnerDetailDialog — detail dialog for the auctioneer (owner) of an auction.
+
+    Shows:
+      - Status / countdown for active auctions (Section 1)
+      - System suggestion panel — best offer by BestCurrentOfferId or most stickers (Section 4)
+      - List of received offers with OfferPreviewComponent (Section 2)
+      - Per-offer actions: Select Favorite (star), Accept as Winner (Section 3)
+      - Cancel auction button — active auctions only (Section 5)
+
+    Parameters:
+      - Auction : AuctionResponseDTO (required)
+*@
+
+<MudDialog>
+    <DialogContent>
+        @if (loading)
+        {
+            <div class="d-flex justify-center pa-4">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else
+        {
+            @* ── Section 1 — Control info ──────────────────────────────────── *@
+            <div class="aod-control-section mb-3">
+                <div class="d-flex align-center gap-2 flex-wrap mb-1">
+                    @* Status chip *@
+                    <MudChip T="string"
+                             Color="@StatusColor"
+                             Variant="Variant.Filled"
+                             Size="Size.Small">
+                        @StatusLabel
+                    </MudChip>
+
+                    @* Sticker info *@
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        #@Auction.StickerNumber.ToString("D3") — @Auction.StickerDescription
+                    </MudText>
+                    @if (!string.IsNullOrEmpty(Auction.StickerNationalTeam))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@Auction.StickerNationalTeam</MudText>
+                    }
+                </div>
+
+                @* Dynamic countdown for active auctions *@
+                @if (IsOpen)
+                {
+                    <div class="d-flex align-center gap-1 mb-1">
+                        <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" Color="Color.Warning" />
+                        <MudText Typo="Typo.body2" Color="Color.Warning" Style="font-variant-numeric: tabular-nums;">
+                            @CountdownDisplay
+                        </MudText>
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex align-center gap-1 mb-1">
+                        <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Cerró el @Auction.EndsAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </MudText>
+                    </div>
+                }
+            </div>
+
+            <MudDivider Class="mb-3" />
+
+            @* ── Section 4 — System suggestion panel ──────────────────────── *@
+            @if (SuggestedOffer is not null)
+            {
+                <MudPaper Elevation="4" Class="aod-suggestion-panel mb-3 pa-3">
+                    <div class="d-flex align-center gap-1 mb-1">
+                        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small" Color="Color.Warning" />
+                        <MudText Typo="Typo.caption" Color="Color.Warning" Style="font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">
+                            Oferta sugerida
+                        </MudText>
+                    </div>
+                    <MudText Typo="Typo.body2">
+                        <strong>@SuggestedOffer.BidderUsername</strong>
+                        — @SuggestedOffer.OfferedUserStickerIds.Count figurita@(SuggestedOffer.OfferedUserStickerIds.Count == 1 ? "" : "s")
+                    </MudText>
+                    @if (offerPreviewMap.TryGetValue(SuggestedOffer.Id, out var suggestedStickers) && suggestedStickers.Any())
+                    {
+                        <OfferPreviewComponent Stickers="@suggestedStickers" MaxVisible="4" />
+                    }
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                        @ProjectedWinnerLabel
+                    </MudText>
+                </MudPaper>
+            }
+
+            @* ── Section 2 — Received offers ──────────────────────────────── *@
+            @if (!offers.Any())
+            {
+                <div class="d-flex flex-column align-center pa-3 gap-1">
+                    <MudIcon Icon="@Icons.Material.Outlined.Gavel" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Aún no se recibieron ofertas.</MudText>
+                </div>
+            }
+            else
+            {
+                @* Desktop: MudTable — hidden on xs/sm *@
+                <div class="aod-table-desktop">
+                    <MudTable Items="@offers" Dense="true" Hover="true" Striped="false" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Pujador</MudTh>
+                            <MudTh>Figuritas ofrecidas</MudTh>
+                            <MudTh>Fecha</MudTh>
+                            <MudTh Style="text-align:center;">Favorita</MudTh>
+                            @if (IsOpen)
+                            {
+                                <MudTh Style="text-align:center;">Acciones</MudTh>
+                            }
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>
+                                <div class="d-flex align-center gap-1">
+                                    @context.BidderUsername
+                                    @if (IsProjectedWinner(context))
+                                    {
+                                        <MudTooltip Text="Ganador proyectado">
+                                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents"
+                                                     Size="Size.Small"
+                                                     Color="Color.Warning" />
+                                        </MudTooltip>
+                                    }
+                                </div>
+                            </MudTd>
+                            <MudTd>
+                                @if (offerPreviewMap.TryGetValue(context.Id, out var stickers) && stickers.Any())
+                                {
+                                    <OfferPreviewComponent Stickers="@stickers" MaxVisible="3" />
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @context.OfferedUserStickerIds.Count figurita@(context.OfferedUserStickerIds.Count == 1 ? "" : "s")
+                                    </MudText>
+                                }
+                            </MudTd>
+                            <MudTd>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @context.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")
+                                </MudText>
+                            </MudTd>
+                            <MudTd Style="text-align:center;">
+                                <MudTooltip Text="@(IsFavorite(context) ? "Quitar favorita" : "Marcar como favorita")">
+                                    <MudIconButton Icon="@(IsFavorite(context) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                                                   Color="@(IsFavorite(context) ? Color.Warning : Color.Default)"
+                                                   Size="Size.Small"
+                                                   Disabled="@(!IsOpen || actionLoading)"
+                                                   OnClick="@(() => HandleSelectFavorite(context))" />
+                                </MudTooltip>
+                            </MudTd>
+                            @if (IsOpen)
+                            {
+                                <MudTd Style="text-align:center;">
+                                    <MudButton Variant="Variant.Outlined"
+                                               Color="Color.Success"
+                                               Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.CheckCircle"
+                                               Disabled="actionLoading"
+                                               OnClick="@(() => HandleAcceptOffer(context))">
+                                        Aceptar
+                                    </MudButton>
+                                </MudTd>
+                            }
+                        </RowTemplate>
+                    </MudTable>
+                </div>
+
+                @* Mobile: stacked cards — hidden on md+ *@
+                <div class="aod-cards-mobile">
+                    @foreach (var offer in offers)
+                    {
+                        <MudCard @key="offer.Id" Elevation="1" Class="aod-offer-card mb-2">
+                            <MudCardContent Class="pa-3">
+                                <div class="d-flex justify-space-between align-center mb-1">
+                                    <div class="d-flex align-center gap-1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Color="Color.Secondary" />
+                                        <MudText Typo="Typo.subtitle2">@offer.BidderUsername</MudText>
+                                        @if (IsProjectedWinner(offer))
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents"
+                                                     Size="Size.Small"
+                                                     Color="Color.Warning" />
+                                        }
+                                    </div>
+                                    <MudTooltip Text="@(IsFavorite(offer) ? "Quitar favorita" : "Marcar como favorita")">
+                                        <MudIconButton Icon="@(IsFavorite(offer) ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                                                       Color="@(IsFavorite(offer) ? Color.Warning : Color.Default)"
+                                                       Size="Size.Small"
+                                                       Disabled="@(!IsOpen || actionLoading)"
+                                                       OnClick="@(() => HandleSelectFavorite(offer))" />
+                                    </MudTooltip>
+                                </div>
+
+                                @if (offerPreviewMap.TryGetValue(offer.Id, out var mobileStickers) && mobileStickers.Any())
+                                {
+                                    <OfferPreviewComponent Stickers="@mobileStickers" MaxVisible="4" />
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @offer.OfferedUserStickerIds.Count figurita@(offer.OfferedUserStickerIds.Count == 1 ? "" : "s")
+                                    </MudText>
+                                }
+
+                                <div class="d-flex justify-space-between align-center mt-2">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @offer.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                    </MudText>
+                                    @if (IsOpen)
+                                    {
+                                        <MudButton Variant="Variant.Outlined"
+                                                   Color="Color.Success"
+                                                   Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.CheckCircle"
+                                                   Disabled="actionLoading"
+                                                   OnClick="@(() => HandleAcceptOffer(offer))">
+                                            Aceptar
+                                        </MudButton>
+                                    }
+                                </div>
+                            </MudCardContent>
+                        </MudCard>
+                    }
+                </div>
+            }
+        }
+    </DialogContent>
+
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="actionLoading">Cerrar</MudButton>
+
+        @* Sección 5 — Cancelar subasta (solo activas) *@
+        @if (IsOpen)
+        {
+            <MudTooltip Text="@cancelTooltip">
+                <span>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Error"
+                               StartIcon="@Icons.Material.Filled.Cancel"
+                               Disabled="@(actionLoading || !canCancel)"
+                               OnClick="HandleCancelAuction">
+                        @if (actionLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                        }
+                        Cancelar subasta
+                    </MudButton>
+                </span>
+            </MudTooltip>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>The auction owned by the current user.</summary>
+    [Parameter][EditorRequired] public AuctionResponseDTO Auction { get; set; } = default!;
+
+    // ── State ────────────────────────────────────────────────────────────────
+    private bool loading = true;
+    private bool actionLoading = false;
+
+    private List<AuctionOfferResponseDTO> offers = new();
+
+    /// <summary>Maps offer.Id to list of StickerPreviewDTO for OfferPreviewComponent.</summary>
+    private Dictionary<int, List<StickerPreviewDTO>> offerPreviewMap = new();
+
+    /// <summary>The offer currently marked as favorite by the owner (tracks UserSelectedBestOfferId locally).</summary>
+    private int? userSelectedOfferId;
+
+    private bool canCancel = true;
+    private string cancelTooltip = string.Empty;
+
+    // Countdown timer
+    private System.Threading.Timer? _timer;
+
+    // ── Computed ─────────────────────────────────────────────────────────────
+    private bool IsOpen => Auction.Status == "Active" && Auction.EndsAt > DateTime.UtcNow;
+
+    private Color StatusColor => Auction.Status switch
+    {
+        "Active" when IsOpen => Color.Success,
+        "Cancelled"          => Color.Error,
+        _                    => Color.Default
+    };
+
+    private string StatusLabel => Auction.Status switch
+    {
+        "Active" when IsOpen => "Activa",
+        "Active"             => "Vencida",
+        "Cancelled"          => "Cancelada",
+        _                    => "Cerrada"
+    };
+
+    private string CountdownDisplay
+    {
+        get
+        {
+            var remaining = Auction.EndsAt - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero) return "Venció";
+            if (remaining.TotalDays >= 1)
+                return $"{(int)remaining.TotalDays}d {remaining.Hours:D2}h {remaining.Minutes:D2}m restantes";
+            if (remaining.TotalHours >= 1)
+                return $"{(int)remaining.TotalHours}h {remaining.Minutes:D2}m {remaining.Seconds:D2}s restantes";
+            return $"{(int)remaining.TotalMinutes}m {remaining.Seconds:D2}s restantes";
+        }
+    }
+
+    /// <summary>
+    /// System-suggested best offer: the one referenced by BestCurrentOfferId on the auction.
+    /// Falls back to the offer with the most stickers if BestCurrentOfferId is not set.
+    /// </summary>
+    private AuctionOfferResponseDTO? SuggestedOffer
+    {
+        get
+        {
+            if (!offers.Any()) return null;
+            if (Auction.BestCurrentOfferId.HasValue)
+            {
+                var found = offers.FirstOrDefault(o => o.Id == Auction.BestCurrentOfferId.Value);
+                if (found is not null) return found;
+            }
+            // Local fallback: offer with most stickers
+            return offers.OrderByDescending(o => o.OfferedUserStickerIds.Count).First();
+        }
+    }
+
+    /// <summary>
+    /// Projected winner if the auction ended right now:
+    /// priority: user-selected favorite, then system suggestion, then first in list.
+    /// </summary>
+    private AuctionOfferResponseDTO? ProjectedWinner
+    {
+        get
+        {
+            if (!offers.Any()) return null;
+            if (userSelectedOfferId.HasValue)
+            {
+                var fav = offers.FirstOrDefault(o => o.Id == userSelectedOfferId.Value);
+                if (fav is not null) return fav;
+            }
+            return SuggestedOffer ?? offers.First();
+        }
+    }
+
+    private string ProjectedWinnerLabel
+    {
+        get
+        {
+            // Case 1: owner has a favorite selected AND it differs from the system suggestion
+            if (userSelectedOfferId.HasValue && userSelectedOfferId.Value != SuggestedOffer?.Id)
+                return "Sugerencia del sistema — tenés un favorito diferente seleccionado.";
+
+            // Case 2: the projected winner matches (or is) the system suggestion
+            if (ProjectedWinner?.Id == SuggestedOffer?.Id)
+                return "Esta oferta ganaría si la subasta finalizara ahora.";
+
+            // Fallback
+            return "Esta oferta tiene la mayor cantidad de figuritas.";
+        }
+    }
+
+    private bool IsFavorite(AuctionOfferResponseDTO offer) =>
+        userSelectedOfferId.HasValue && userSelectedOfferId.Value == offer.Id;
+
+    private bool IsProjectedWinner(AuctionOfferResponseDTO offer) =>
+        ProjectedWinner is not null && ProjectedWinner.Id == offer.Id;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        userSelectedOfferId = Auction.UserSelectedBestOfferId;
+
+        await LoadOffersAsync();
+
+        loading = false;
+
+        if (IsOpen)
+            StartCountdownTimer();
+    }
+
+    private async Task LoadOffersAsync()
+    {
+        var result = await AuctionHttp.GetAuctionOffersAsync(Auction.Id);
+        if (!result.Success || result.Data is null) return;
+
+        // Exclude cancelled offers from the display
+        offers = result.Data.Where(o => o.State != "Cancelled").ToList();
+
+        // Build preview maps: for each unique bidder, load their stickers once
+        var bidderIds = offers.Select(o => o.BidderId).Distinct().ToList();
+        var bidderStickers = new Dictionary<int, List<MarketStickerResponseDTO>>();
+
+        var fetchTasks = bidderIds.Select(async bidderId =>
+        {
+            var stickersResult = await UserHttp.GetUserStickersAsync(bidderId, page: 1, pageSize: 200);
+            if (stickersResult.Success && stickersResult.Data is not null)
+                bidderStickers[bidderId] = stickersResult.Data;
+        });
+        await Task.WhenAll(fetchTasks);
+
+        foreach (var offer in offers)
+        {
+            if (!bidderStickers.TryGetValue(offer.BidderId, out var bidderList)) continue;
+
+            var idSet = offer.OfferedUserStickerIds.ToHashSet();
+            offerPreviewMap[offer.Id] = bidderList
+                .Where(s => idSet.Contains(s.UserStickerId))
+                .Select(s => new StickerPreviewDTO
+                {
+                    UserStickerId = s.UserStickerId,
+                    Number        = s.StickerNumber,
+                    ImageUrl      = s.StickerImageUrl,
+                    Description   = s.StickerDescription
+                })
+                .ToList();
+        }
+    }
+
+    private void StartCountdownTimer()
+    {
+        _timer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+
+    // ── Section 3 — Actions ──────────────────────────────────────────────────
+
+    /// <summary>Marks an offer as the owner's favorite (pre-selection without closing).</summary>
+    private async Task HandleSelectFavorite(AuctionOfferResponseDTO offer)
+    {
+        if (actionLoading) return;
+
+        actionLoading = true;
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var result = await AuctionHttp.SelectBestOfferAsync(
+            Auction.Id,
+            new SelectBestOfferRequestDTO { OfferId = offer.Id },
+            token);
+        actionLoading = false;
+
+        if (result.Success)
+        {
+            userSelectedOfferId = offer.Id;
+            Snackbar.Add($"Oferta de {offer.BidderUsername} marcada como favorita.", Severity.Info);
+        }
+        else
+        {
+            Snackbar.Add(result.ErrorMessage ?? "No se pudo actualizar la favorita.", Severity.Error);
+        }
+    }
+
+    /// <summary>Accepts the offer as the winner, closes the auction, and closes the dialog.</summary>
+    private async Task HandleAcceptOffer(AuctionOfferResponseDTO offer)
+    {
+        if (actionLoading) return;
+
+        actionLoading = true;
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var result = await AuctionHttp.AcceptOfferAsync(Auction.Id, offer.Id, token);
+        actionLoading = false;
+
+        if (result.Success)
+        {
+            Snackbar.Add($"Oferta de {offer.BidderUsername} aceptada. Subasta cerrada.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add(result.ErrorMessage ?? "No se pudo aceptar la oferta.", Severity.Error);
+        }
+    }
+
+    /// <summary>Cancels the auction (no winner). Section 5.</summary>
+    private async Task HandleCancelAuction()
+    {
+        if (actionLoading) return;
+
+        actionLoading = true;
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var result = await AuctionHttp.CancelAuctionAsync(Auction.Id, token);
+        actionLoading = false;
+
+        if (result.Success)
+        {
+            Snackbar.Add("Subasta cancelada correctamente.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            // Disable the button and expose the reason as a tooltip
+            canCancel = false;
+            cancelTooltip = result.ErrorMessage ?? "No se puede cancelar esta subasta.";
+            Snackbar.Add(cancelTooltip, Severity.Warning);
+        }
+    }
+}

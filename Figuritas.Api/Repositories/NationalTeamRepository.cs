@@ -1,7 +1,9 @@
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
-public class NationalTeamRepository
+namespace Figuritas.Api.Repositories;
+
+public class NationalTeamRepository : INationalTeamRepository
 {
     private readonly IMongoCollection<NationalTeam> _nationalTeams;
     private readonly IIdGenerator _idGenerator;

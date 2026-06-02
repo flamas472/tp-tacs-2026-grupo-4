@@ -1,0 +1,88 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Client.Models
+
+@inject IDialogService DialogService
+
+<div class="ssl-container">
+    @if (!internalList.Any())
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ssl-empty">
+            Sin figuritas seleccionadas
+        </MudText>
+    }
+    else
+    {
+        <div class="ssl-chips">
+            @foreach (var sticker in internalList)
+            {
+                <div class="ssl-chip" @key="sticker.Id">
+                    <MudText Typo="Typo.caption" Class="ssl-chip-label">
+                        #@sticker.Number.ToString("D3") — @Truncate(sticker.Description, 24)
+                    </MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                   Size="Size.Small"
+                                   Color="Color.Error"
+                                   OnClick="@(() => Remove(sticker))" />
+                </div>
+            }
+        </div>
+    }
+
+    <MudButton StartIcon="@Icons.Material.Filled.Add"
+               Size="Size.Small"
+               Variant="Variant.Outlined"
+               Color="Color.Primary"
+               Class="mt-1"
+               OnClick="OpenSelection">
+        Agregar figurita
+    </MudButton>
+</div>
+
+@code {
+    [Parameter] public List<Sticker> SelectedStickers { get; set; } = new();
+    [Parameter] public EventCallback<List<Sticker>> OnSelectionChanged { get; set; }
+    [Parameter] public StickersSource Source { get; set; } = StickersSource.Catalog;
+
+    private List<Sticker> internalList = new();
+
+    protected override void OnParametersSet()
+    {
+        internalList = new List<Sticker>(SelectedStickers);
+    }
+
+    private async Task OpenSelection()
+    {
+        var parameters = new DialogParameters<StickerSelectionComponent>
+        {
+            { c => c.Source, Source }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<StickerSelectionComponent>(
+            "Seleccionar figurita", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result!.Canceled && result.Data is Sticker selected)
+        {
+            if (!internalList.Any(s => s.Id == selected.Id))
+            {
+                internalList.Add(selected);
+                await OnSelectionChanged.InvokeAsync(new List<Sticker>(internalList));
+            }
+        }
+    }
+
+    private async Task Remove(Sticker sticker)
+    {
+        internalList.Remove(sticker);
+        await OnSelectionChanged.InvokeAsync(new List<Sticker>(internalList));
+    }
+
+    private static string Truncate(string text, int max) =>
+        text.Length <= max ? text : text[..max] + "…";
+}

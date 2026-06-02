@@ -1,0 +1,39 @@
+@using Figuritas.Shared.DTO.response
+
+@*
+    OfferPreviewComponent — muestra las figuritas que componen una oferta como
+    carrusel compacto de miniaturas en fila horizontal.
+
+    Parámetros:
+      - Stickers     : lista de StickerPreviewDTO que forman la oferta.
+      - MaxVisible   : cantidad máxima de miniaturas a mostrar antes del badge "+N".
+*@
+
+<div class="offer-preview-row">
+    @foreach (var sticker in Stickers.Take(MaxVisible))
+    {
+        <MudTooltip Text="@($"#{sticker.Number:D3} — {sticker.Description}")" Placement="Placement.Top">
+            <img src="@sticker.ImageUrl"
+                 alt="@sticker.Description"
+                 class="offer-preview-thumb"
+                 @key="sticker.UserStickerId" />
+        </MudTooltip>
+    }
+
+    @if (Stickers.Count > MaxVisible)
+    {
+        <MudTooltip Text="@($"{Stickers.Count - MaxVisible} figuritas más")" Placement="Placement.Top">
+            <MudAvatar Class="offer-preview-overflow" Size="Size.Small" Color="Color.Secondary">
+                +@(Stickers.Count - MaxVisible)
+            </MudAvatar>
+        </MudTooltip>
+    }
+</div>
+
+@code {
+    /// <summary>Lista de figuritas que componen la oferta.</summary>
+    [Parameter][EditorRequired] public List<StickerPreviewDTO> Stickers { get; set; } = new();
+
+    /// <summary>Cantidad máxima de miniaturas visibles antes de mostrar el badge "+N".</summary>
+    [Parameter] public int MaxVisible { get; set; } = 3;
+}

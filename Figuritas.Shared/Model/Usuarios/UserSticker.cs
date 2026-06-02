@@ -1,4 +1,5 @@
 namespace Figuritas.Shared.Model;
+
 public class UserSticker
 {
     public int Id { get; set; }
@@ -7,9 +8,11 @@ public class UserSticker
 
     public int UserId { get; set; }
 
-    public bool CanBeExchanged { get; set; } // true for exchange, false for auction
+    public bool CanBeDirectlyExchanged { get; set; }
 
-    public bool Active { get; set; }
+    public bool CanBeAuctioned { get; set; }
+
+    public bool Active { get; set; } = true;
 
     public int Quantity { get; set; }
 }

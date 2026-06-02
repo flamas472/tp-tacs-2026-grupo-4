@@ -1,0 +1,420 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Shared.DTO.request
+@using Figuritas.Client.Requests
+@using Figuritas.Client.Models
+@implements IDisposable
+
+@inject StickerHttpClient StickerHttp
+@inject AuctionHttpClient AuctionHttp
+@inject UserHttpClient UserHttp
+@inject IDialogService DialogService
+@inject AuthStateService AuthState
+
+<MudDialog>
+    <DialogContent>
+        @if (loading)
+        {
+            <div class="d-flex justify-center pa-4">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else
+        {
+            <StickerDialogContent Sticker="@AsSticker()">
+                <div class="auction-detail-meta mt-2">
+                    <div class="d-flex align-center gap-1 mb-1 auction-detail-owner">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Style="color:var(--mud-palette-text-secondary);" />
+                        <MudText Typo="Typo.body2" Style="color:var(--mud-palette-text-secondary);">@Auction.AuctioneerUsername</MudText>
+                    </div>
+                    <div class="d-flex align-center gap-1 mb-1">
+                        <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small"
+                                 Color="@(IsOpen ? Color.Warning : Color.Secondary)" />
+                        <MudText Typo="Typo.body2" Color="@(IsOpen ? Color.Warning : Color.Secondary)">
+                            @(IsOpen ? "Cierra el" : "Cerró el") @Auction.EndsAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </MudText>
+                    </div>
+
+                    @* Temporizador dinámico para subastas activas; etiqueta estática para el resto *@
+                    @if (IsOpen)
+                    {
+                        <div class="d-flex align-center gap-1 mb-1">
+                            <MudIcon Icon="@Icons.Material.Filled.Timer" Size="Size.Small" Color="Color.Warning" />
+                            <MudText Typo="Typo.body2" Color="Color.Warning" Style="font-variant-numeric: tabular-nums;">
+                                @CountdownDisplay
+                            </MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex align-center gap-1 mb-1">
+                            <MudIcon Icon="@ClosedStatusIcon" Size="Size.Small" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@ClosedStatusLabel</MudText>
+                        </div>
+                    }
+
+                    @if (minimumStickers.Any())
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 mb-1">
+                            Figuritas mínimas requeridas:
+                        </MudText>
+                        <div class="ssl-chips mb-1">
+                            @foreach (var s in minimumStickers)
+                            {
+                                <div class="ssl-chip">
+                                    <MudText Typo="Typo.caption" Class="ssl-chip-label">
+                                        #@s.Number.ToString("D3") — @s.Description
+                                    </MudText>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (Auction.OfferCount > 0)
+                    {
+                        <div class="d-flex align-center gap-1 mt-1">
+                            <MudIcon Icon="@Icons.Material.Filled.Gavel" Size="Size.Small" Color="Color.Warning" />
+                            <MudText Typo="Typo.body2" Color="Color.Warning">
+                                @Auction.OfferCount puja@(Auction.OfferCount == 1 ? "" : "s") recibida@(Auction.OfferCount == 1 ? "" : "s")
+                            </MudText>
+                        </div>
+                    }
+
+                    @* Sección de oferta propia (si el usuario ya ofertó) *@
+                    @if (myOffer is not null)
+                    {
+                        <MudDivider Class="my-2" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Tu puja actual:</MudText>
+
+                        @if (myOfferStickers.Any())
+                        {
+                            <OfferPreviewComponent Stickers="@myOfferStickers" MaxVisible="4" />
+                        }
+
+                        @if (isCurrentWinner)
+                        {
+                            <MudChip T="string"
+                                     Color="Color.Warning"
+                                     Variant="Variant.Filled"
+                                     Icon="@Icons.Material.Filled.EmojiEvents"
+                                     Class="mt-2 auction-winner-chip">
+                                Tu oferta es la ganadora actual
+                            </MudChip>
+                        }
+
+                        @if (actionFeedback is not null)
+                        {
+                            <MudAlert Severity="@(actionSuccess ? Severity.Success : Severity.Error)"
+                                      Dense="true" Class="mt-2">
+                                @actionFeedback
+                            </MudAlert>
+                        }
+                    }
+                </div>
+            </StickerDialogContent>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="actionLoading">Cerrar</MudButton>
+
+        @if (IsOpen && AuthState.UserId != Auction.AuctioneerId && AuthState.UserId != 0)
+        {
+            @if (myOffer is null)
+            {
+                @* Sin oferta previa: botón para ofertar *@
+                <MudTooltip Text="@(!hasEnoughStickers ? "No tenés todas las figuritas mínimas requeridas para pujar en esta subasta" : "Hacer una puja")"
+                            Placement="Placement.Top">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.Gavel"
+                               OnClick="HandleOfertar"
+                               Disabled="@(actionLoading || !hasEnoughStickers)">
+                        Ofertar
+                    </MudButton>
+                </MudTooltip>
+            }
+            else
+            {
+                @* Con oferta existente: botones modificar y cancelar *@
+                <MudTooltip Text="@(isCurrentWinner ? "Tu oferta es la ganadora actual — no se puede modificar" : "")"
+                            Placement="Placement.Top"
+                            Disabled="@(!isCurrentWinner)">
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Error"
+                               StartIcon="@Icons.Material.Filled.Cancel"
+                               OnClick="HandleCancelarOferta"
+                               Disabled="@(actionLoading || isCurrentWinner)">
+                        @if (actionLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                        }
+                        Cancelar puja
+                    </MudButton>
+                </MudTooltip>
+                <MudTooltip Text="@(isCurrentWinner ? "Tu oferta es la ganadora actual — no se puede modificar" : "")"
+                            Placement="Placement.Top"
+                            Disabled="@(!isCurrentWinner)">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Warning"
+                               StartIcon="@Icons.Material.Filled.Edit"
+                               OnClick="HandleModificarOferta"
+                               Disabled="@(actionLoading || isCurrentWinner)">
+                        Modificar puja
+                    </MudButton>
+                </MudTooltip>
+            }
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public AuctionResponseDTO Auction { get; set; } = default!;
+
+    // The catalog has 40 stickers; a user can own multiple copies of each.
+    // 640 (40 × 16) covers all realistic user sticker entries without arbitrary truncation.
+    private const int FullCatalogPageSize = 640;
+
+    private bool loading = true;
+    private bool actionLoading = false;
+    private string? actionFeedback;
+    private bool actionSuccess = false;
+
+    private List<Sticker> minimumStickers = new();
+
+    /// <summary>
+    /// True when the authenticated user owns at least one copy of every sticker
+    /// listed in <see cref="AuctionResponseDTO.MinimumOfferStickerIds"/>.
+    /// Defaults to true so the button is enabled when there is no minimum requirement.
+    /// </summary>
+    private bool hasEnoughStickers = true;
+
+    // Oferta propia del usuario
+    private AuctionOfferResponseDTO? myOffer;
+    private List<StickerPreviewDTO> myOfferStickers = new();
+    private bool isCurrentWinner = false;
+
+    // Cached user stickers to avoid duplicate HTTP calls (A-05)
+    private List<MarketStickerResponseDTO>? cachedUserStickers;
+
+    // Temporizador
+    private System.Threading.Timer? _timer;
+
+    private bool IsOpen => Auction.Status == "Active" && Auction.EndsAt > DateTime.UtcNow;
+
+    /// <summary>Etiqueta estática para subastas que ya no están activas.</summary>
+    private string ClosedStatusLabel => Auction.Status switch
+    {
+        "Cancelled" => "Cancelada",
+        _           => "Finalizada"
+    };
+
+    /// <summary>Ícono para el estado cerrado en el diálogo de detalle.</summary>
+    private string ClosedStatusIcon => Auction.Status switch
+    {
+        "Cancelled" => Icons.Material.Filled.Cancel,
+        _           => Icons.Material.Filled.CheckCircle
+    };
+
+    private string CountdownDisplay
+    {
+        get
+        {
+            var remaining = Auction.EndsAt - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero) return "Venció";
+            if (remaining.TotalDays >= 1)
+                return $"{(int)remaining.TotalDays}d {remaining.Hours:D2}h {remaining.Minutes:D2}m restantes";
+            if (remaining.TotalHours >= 1)
+                return $"{(int)remaining.TotalHours}h {remaining.Minutes:D2}m {remaining.Seconds:D2}s restantes";
+            return $"{(int)remaining.TotalMinutes}m {remaining.Seconds:D2}s restantes";
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // A-05: Pre-load the authenticated user's stickers once and share between
+        // LoadMinimumStickersAsync and LoadMyOfferAsync to avoid a duplicate HTTP call.
+        if (AuthState.UserId != 0 && AuthState.UserId != Auction.AuctioneerId)
+        {
+            var userStickersResult = await UserHttp.GetUserStickersAsync(
+                AuthState.UserId, page: 1, pageSize: FullCatalogPageSize);
+            cachedUserStickers = userStickersResult.Success ? userStickersResult.Data : null;
+        }
+
+        // Cargar figuritas mínimas y oferta propia en paralelo
+        var minTask = LoadMinimumStickersAsync();
+        var offerTask = LoadMyOfferAsync();
+        await Task.WhenAll(minTask, offerTask);
+
+        loading = false;
+
+        // Iniciar temporizador si la subasta está activa
+        if (IsOpen)
+            StartCountdownTimer();
+    }
+
+    private async Task LoadMinimumStickersAsync()
+    {
+        if (!Auction.MinimumOfferStickerIds.Any()) return;
+
+        // Resolve catalog sticker details for display
+        var tasks = Auction.MinimumOfferStickerIds.Select(id => StickerHttp.GetByIdAsync(id));
+        var results = await Task.WhenAll(tasks);
+        minimumStickers = results
+            .Where(r => r.Success && r.Data is not null)
+            .Select(r => r.Data!)
+            .ToList();
+
+        // Verify whether the authenticated user owns all required stickers (uses cached stickers)
+        if (AuthState.UserId != 0 && AuthState.UserId != Auction.AuctioneerId)
+        {
+            if (cachedUserStickers is not null)
+            {
+                // Build the set of catalog sticker IDs the user currently has
+                var ownedStickerIds = cachedUserStickers
+                    .Select(s => s.StickerId)
+                    .ToHashSet();
+
+                // The user must own at least one copy of every required sticker ID
+                hasEnoughStickers = Auction.MinimumOfferStickerIds
+                    .All(requiredId => ownedStickerIds.Contains(requiredId));
+            }
+            else
+            {
+                // If we cannot confirm ownership, err on the side of disabling the button
+                hasEnoughStickers = false;
+            }
+        }
+    }
+
+    private async Task LoadMyOfferAsync()
+    {
+        if (AuthState.UserId == 0 || AuthState.UserId == Auction.AuctioneerId) return;
+
+        var offersResult = await AuctionHttp.GetAuctionOffersAsync(Auction.Id);
+        if (!offersResult.Success || offersResult.Data is null) return;
+
+        myOffer = offersResult.Data.FirstOrDefault(o => o.BidderId == AuthState.UserId);
+        if (myOffer is null) return;
+
+        // Determinar si es la oferta ganadora actual
+        isCurrentWinner = myOffer.Id == Auction.BestCurrentOfferId
+                          || myOffer.Id == Auction.UserSelectedBestOfferId;
+
+        // Cargar previews de stickers de la oferta a partir de los stickers del usuario (uses cache)
+        if (myOffer.OfferedUserStickerIds.Any() && cachedUserStickers is not null)
+        {
+            var idSet = myOffer.OfferedUserStickerIds.ToHashSet();
+            myOfferStickers = cachedUserStickers
+                .Where(s => idSet.Contains(s.UserStickerId))
+                .Select(s => new StickerPreviewDTO
+                {
+                    UserStickerId = s.UserStickerId,
+                    Number = s.StickerNumber,
+                    ImageUrl = s.StickerImageUrl,
+                    Description = s.StickerDescription
+                })
+                .ToList();
+        }
+    }
+
+    private void StartCountdownTimer()
+    {
+        _timer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+
+    private Sticker AsSticker() => new Sticker
+    {
+        Number = Auction.StickerNumber,
+        Description = Auction.StickerDescription,
+        NationalTeam = Auction.StickerNationalTeam,
+        Team = Auction.StickerTeam,
+        Category = string.Empty,
+        ImageUrl = Auction.StickerImageUrl
+    };
+
+    private async Task HandleOfertar()
+    {
+        var parameters = new DialogParameters<NewAuctionOfferComponent>
+        {
+            { c => c.Auction, Auction },
+            { c => c.MinimumStickers, minimumStickers }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+        var dialog = await DialogService.ShowAsync<NewAuctionOfferComponent>(
+            string.Empty, parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            MudDialog.Close();
+    }
+
+    private async Task HandleCancelarOferta()
+    {
+        if (myOffer is null) return;
+
+        actionLoading = true;
+        actionFeedback = null;
+
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var result = await AuctionHttp.CancelOfferAsync(Auction.Id, myOffer.Id, token);
+
+        actionLoading = false;
+        actionSuccess = result.Success;
+
+        if (result.Success)
+        {
+            actionFeedback = "Puja cancelada correctamente.";
+            myOffer = null;
+            myOfferStickers = new();
+            isCurrentWinner = false;
+            // Notify parent to refresh its list
+            await Task.Delay(800);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            actionFeedback = result.ErrorMessage ?? "No se pudo cancelar la puja.";
+        }
+    }
+
+    private async Task HandleModificarOferta()
+    {
+        if (myOffer is null) return;
+
+        // Open NewAuctionOfferComponent in modification mode, passing the existing offer ID
+        // so the component uses PATCH (UpdateOfferAsync) instead of POST (CreateOfferAsync).
+        var parameters = new DialogParameters<NewAuctionOfferComponent>
+        {
+            { c => c.Auction, Auction },
+            { c => c.MinimumStickers, minimumStickers },
+            { c => c.ExistingOfferId, myOffer.Id }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+        var dialog = await DialogService.ShowAsync<NewAuctionOfferComponent>(
+            string.Empty, parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+        {
+            // Close this dialog so the parent (Subastas / MisPujas) can refresh its list
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+    }
+}

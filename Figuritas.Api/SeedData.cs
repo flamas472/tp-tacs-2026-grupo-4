@@ -1,4 +1,5 @@
-using System.Linq;
+using Figuritas.Api.Repositories;
+using Figuritas.Shared.Enums;
 using Figuritas.Shared.Model;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,10 +7,11 @@ public static class SeedData
 {
     public static void EnsureSeedData(IServiceProvider services)
     {
-        var categoryRepo = services.GetRequiredService<CategoryRepository>();
-        var teamRepo = services.GetRequiredService<TeamRepository>();
-        var nationalTeamRepo = services.GetRequiredService<NationalTeamRepository>();
-        var stickerRepo = services.GetRequiredService<StickerRepository>();
+        var categoryRepo = services.GetRequiredService<ICategoryRepository>();
+        var teamRepo = services.GetRequiredService<ITeamRepository>();
+        var nationalTeamRepo = services.GetRequiredService<INationalTeamRepository>();
+        var stickerRepo = services.GetRequiredService<IStickerRepository>();
+        var userRepo = services.GetRequiredService<IUserRepository>();
 
         categoryRepo.CreateIfNonExistent(new Category { Description = "Jugador" });
         categoryRepo.CreateIfNonExistent(new Category { Description = "Escudo" });
@@ -24,9 +26,21 @@ public static class SeedData
         nationalTeamRepo.CreateIfNonExistent(new NationalTeam { Description = "Francia" });
         nationalTeamRepo.CreateIfNonExistent(new NationalTeam { Description = "Brasil" });
 
+        // Seed initial SuperAdmin — academic project, password security intentionally relaxed
+        const string superAdminUsername = "Ivanabete";
+        if (userRepo.GetByUsername(superAdminUsername) == null)
+        {
+            userRepo.Add(new User
+            {
+                Username = superAdminUsername,
+                HashedPassword = BCrypt.Net.BCrypt.HashPassword("figuritacs"),
+                Role = UserRole.SuperAdmin
+            });
+        }
+
         if (!stickerRepo.GetAll().Any())
         {
-             // ARGENTINA
+            // ARGENTINA
             stickerRepo.Add(new Sticker { Number = 1, Description = "Escudo", Team = "???", NationalTeam = "argentina", Category = "escudo", ImageUrl = "https://pub-18a1adb3ec5640e99ffd1ab4042bb2e4.r2.dev/argentina/ARG01.png" });
             stickerRepo.Add(new Sticker { Number = 2, Description = "Emiliano Martinez", Team = "???", NationalTeam = "argentina", Category = "jugador", ImageUrl = "https://pub-18a1adb3ec5640e99ffd1ab4042bb2e4.r2.dev/argentina/ARG02.png" });
             stickerRepo.Add(new Sticker { Number = 3, Description = "Lionel Messi", Team = "???", NationalTeam = "argentina", Category = "jugador", ImageUrl = "https://pub-18a1adb3ec5640e99ffd1ab4042bb2e4.r2.dev/argentina/ARG03.png" });

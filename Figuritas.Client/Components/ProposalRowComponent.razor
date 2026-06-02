@@ -1,0 +1,82 @@
+@using Figuritas.Shared.DTO.response
+
+<div class="proposal-row" @onclick="HandleClick">
+    @if (Proposal.RequestedSticker is not null)
+    {
+        <div class="proposal-sticker-mini">
+            <img src="@Proposal.RequestedSticker.ImageUrl"
+                 alt="#@Proposal.RequestedSticker.Number.ToString("D3")"
+                 title="#@Proposal.RequestedSticker.Number.ToString("D3") — @Proposal.RequestedSticker.Description" />
+        </div>
+    }
+    else
+    {
+        <div class="proposal-sticker-mini proposal-sticker-placeholder">
+            <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" Color="Color.Secondary" />
+            <span class="proposal-sticker-num">—</span>
+        </div>
+    }
+
+    <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Secondary" Class="proposal-arrow" />
+
+    <div class="proposal-offered-list">
+        @foreach (var s in Proposal.OfferedStickers)
+        {
+            <div class="proposal-sticker-mini">
+                <img src="@s.ImageUrl"
+                     alt="#@s.Number.ToString("D3")"
+                     title="#@s.Number.ToString("D3") — @s.Description" />
+            </div>
+        }
+        @if (!Proposal.OfferedStickers.Any())
+        {
+            @foreach (var id in Proposal.OfferedUserStickerIds.Take(4))
+            {
+                <div class="proposal-sticker-mini proposal-sticker-placeholder">
+                    <MudIcon Icon="@Icons.Material.Outlined.Image" Size="Size.Small" Color="Color.Secondary" />
+                </div>
+            }
+        }
+    </div>
+
+    <div class="proposal-state">
+        <div class="proposal-state-dot @DotClass" title="@StateLabel"></div>
+        <MudChip T="string" Size="Size.Small" Color="@StateColor" Variant="Variant.Filled">
+            @StateLabel
+        </MudChip>
+    </div>
+</div>
+
+@code {
+    [Parameter][EditorRequired] public ExchangeProposalResponseDTO Proposal { get; set; } = default!;
+    [Parameter] public EventCallback<ExchangeProposalResponseDTO> OnClick { get; set; }
+
+    private Color StateColor => Proposal.State switch
+    {
+        "Pending"   => Color.Warning,
+        "Accepted"  => Color.Success,
+        "Rejected"  => Color.Error,
+        "Cancelled" => Color.Default,
+        _           => Color.Default
+    };
+
+    private string DotClass => Proposal.State switch
+    {
+        "Pending"   => "proposal-dot-pending",
+        "Accepted"  => "proposal-dot-accepted",
+        "Rejected"  => "proposal-dot-rejected",
+        "Cancelled" => "proposal-dot-cancelled",
+        _           => "proposal-dot-cancelled"
+    };
+
+    private string StateLabel => Proposal.State switch
+    {
+        "Pending"   => "Pendiente",
+        "Accepted"  => "Aceptada",
+        "Rejected"  => "Rechazada",
+        "Cancelled" => "Cancelada",
+        _           => Proposal.State
+    };
+
+    private async Task HandleClick() => await OnClick.InvokeAsync(Proposal);
+}
