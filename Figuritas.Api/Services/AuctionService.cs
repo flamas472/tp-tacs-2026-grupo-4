@@ -192,8 +192,9 @@ public class AuctionService
 
         _offerRepo.Add(offer);
 
-        auction.BestCurrentOfferId = offer.Id;
-        _auctionRepo.Update(auction);
+        // Recalculate the best offer using all three criteria (replaces the previous
+        // "last-offer-wins" assignment with a proper ranking computation).
+        await RecalculateBestOfferAsync(auction);
 
         // Auto-add bidder to watchlist if not already watching
         await _watchlistService.EnsureWatchingAsync(bidderId, auctionId);
@@ -352,6 +353,66 @@ public class AuctionService
         // Delegate to the shared closure logic using the recorded best offer as winner.
         // Passing callerUserId = auction.AuctioneerId satisfies the ownership guard in CloseAuction.
         return await CloseAuction(auctionId, auction.BestCurrentOfferId, auction.AuctioneerId);
+    }
+
+    /// <summary>
+    /// Recalculates <see cref="Auction.BestCurrentOfferId"/> for the given auction using
+    /// the canonical three-criteria ranking:
+    ///   1. Most missing stickers of the auctioneer covered (higher is better).
+    ///   2. Most total stickers offered (higher is better).
+    ///   3. Oldest offer (lower CreatedAt wins — FIFO).
+    ///
+    /// All data is fetched in batch to avoid N+1 queries:
+    ///   - One query for the auctioneer's missing sticker IDs.
+    ///   - One query for all active offers on this auction.
+    ///   - One batch query for all UserStickers referenced by those offers.
+    ///
+    /// The result is persisted immediately. If there are no active offers the field is set to null.
+    /// </summary>
+    private async Task RecalculateBestOfferAsync(Auction auction)
+    {
+        // Batch 1: auctioneer's missing sticker catalog IDs (projected — no full documents loaded).
+        var auctioneerMissingIds = (await _missingStickerRepo.GetStickerIdsByUserIdAsync(auction.AuctioneerId))
+                                   .ToHashSet();
+
+        // Batch 2: all active offers for this auction.
+        var allOffers = await _offerRepo.GetByAuctionIdAsync(auction.Id);
+        var activeOffers = allOffers.Where(o => o.Status == AuctionOfferStatus.Active).ToList();
+
+        if (activeOffers.Count == 0)
+        {
+            auction.BestCurrentOfferId = null;
+            _auctionRepo.Update(auction);
+            return;
+        }
+
+        // Batch 3: all UserStickers referenced by active offers in a single query.
+        var allOfferedIds = activeOffers
+            .SelectMany(o => o.OfferedUserStickerIds)
+            .Distinct()
+            .ToList();
+
+        var userStickerMap = _userStickerRepo
+            .GetMultipleByIdIncludingInactive(allOfferedIds)
+            .ToDictionary(us => us.Id);
+
+        // Rank each offer by the three criteria.
+        var bestOffer = activeOffers
+            .OrderByDescending(o =>
+            {
+                // Criterion 1: count of the auctioneer's missing stickers covered by this offer.
+                var offeredCatalogIds = o.OfferedUserStickerIds
+                    .Where(usId => userStickerMap.ContainsKey(usId))
+                    .Select(usId => userStickerMap[usId].Sticker.Id)
+                    .ToHashSet();
+                return offeredCatalogIds.Count(sid => auctioneerMissingIds.Contains(sid));
+            })
+            .ThenByDescending(o => o.OfferedUserStickerIds.Count) // Criterion 2: total stickers offered.
+            .ThenBy(o => o.CreatedAt)                              // Criterion 3: FIFO — oldest wins.
+            .First();
+
+        auction.BestCurrentOfferId = bestOffer.Id;
+        _auctionRepo.Update(auction);
     }
 
     private static AuctionResponseDTO MapToDto(Auction auction) => new()
