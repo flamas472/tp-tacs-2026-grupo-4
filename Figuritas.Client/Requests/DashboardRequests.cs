@@ -101,12 +101,14 @@ namespace Figuritas.Client.Requests
         }
 
         public async Task<ApiResponse<List<AuctionResponseDTO>>> GetMyAuctionsAsync(
-            int page = 1, int pageSize = 20)
+            int page = 1, int pageSize = 20, string? status = null)
         {
             try
             {
-                var response = await _http.GetAsync(
-                    $"api/dashboard/auctions?Page={page}&PageSize={pageSize}");
+                var url = $"api/dashboard/auctions?Page={page}&PageSize={pageSize}";
+                if (!string.IsNullOrEmpty(status))
+                    url += $"&Status={status}";
+                var response = await _http.GetAsync(url);
 
                 if (response.IsSuccessStatusCode)
                 {

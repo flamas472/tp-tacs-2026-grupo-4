@@ -4,7 +4,14 @@ namespace Figuritas.Api.Repositories;
 
 public interface IAuctionRepository
 {
-    List<Auction> GetAll(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null);
+    /// <summary>
+    /// Returns a paged list of auctions visible in the marketplace.
+    /// When <paramref name="status"/> is null or empty, only Active auctions are returned
+    /// (default marketplace behavior).
+    /// When <paramref name="status"/> is provided, only auctions matching that status are returned.
+    /// Accepted values: "Active", "Closed", "Cancelled".
+    /// </summary>
+    List<Auction> GetAll(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null, string? status = null);
     void Add(Auction auction);
     Auction? GetById(int id);
     void Update(Auction auction);

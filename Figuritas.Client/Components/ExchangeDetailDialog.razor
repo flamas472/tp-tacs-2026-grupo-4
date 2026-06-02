@@ -1,0 +1,177 @@
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Client.Requests
+
+@inject AuthStateService AuthState
+
+@* ──────────────────────────────────────────────────────────────────────────────
+   ExchangeDetailDialog — Detalle de un intercambio ya concretado.
+   Muestra las figuritas entregadas y recibidas por el usuario actual.
+────────────────────────────────────────────────────────────────────────────── *@
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Success" />
+            <MudText Typo="Typo.h6">Detalle del intercambio</MudText>
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled" Class="ml-1">
+                Completado
+            </MudChip>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @* ── Meta del intercambio ──────────────────────────────────────────── *@
+        <div class="d-flex gap-3 flex-wrap mb-3">
+            <div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Contraparte</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:600;">@CounterpartUsername</MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Fecha</MudText>
+                <MudText Typo="Typo.body2">
+                    @Proposal.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                </MudText>
+            </div>
+            <div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">ID de operación</MudText>
+                <MudText Typo="Typo.body2">#@Proposal.Id</MudText>
+            </div>
+        </div>
+
+        <MudDivider Class="mb-3" />
+
+        @* ── Figuritas entregadas y recibidas ─────────────────────────────── *@
+        <div class="exchange-detail-sides">
+            @* Figuritas entregadas (lo que el usuario actual dio) *@
+            <div class="exchange-detail-side">
+                <div class="d-flex align-center gap-1 mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowUpward"
+                             Color="Color.Error"
+                             Size="Size.Small" />
+                    <MudText Typo="Typo.caption"
+                             Style="font-weight:600; text-transform:uppercase; letter-spacing:0.06em;"
+                             Color="Color.Error">
+                        Figuritas entregadas
+                    </MudText>
+                </div>
+                @if (!GivenStickers.Any())
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-1">
+                        Sin información
+                    </MudText>
+                }
+                else
+                {
+                    <div class="exchange-sticker-grid">
+                        @foreach (var sticker in GivenStickers)
+                        {
+                            <div class="exchange-sticker-item" @key="sticker.UserStickerId">
+                                <img src="@sticker.ImageUrl"
+                                     alt="#@sticker.Number.ToString("D3")"
+                                     title="#@sticker.Number.ToString("D3") — @sticker.Description"
+                                     class="exchange-sticker-img" />
+                                <MudText Typo="Typo.caption" Style="font-weight:700; color:var(--mud-palette-primary);">
+                                    #@sticker.Number.ToString("D3")
+                                </MudText>
+                                <MudText Typo="Typo.caption"
+                                         Color="Color.Secondary"
+                                         Class="exchange-sticker-desc">
+                                    @sticker.Description
+                                </MudText>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <MudIcon Icon="@Icons.Material.Filled.SwapHoriz"
+                     Color="Color.Secondary"
+                     Class="exchange-swap-icon"
+                     Style="font-size:2rem;" />
+
+            @* Figuritas recibidas (lo que el usuario actual recibió) *@
+            <div class="exchange-detail-side">
+                <div class="d-flex align-center gap-1 mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowDownward"
+                             Color="Color.Success"
+                             Size="Size.Small" />
+                    <MudText Typo="Typo.caption"
+                             Style="font-weight:600; text-transform:uppercase; letter-spacing:0.06em;"
+                             Color="Color.Success">
+                        Figuritas recibidas
+                    </MudText>
+                </div>
+                @if (!ReceivedStickers.Any())
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-1">
+                        Sin información
+                    </MudText>
+                }
+                else
+                {
+                    <div class="exchange-sticker-grid">
+                        @foreach (var sticker in ReceivedStickers)
+                        {
+                            <div class="exchange-sticker-item" @key="sticker.UserStickerId">
+                                <img src="@sticker.ImageUrl"
+                                     alt="#@sticker.Number.ToString("D3")"
+                                     title="#@sticker.Number.ToString("D3") — @sticker.Description"
+                                     class="exchange-sticker-img" />
+                                <MudText Typo="Typo.caption" Style="font-weight:700; color:var(--mud-palette-primary);">
+                                    #@sticker.Number.ToString("D3")
+                                </MudText>
+                                <MudText Typo="Typo.caption"
+                                         Color="Color.Secondary"
+                                         Class="exchange-sticker-desc">
+                                    @sticker.Description
+                                </MudText>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())">Cerrar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    /// <summary>Instancia del diálogo MudBlazor.</summary>
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>Propuesta de intercambio ya aceptada a mostrar en detalle.</summary>
+    [Parameter][EditorRequired] public ExchangeProposalResponseDTO Proposal { get; set; } = default!;
+
+    /// <summary>
+    /// Nombre de usuario de la contraparte (el otro participante del intercambio).
+    /// </summary>
+    private string CounterpartUsername =>
+        AuthState.UserId == Proposal.ProponentUserId
+            ? Proposal.ProposedUsername
+            : Proposal.ProponentUsername;
+
+    /// <summary>
+    /// Figuritas que el usuario actual entregó en el intercambio.
+    /// Si el usuario es el proponente, entregó las figuritas ofrecidas.
+    /// Si es el receptor, entregó la figurita solicitada.
+    /// </summary>
+    private IEnumerable<StickerPreviewDTO> GivenStickers =>
+        AuthState.UserId == Proposal.ProponentUserId
+            ? Proposal.OfferedStickers
+            : (Proposal.RequestedSticker is not null
+                ? new[] { Proposal.RequestedSticker }
+                : Enumerable.Empty<StickerPreviewDTO>());
+
+    /// <summary>
+    /// Figuritas que el usuario actual recibió en el intercambio.
+    /// Si el usuario es el proponente, recibió la figurita solicitada.
+    /// Si es el receptor, recibió las figuritas ofrecidas.
+    /// </summary>
+    private IEnumerable<StickerPreviewDTO> ReceivedStickers =>
+        AuthState.UserId == Proposal.ProponentUserId
+            ? (Proposal.RequestedSticker is not null
+                ? new[] { Proposal.RequestedSticker }
+                : Enumerable.Empty<StickerPreviewDTO>())
+            : Proposal.OfferedStickers;
+}

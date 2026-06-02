@@ -4,6 +4,8 @@ public class MarketStickerResponseDTO
 {
     public int UserStickerId { get; set; }
     public int OwnerId { get; set; }
+    /// <summary>Catalog sticker ID (Sticker.Id), used to match against auction minimum offer requirements.</summary>
+    public int StickerId { get; set; }
     public int StickerNumber { get; set; }
     public string StickerNationalTeam { get; set; } = string.Empty;
     public string StickerTeam { get; set; } = string.Empty;

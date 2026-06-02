@@ -1,50 +1,314 @@
 @page "/intercambios"
 @attribute [Authorize]
+@using Figuritas.Shared.DTO.response
 @using Figuritas.Shared.Model.Intercambios
+@using Figuritas.Client.Requests
+
+@inject DashboardHttpClient DashboardHttp
+@inject IDialogService DialogService
+@inject AuthStateService AuthState
 
 <PageTitle>Intercambios — FiguriTACS</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4">Intercambios finalizados</MudText>
+<MudText Typo="Typo.h5" Class="mb-3">Intercambios realizados</MudText>
 
-@* ── Mobile/tablet: pestañas ── *@
-<MudHidden Breakpoint="Breakpoint.LgAndUp">
-    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true">
-        <MudTabPanel Text="Recibidas" Icon="@Icons.Material.Filled.MoveToInbox">
-            <div class="pt-3">
-                <ProposalListPanel IsSent="false" AllowedStates="@FilterStates" />
-            </div>
-        </MudTabPanel>
-        <MudTabPanel Text="Enviadas" Icon="@Icons.Material.Filled.Send">
-            <div class="pt-3">
-                <ProposalListPanel IsSent="true" AllowedStates="@FilterStates" />
-            </div>
-        </MudTabPanel>
-    </MudTabs>
-</MudHidden>
+@* ── Chips de filtro: Recibidos / Enviados / Todos ───────────────────────── *@
+<div class="auction-filter-row mb-4">
+    <MudChipSet T="string" SelectionMode="SelectionMode.SingleSelection"
+                SelectedValue="@selectedDirection"
+                SelectedValueChanged="OnDirectionChanged"
+                Class="auction-filter-chipset">
+        <MudChip T="string" Value="@DirAll"
+                 Color="@(selectedDirection == DirAll ? Color.Primary : Color.Default)"
+                 Variant="@(selectedDirection == DirAll ? Variant.Filled : Variant.Outlined)">
+            Todos
+        </MudChip>
+        <MudChip T="string" Value="@DirReceived"
+                 Color="@(selectedDirection == DirReceived ? Color.Success : Color.Default)"
+                 Variant="@(selectedDirection == DirReceived ? Variant.Filled : Variant.Outlined)">
+            <MudIcon Icon="@Icons.Material.Filled.MoveToInbox" Size="Size.Small" Class="mr-1" />
+            Recibidos
+        </MudChip>
+        <MudChip T="string" Value="@DirSent"
+                 Color="@(selectedDirection == DirSent ? Color.Secondary : Color.Default)"
+                 Variant="@(selectedDirection == DirSent ? Variant.Filled : Variant.Outlined)">
+            <MudIcon Icon="@Icons.Material.Filled.Send" Size="Size.Small" Class="mr-1" />
+            Enviados
+        </MudChip>
+    </MudChipSet>
+</div>
 
-@* ── Desktop: dos columnas ── *@
-<MudHidden Breakpoint="Breakpoint.MdAndDown">
-    <MudGrid>
-        <MudItem xs="12" lg="6">
-            <MudText Typo="Typo.h6" Class="mb-2">
-                <MudIcon Icon="@Icons.Material.Filled.MoveToInbox" Size="Size.Small" Class="mr-1" />
-                Recibidas
-            </MudText>
-            <ProposalListPanel IsSent="false" AllowedStates="@FilterStates" />
-        </MudItem>
-        <MudItem xs="12" lg="6">
-            <MudText Typo="Typo.h6" Class="mb-2">
-                <MudIcon Icon="@Icons.Material.Filled.Send" Size="Size.Small" Class="mr-1" />
-                Enviadas
-            </MudText>
-            <ProposalListPanel IsSent="true" AllowedStates="@FilterStates" />
-        </MudItem>
-    </MudGrid>
-</MudHidden>
+@* ── Estado de carga ─────────────────────────────────────────────────────── *@
+@if (allExchanges == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando intercambios...</MudText>
+    </div>
+}
+else if (errorMessage is not null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-3">@errorMessage</MudAlert>
+}
+else if (!VisibleExchanges.Any())
+{
+    @* ── Estado vacío ────────────────────────────────────────────────────── *@
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Filled.SwapHoriz"
+                 Style="font-size: 3rem;"
+                 Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">
+            @EmptyMessage
+        </MudText>
+    </div>
+}
+else
+{
+    @* ── Mobile cards (xs / sm) ───────────────────────────────────────────── *@
+    <div class="exchanges-cards-mobile">
+        @foreach (var exchange in VisibleExchanges)
+        {
+            <MudCard @key="@($"exch_{exchange.Id}")"
+                     Class="mb-3 exchange-card">
+                <MudCardContent Class="pb-1">
+                    @* Figurita solicitada *@
+                    @if (exchange.RequestedSticker is not null)
+                    {
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                            #@exchange.RequestedSticker.Number.ToString("D3") — @exchange.RequestedSticker.Description
+                        </MudText>
+                    }
+
+                    @* Contraparte *@
+                    <div class="d-flex align-center gap-2 mt-1">
+                        <MudIcon Icon="@Icons.Material.Filled.Person"
+                                 Size="Size.Small"
+                                 Color="Color.Secondary" />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @GetCounterpartName(exchange)
+                        </MudText>
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Color="@GetDirectionColor(exchange)"
+                                 Variant="Variant.Outlined"
+                                 Class="my-bid-auction-status-chip">
+                            @GetDirectionLabel(exchange)
+                        </MudChip>
+                    </div>
+
+                    @* Fecha *@
+                    <div class="d-flex align-center gap-2 mt-1">
+                        <MudIcon Icon="@Icons.Material.Filled.AccessTime"
+                                 Size="Size.Small"
+                                 Color="Color.Secondary" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @exchange.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")
+                        </MudText>
+                    </div>
+                </MudCardContent>
+
+                <MudCardActions Class="pt-0">
+                    <MudButton Size="Size.Small"
+                               Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.OpenInNew"
+                               OnClick="@(() => OpenExchangeDetailAsync(exchange))">
+                        Ver intercambio
+                    </MudButton>
+                </MudCardActions>
+            </MudCard>
+        }
+    </div>
+
+    @* ── Desktop table (md+) ──────────────────────────────────────────────── *@
+    <div class="exchanges-table-desktop">
+        <MudTable Items="VisibleExchanges"
+                  Hover="true"
+                  Dense="true"
+                  Breakpoint="Breakpoint.None"
+                  Class="exchanges-table">
+            <HeaderContent>
+                <MudTh>Figurita</MudTh>
+                <MudTh>Contraparte</MudTh>
+                <MudTh>Dirección</MudTh>
+                <MudTh>Fecha</MudTh>
+                <MudTh Style="text-align:right;">Acciones</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Figurita" @key="@($"row_{context.Id}")">
+                    @if (context.RequestedSticker is not null)
+                    {
+                        <div>
+                            <MudText Typo="Typo.body2" Style="font-weight:600;">
+                                #@context.RequestedSticker.Number.ToString("D3") — @context.RequestedSticker.Description
+                            </MudText>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">#@context.Id</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Contraparte">
+                    <MudText Typo="Typo.body2">@GetCounterpartName(context)</MudText>
+                </MudTd>
+                <MudTd DataLabel="Dirección">
+                    <MudChip T="string"
+                             Size="Size.Small"
+                             Color="@GetDirectionColor(context)"
+                             Variant="Variant.Outlined">
+                        @GetDirectionLabel(context)
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Fecha">
+                    <MudText Typo="Typo.body2">
+                        @context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Acciones" Style="text-align:right;">
+                    <MudTooltip Text="Ver intercambio" Placement="Placement.Top">
+                        <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                       Size="Size.Small"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => OpenExchangeDetailAsync(context))" />
+                    </MudTooltip>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </div>
+
+    @* ── Paginación ───────────────────────────────────────────────────────── *@
+    <div class="sticker-pagination">
+        <MudTooltip Text="Página anterior">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                           Color="Color.Primary"
+                           Disabled="@(!hasPrevPage)"
+                           OnClick="HandlePrevPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+        <MudText Typo="Typo.body1" Class="pagination-label">Página @currentPage</MudText>
+        <MudTooltip Text="Página siguiente">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                           Color="Color.Primary"
+                           Disabled="@(!hasNextPage)"
+                           OnClick="HandleNextPage"
+                           Size="Size.Large" />
+        </MudTooltip>
+    </div>
+}
 
 @code {
-    private static readonly List<ExchangeProposalState> FilterStates = new()
+    private const int PageSize    = 20;
+    private const string DirAll      = "All";
+    private const string DirReceived = "Received";
+    private const string DirSent     = "Sent";
+
+    private List<ExchangeProposalResponseDTO>? allExchanges;
+    private string? errorMessage;
+    private string selectedDirection = DirAll;
+    private int currentPage = 1;
+    private bool hasNextPage;
+    private bool hasPrevPage => currentPage > 1;
+
+    /// <summary>
+    /// Filtra cliente-side por dirección (Recibido = yo soy ProposedUserId, Enviado = soy ProponentUserId).
+    /// </summary>
+    private IEnumerable<ExchangeProposalResponseDTO> VisibleExchanges => selectedDirection switch
     {
-        ExchangeProposalState.Accepted
+        DirReceived => (allExchanges ?? Enumerable.Empty<ExchangeProposalResponseDTO>())
+                           .Where(e => e.ProposedUserId == AuthState.UserId),
+        DirSent     => (allExchanges ?? Enumerable.Empty<ExchangeProposalResponseDTO>())
+                           .Where(e => e.ProponentUserId == AuthState.UserId),
+        _           => allExchanges ?? Enumerable.Empty<ExchangeProposalResponseDTO>()
     };
+
+    private string EmptyMessage => selectedDirection switch
+    {
+        DirReceived => "No tenés intercambios recibidos.",
+        DirSent     => "No tenés intercambios enviados.",
+        _           => "Todavía no realizaste ningún intercambio."
+    };
+
+    protected override async Task OnInitializedAsync() => await FetchPageAsync();
+
+    private async Task FetchPageAsync()
+    {
+        allExchanges = null;
+        errorMessage = null;
+        StateHasChanged();
+
+        // Cargamos tanto enviadas como recibidas y las combinamos en una sola lista
+        var sentTask     = DashboardHttp.GetMySentProposalsAsync(currentPage, PageSize, ExchangeProposalState.Accepted);
+        var receivedTask = DashboardHttp.GetMyReceivedProposalsAsync(currentPage, PageSize, ExchangeProposalState.Accepted);
+
+        await Task.WhenAll(sentTask, receivedTask);
+
+        var sent     = sentTask.Result;
+        var received = receivedTask.Result;
+
+        if (!sent.Success && !received.Success)
+        {
+            allExchanges = new();
+            errorMessage = sent.ErrorMessage ?? received.ErrorMessage ?? "No se pudieron cargar los intercambios.";
+            return;
+        }
+
+        var combined = new List<ExchangeProposalResponseDTO>();
+        if (sent.Success && sent.Data is not null)
+            combined.AddRange(sent.Data);
+        if (received.Success && received.Data is not null)
+            combined.AddRange(received.Data);
+
+        // Ordenamos por fecha descendente y eliminamos posibles duplicados (mismo Id)
+        allExchanges = combined
+            .DistinctBy(e => e.Id)
+            .OrderByDescending(e => e.CreatedAt)
+            .ToList();
+
+        // La paginación es aproximada cuando combinamos dos fuentes
+        hasNextPage = (sent.Data?.Count == PageSize) || (received.Data?.Count == PageSize);
+    }
+
+    private async Task OnDirectionChanged(string? value)
+    {
+        selectedDirection = value ?? DirAll;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleNextPage() { currentPage++; await FetchPageAsync(); }
+    private async Task HandlePrevPage() { if (currentPage > 1) { currentPage--; await FetchPageAsync(); } }
+
+    /// <summary>Abre el diálogo de detalle del intercambio seleccionado.</summary>
+    private async Task OpenExchangeDetailAsync(ExchangeProposalResponseDTO exchange)
+    {
+        var title = exchange.RequestedSticker is not null
+            ? $"Intercambio #{exchange.Id} — #{exchange.RequestedSticker.Number:D3}"
+            : $"Intercambio #{exchange.Id}";
+
+        var parameters = new DialogParameters<ExchangeDetailDialog>
+        {
+            { d => d.Proposal, exchange }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+        await DialogService.ShowAsync<ExchangeDetailDialog>(title, parameters, options);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>Devuelve el nombre de usuario de la contraparte según la perspectiva del usuario actual.</summary>
+    private string GetCounterpartName(ExchangeProposalResponseDTO e) =>
+        AuthState.UserId == e.ProponentUserId ? e.ProposedUsername : e.ProponentUsername;
+
+    /// <summary>Devuelve el color MudBlazor según si el intercambio fue enviado o recibido.</summary>
+    private Color GetDirectionColor(ExchangeProposalResponseDTO e) =>
+        AuthState.UserId == e.ProponentUserId ? Color.Secondary : Color.Success;
+
+    /// <summary>Etiqueta de dirección para chips y columna de tabla.</summary>
+    private string GetDirectionLabel(ExchangeProposalResponseDTO e) =>
+        AuthState.UserId == e.ProponentUserId ? "Enviado" : "Recibido";
 }

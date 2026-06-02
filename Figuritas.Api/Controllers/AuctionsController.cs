@@ -30,10 +30,11 @@ public class AuctionsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<AuctionResponseDTO>>> GetAuctions(
         [FromQuery][Range(1, int.MaxValue)] int page = 1,
-        [FromQuery][Range(1, 100)] int pageSize = 20)
+        [FromQuery][Range(1, 100)] int pageSize = 20,
+        [FromQuery] string? status = null)
     {
         var callerUserId = _authService.GetUserIdFromToken(User);
-        var auctions = await _auctionService.GetAuctions(page, pageSize, excludeAuctioneerId: callerUserId);
+        var auctions = await _auctionService.GetAuctions(page, pageSize, excludeAuctioneerId: callerUserId, status: status);
         return Ok(auctions);
     }
 

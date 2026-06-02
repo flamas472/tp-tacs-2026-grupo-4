@@ -19,7 +19,7 @@
 </div>
 
 @* Filtro de estado con chips reactivos *@
-<div class="auctions-filter-row mb-4">
+<div class="auction-filter-row mb-4">
     <MudChipSet T="string" SelectionMode="SelectionMode.SingleSelection"
                 SelectedValue="@activeFilter"
                 SelectedValueChanged="OnFilterChanged"
@@ -30,7 +30,7 @@
             Abiertas
         </MudChip>
         <MudChip T="string" Value="@FilterClosed"
-                 Color="@(activeFilter == FilterClosed ? Color.Default : Color.Default)"
+                 Color="@(activeFilter == FilterClosed ? Color.Secondary : Color.Default)"
                  Variant="@(activeFilter == FilterClosed ? Variant.Filled : Variant.Outlined)">
             Cerradas
         </MudChip>
@@ -111,26 +111,24 @@ else
         await FetchPage();
     }
 
+    /// <summary>Maps the UI chip constant to the backend status string accepted by the API.</summary>
+    private string? MapFilterToStatus(string filter) => filter switch
+    {
+        FilterActive => "Active",
+        FilterClosed => "Closed",
+        _ => null
+    };
+
     private async Task FetchPage()
     {
         auctions = null;
         StateHasChanged();
 
-        // El endpoint GET /api/auctions ya filtra por el subastador (excluye al caller).
-        // Para filtro "active" aprovechamos el endpoint existente (que devuelve solo activas).
-        // Para "closed" y "all" también usamos el mismo endpoint: post-filtramos localmente
-        // ya que el backend devuelve un page completo y los estados son pocos por página.
-        var response = await AuctionHttp.GetAuctionsAsync(currentPage, PageSize);
-        var all = response.Success ? (response.Data ?? new()) : new();
+        var status = MapFilterToStatus(activeFilter);
+        var response = await AuctionHttp.GetAuctionsAsync(currentPage, PageSize, status);
+        auctions = response.Success ? (response.Data ?? new()) : new();
 
-        auctions = activeFilter switch
-        {
-            FilterActive => all.Where(a => a.Status == "Active" && a.EndsAt > DateTime.UtcNow).ToList(),
-            FilterClosed => all.Where(a => a.Status != "Active" || a.EndsAt <= DateTime.UtcNow).ToList(),
-            _ => all
-        };
-
-        hasNextPage = all.Count == PageSize;
+        hasNextPage = auctions.Count == PageSize;
     }
 
     private async Task HandleNextPage() { currentPage++; await FetchPage(); }
@@ -148,9 +146,14 @@ else
             MaxWidth = MaxWidth.Small,
             FullWidth = true
         };
-        await DialogService.ShowAsync<AuctionDetailDialog>(
+        var dialog = await DialogService.ShowAsync<AuctionDetailDialog>(
             $"#{auction.StickerNumber:D3} — {auction.StickerDescription}",
             parameters, options);
+        var result = await dialog.Result;
+
+        // Refresh when the user cancelled or modified an offer inside the dialog
+        if (result is { Canceled: false })
+            await FetchPage();
     }
 
     private async Task HandlePublicarSubasta()

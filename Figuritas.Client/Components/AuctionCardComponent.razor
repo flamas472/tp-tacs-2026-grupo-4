@@ -4,7 +4,8 @@
     <div class="sticker-image-container">
         <img src="@Auction.StickerImageUrl" alt="@Auction.StickerDescription" class="sticker-image" />
         <span class="sticker-number-badge">@Auction.StickerNumber.ToString("D3")</span>
-        <span class="auction-status-badge @StatusBadgeClass">
+        <span class="auction-status-badge @StatusBadgeClass d-flex align-center gap-1">
+            <MudIcon Icon="@StatusIcon" Size="Size.Small" Style="font-size:0.85rem;line-height:1;" />
             @StatusLabel
         </span>
     </div>
@@ -56,6 +57,14 @@
         "Active" => "Venció",
         "Cancelled" => "Cancelada",
         _ => "Cerrada"
+    };
+
+    /// <summary>Ícono diferenciador según el estado de la subasta.</summary>
+    private string StatusIcon => Auction.Status switch
+    {
+        "Active" when IsOpen => Icons.Material.Filled.Timer,
+        "Cancelled"          => Icons.Material.Filled.Cancel,
+        _                    => Icons.Material.Filled.CheckCircle
     };
 
     private string TimeRemaining

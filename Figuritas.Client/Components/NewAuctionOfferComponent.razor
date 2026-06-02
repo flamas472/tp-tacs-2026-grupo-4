@@ -11,7 +11,7 @@
     <TitleContent>
         <div class="d-flex align-center gap-2">
             <MudIcon Icon="@Icons.Material.Filled.Gavel" Color="Color.Warning" />
-            <MudText Typo="Typo.h6">Hacer una puja</MudText>
+            <MudText Typo="Typo.h6">@(IsModification ? "Modificar puja" : "Hacer una puja")</MudText>
         </div>
     </TitleContent>
     <DialogContent>
@@ -36,8 +36,17 @@
             <div class="ssl-chips mb-3">
                 @foreach (var s in MinimumStickers)
                 {
-                    <div class="ssl-chip">
-                        <MudText Typo="Typo.caption" Class="ssl-chip-label">
+                    var isCovered = selectedStickers.Any(sel => sel.Sticker.Id == s.Id);
+                    <div class="ssl-chip d-flex align-center gap-1">
+                        @if (isCovered)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
+                                     Size="Size.Small"
+                                     Color="Color.Success"
+                                     Style="flex-shrink:0;" />
+                        }
+                        <MudText Typo="Typo.caption" Class="ssl-chip-label"
+                                 Color="@(isCovered ? Color.Success : Color.Default)">
                             #@s.Number.ToString("D3") — @s.Description
                         </MudText>
                     </div>
@@ -45,6 +54,12 @@
             </div>
         }
 
+        @if (IsModification)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2" Style="font-size:0.8rem">
+                Seleccioná las figuritas <strong>adicionales</strong> que querés agregar a tu puja actual.
+            </MudText>
+        }
         <MudText Typo="Typo.subtitle2" Class="mb-1">Figuritas que ofrecés</MudText>
         <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2" Style="font-size:0.8rem">
             Tu oferta debe incluir las figuritas mínimas requeridas.
@@ -71,15 +86,27 @@
             {
                 <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
             }
-            Confirmar puja
+            @(IsModification ? "Guardar cambios" : "Confirmar puja")
         </MudButton>
     </DialogActions>
 </MudDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    /// <summary>The auction being bid on.</summary>
     [Parameter][EditorRequired] public AuctionResponseDTO Auction { get; set; } = default!;
+
+    /// <summary>Minimum stickers required by the auctioneer.</summary>
     [Parameter] public List<Sticker> MinimumStickers { get; set; } = new();
+
+    /// <summary>
+    /// When set, the component operates in modification mode:
+    /// the submit will call PATCH (UpdateOfferAsync) instead of POST (CreateOfferAsync).
+    /// </summary>
+    [Parameter] public int? ExistingOfferId { get; set; }
+
+    private bool IsModification => ExistingOfferId.HasValue;
 
     private List<UserStickerVm> selectedStickers = new();
     private bool loading = false;
@@ -98,21 +125,50 @@
             return;
         }
 
-        loading = true;
-
-        var token = await AuthState.GetTokenAsync() ?? string.Empty;
-        var dto = new PostAuctionOfferRequestDTO
+        // Client-side validation: verify all minimum stickers are present in the selection
+        if (MinimumStickers.Any())
         {
-            OfferedUserStickerIds = selectedStickers.Select(vm => vm.UserStickerId).ToList()
-        };
+            var selectedIds = selectedStickers.Select(vm => vm.Sticker.Id).ToHashSet();
+            var missingMinimum = MinimumStickers.Where(s => !selectedIds.Contains(s.Id)).ToList();
+            if (missingMinimum.Any())
+            {
+                var missingList = string.Join(", ", missingMinimum.Select(s => $"#{s.Number:D3} {s.Description}"));
+                feedbackMsg = $"Tu oferta debe incluir las figuritas mínimas requeridas: {missingList}.";
+                return;
+            }
+        }
 
-        var result = await AuctionHttp.CreateOfferAsync(Auction.Id, dto, token);
+        loading = true;
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
 
-        loading = false;
-        feedbackSuccess = result.Success;
-        feedbackMsg = result.Success
-            ? "¡Puja enviada correctamente!"
-            : result.ErrorMessage ?? "Error al enviar la puja.";
+        if (IsModification)
+        {
+            // Modification path: PATCH with additional sticker IDs only
+            var updateDto = new UpdateAuctionOfferRequestDTO
+            {
+                AdditionalStickerIds = selectedStickers.Select(vm => vm.UserStickerId).ToList()
+            };
+            var result = await AuctionHttp.UpdateOfferAsync(Auction.Id, ExistingOfferId!.Value, updateDto, token);
+            loading = false;
+            feedbackSuccess = result.Success;
+            feedbackMsg = result.Success
+                ? "¡Puja modificada correctamente!"
+                : result.ErrorMessage ?? "Error al modificar la puja.";
+        }
+        else
+        {
+            // Creation path: POST with full sticker IDs
+            var createDto = new PostAuctionOfferRequestDTO
+            {
+                OfferedUserStickerIds = selectedStickers.Select(vm => vm.UserStickerId).ToList()
+            };
+            var result = await AuctionHttp.CreateOfferAsync(Auction.Id, createDto, token);
+            loading = false;
+            feedbackSuccess = result.Success;
+            feedbackMsg = result.Success
+                ? "¡Puja enviada correctamente!"
+                : result.ErrorMessage ?? "Error al enviar la puja.";
+        }
 
         if (feedbackSuccess)
         {

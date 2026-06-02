@@ -210,6 +210,7 @@ public class UserService(
             {
                 UserStickerId = us.Id,
                 OwnerId = us.UserId,
+                StickerId = us.Sticker.Id,
                 StickerNumber = us.Sticker.Number,
                 StickerNationalTeam = us.Sticker.NationalTeam,
                 StickerTeam = us.Sticker.Team,
@@ -231,6 +232,7 @@ public class UserService(
         {
             UserStickerId = us.Id,
             OwnerId = us.UserId,
+            StickerId = us.Sticker.Id,
             StickerNumber = us.Sticker.Number,
             StickerNationalTeam = us.Sticker.NationalTeam,
             StickerTeam = us.Sticker.Team,

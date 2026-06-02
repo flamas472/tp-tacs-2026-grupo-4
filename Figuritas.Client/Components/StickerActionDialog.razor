@@ -37,13 +37,19 @@
                                    Color="Color.Secondary"
                                    StartIcon="@Icons.Material.Filled.BookmarkAdd"
                                    Class="action-mode-btn"
-                                   OnClick="@(() => { modoRepetida = false; feedbackMsg = null; })">
+                                   OnClick="@(() => { modoRepetida = false; feedbackMsg = null; cantidad = 1; })">
                             Faltante
                         </MudButton>
                     </div>
 
                     @if (modoRepetida)
                     {
+                        <MudNumericField T="int"
+                                         Label="Cantidad"
+                                         @bind-Value="cantidad"
+                                         Min="1"
+                                         Variant="Variant.Outlined"
+                                         Class="mt-2 mb-1" />
                         <MudCheckBox @bind-Value="canBeExchanged"
                                      Label="Disponible para intercambio directo"
                                      Color="Color.Primary"
@@ -99,6 +105,7 @@
     private bool canBeAuctioned = false;
     private bool loading = false;
     private bool initialLoading = false;
+    private int cantidad = 1;
     private int? existingUserStickerId = null;   // UserSticker.Id si ya existe en inventario
     private int existingQuantity = 0;
     private string? feedbackMsg = null;
@@ -176,19 +183,19 @@
     {
         if (existingUserStickerId.HasValue)
         {
-            // Ya existe en inventario (activa o reservada) → PATCH: Quantity + 1
+            // Ya existe en inventario (activa o reservada) → PATCH: Quantity + cantidad
             var patchResult = await UserHttp.UpdateUserStickerAsync(
                 userId, existingUserStickerId.Value,
                 new PatchUserStickerDTO
                 {
                     CanBeDirectlyExchanged = canBeExchanged,
                     CanBeAuctioned         = canBeAuctioned,
-                    Quantity               = existingQuantity + 1
+                    Quantity               = existingQuantity + cantidad
                 });
 
             feedbackSuccess = patchResult.Success;
             feedbackMsg = patchResult.Success
-                ? "Repetida actualizada correctamente."
+                ? $"Repetida actualizada correctamente (+{cantidad})."
                 : patchResult.ErrorMessage ?? "Error al actualizar la figurita.";
         }
         else
@@ -197,14 +204,14 @@
             var postResult = await UserHttp.AddUserStickerAsync(userId, new PostUserStickerRequestDTO
             {
                 StickerId              = Sticker.Id,
-                Quantity               = 1,
+                Quantity               = cantidad,
                 CanBeDirectlyExchanged = canBeExchanged,
                 CanBeAuctioned         = canBeAuctioned
             });
 
             feedbackSuccess = postResult.Success;
             feedbackMsg = postResult.Success
-                ? "Figurita agregada a tus repetidas."
+                ? $"Figurita agregada a tus repetidas (x{cantidad})."
                 : postResult.ErrorMessage ?? "Error al agregar la figurita.";
         }
     }

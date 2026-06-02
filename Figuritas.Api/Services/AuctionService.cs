@@ -33,8 +33,7 @@ public class AuctionService
 
     public async Task<List<AuctionResponseDTO>> GetMyAuctions(GetMyAuctionsDTO dto, int callerUserId)
     {
-        // Pass null as status so the repository returns all statuses (Active, Closed, Cancelled).
-        var auctions = _auctionRepo.GetByAuctioneerId(callerUserId, null, dto.Page, dto.PageSize);
+        var auctions = _auctionRepo.GetByAuctioneerId(callerUserId, dto.Status, dto.Page, dto.PageSize);
         var stickerIds = auctions.Select(a => a.UserStickerId).ToList();
         var auctionIds = auctions.Select(a => a.Id).ToList();
         var stickers = _userStickerRepo.GetMultipleByIdIncludingInactive(stickerIds).ToDictionary(us => us.Id);
@@ -48,9 +47,9 @@ public class AuctionService
         }).ToList();
     }
 
-    public async Task<List<AuctionResponseDTO>> GetAuctions(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null)
+    public async Task<List<AuctionResponseDTO>> GetAuctions(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null, string? status = null)
     {
-        var auctions = _auctionRepo.GetAll(page, pageSize, excludeAuctioneerId);
+        var auctions = _auctionRepo.GetAll(page, pageSize, excludeAuctioneerId, status);
         var stickerIds = auctions.Select(a => a.UserStickerId).Distinct().ToList();
         var userIds = auctions.Select(a => a.AuctioneerId).Distinct().ToList();
         var auctionIds = auctions.Select(a => a.Id).ToList();
@@ -112,8 +111,6 @@ public class AuctionService
         if (us.Quantity == 0)
         {
             us.Active = false;
-            us.CanBeAuctioned = false;
-            us.CanBeDirectlyExchanged = false;
         }
         _userStickerRepo.Update(us);
 
@@ -172,7 +169,7 @@ public class AuctionService
                 throw new InvalidOperationException(
                     $"UserSticker {offeredUs.Id} does not belong to the bidder.");
 
-            if (offeredUs.Quantity <= 0)
+            if (!offeredUs.Active || offeredUs.Quantity <= 0)
                 throw new InvalidOperationException(
                     $"UserSticker {offeredUs.Id} has no available stock.");
         }
@@ -479,7 +476,7 @@ public class AuctionService
             if (sticker.UserId != callerUserId)
                 throw new InvalidOperationException(
                     $"UserSticker {sticker.Id} does not belong to the caller.");
-            if (sticker.Quantity <= 0)
+            if (!sticker.Active || sticker.Quantity <= 0)
                 throw new InvalidOperationException(
                     $"UserSticker {sticker.Id} has no available stock.");
         }

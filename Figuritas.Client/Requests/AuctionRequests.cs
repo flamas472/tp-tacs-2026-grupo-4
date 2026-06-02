@@ -16,11 +16,14 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
-        public async Task<ApiResponse<List<AuctionResponseDTO>>> GetAuctionsAsync(int page = 1, int pageSize = 20)
+        public async Task<ApiResponse<List<AuctionResponseDTO>>> GetAuctionsAsync(int page = 1, int pageSize = 20, string? status = null)
         {
             try
             {
-                var response = await _http.GetAsync($"api/auctions?page={page}&pageSize={pageSize}");
+                var url = $"api/auctions?page={page}&pageSize={pageSize}";
+                if (!string.IsNullOrEmpty(status))
+                    url += $"&status={status}";
+                var response = await _http.GetAsync(url);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -273,6 +276,100 @@ namespace Figuritas.Client.Requests
             catch (Exception ex)
             {
                 return ApiResponse<AuctionOfferResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Allows the auctioneer to pre-select a preferred offer without closing the auction.
+        /// Maps to PATCH /api/auctions/{auctionId}/selected-offer.
+        /// </summary>
+        public async Task<ApiResponse<AuctionResponseDTO>> SelectBestOfferAsync(int auctionId, SelectBestOfferRequestDTO dto, string authToken)
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Patch, $"api/auctions/{auctionId}/selected-offer");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+                request.Content = JsonContent.Create(dto);
+
+                var response = await _http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<AuctionResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<AuctionResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionResponseDTO>.Fail("No se pudo leer la subasta actualizada.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Accepts a specific offer, closing the auction with that offer as the winner.
+        /// Maps to POST /api/auctions/{auctionId}/offers/{offerId}/accept.
+        /// </summary>
+        public async Task<ApiResponse<AuctionResponseDTO>> AcceptOfferAsync(int auctionId, int offerId, string authToken)
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, $"api/auctions/{auctionId}/offers/{offerId}/accept");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+
+                var response = await _http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<AuctionResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<AuctionResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionResponseDTO>.Fail("No se pudo leer la subasta cerrada.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Cancels the auction (no winner). Calls POST /api/auctions/{id}/close with a null WinningOfferId.
+        /// NOTE: This reuses the legacy [LEGACY] /close endpoint, which is currently the only server-side
+        /// path for cancellation (no WinningOfferId triggers the cancellation branch).
+        /// TODO: migrate to a dedicated cancel endpoint (e.g. DELETE /api/auctions/{id}) when available.
+        /// </summary>
+        public async Task<ApiResponse<AuctionResponseDTO>> CancelAuctionAsync(int auctionId, string authToken)
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, $"api/auctions/{auctionId}/close");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+                request.Content = JsonContent.Create(new CloseAuctionRequestDTO { WinningOfferId = null });
+
+                var response = await _http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<AuctionResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<AuctionResponseDTO>.Ok(data)
+                        : ApiResponse<AuctionResponseDTO>.Fail("No se pudo leer la subasta cancelada.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<AuctionResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
     }

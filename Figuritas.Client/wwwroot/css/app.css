@@ -919,13 +919,6 @@ code {
     gap: 0.5rem;
 }
 
-.auctions-filter-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
 .auction-filter-chipset {
     display: flex;
     flex-wrap: wrap;
@@ -981,4 +974,174 @@ code {
 @keyframes winner-pulse {
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.72; }
+}
+
+
+/* ─── AuctionOwnerDetailDialog ───────────────────────────────────────────── */
+
+/* Control section: header with status + countdown */
+.aod-control-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+/* System suggestion panel */
+.aod-suggestion-panel {
+    border-left: 4px solid var(--mud-palette-warning) !important;
+    border-radius: 8px;
+}
+
+/* Desktop offer table — visible on md+ */
+.aod-table-desktop { display: none; }
+
+/* Mobile offer cards — visible on xs/sm */
+.aod-cards-mobile { display: block; }
+
+.aod-offer-card {
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+@media (min-width: 960px) {
+    .aod-table-desktop { display: block; }
+    .aod-cards-mobile  { display: none;  }
+}
+
+/* Filter row in MisSubastas */
+.auction-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+
+/* ─── MisPujas.razor — responsive bid list ──────────────────────────────── */
+
+/* Mobile: show cards, hide table */
+.bids-cards-mobile  { display: block; }
+.bids-table-desktop { display: none;  }
+
+/* md+ (960px): show table, hide cards */
+@media (min-width: 960px) {
+    .bids-cards-mobile  { display: none;  }
+    .bids-table-desktop { display: block; }
+}
+
+.my-bid-card {
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    transition: border-color 0.15s;
+}
+
+.my-bid-card:hover {
+    border-color: var(--mud-palette-warning) !important;
+}
+
+/* Keep the auction-status chip compact inside the card date row */
+.my-bid-auction-status-chip {
+    height: 20px !important;
+    font-size: 0.65rem !important;
+    padding: 0 6px !important;
+}
+
+.my-bids-table {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+
+/* ─── Intercambios.razor — lista unificada de intercambios ──────────────── */
+
+/* Mobile: show cards, hide table */
+.exchanges-cards-mobile  { display: block; }
+.exchanges-table-desktop { display: none;  }
+
+/* md+ (960px): show table, hide cards */
+@media (min-width: 960px) {
+    .exchanges-cards-mobile  { display: none;  }
+    .exchanges-table-desktop { display: block; }
+}
+
+.exchange-card {
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    transition: border-color 0.15s;
+}
+
+.exchange-card:hover {
+    border-color: var(--mud-palette-success) !important;
+}
+
+.exchanges-table {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+
+/* ─── ExchangeDetailDialog ───────────────────────────────────────────────── */
+.exchange-detail-sides {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+}
+
+.exchange-detail-side {
+    flex: 1;
+    min-width: 0;
+}
+
+.exchange-sticker-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.exchange-sticker-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    text-align: center;
+    width: 64px;
+}
+
+.exchange-sticker-img {
+    width: 64px;
+    height: 84px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.exchange-sticker-desc {
+    font-size: 0.6rem !important;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    width: 100%;
+}
+
+.exchange-swap-icon {
+    align-self: center;
+    flex-shrink: 0;
+}
+
+/* Mobile: layout vertical */
+@media (max-width: 959px) {
+    .exchange-detail-sides {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .exchange-detail-side {
+        width: 100%;
+    }
+
+    .exchange-swap-icon {
+        align-self: center;
+        transform: rotate(90deg);
+    }
 }

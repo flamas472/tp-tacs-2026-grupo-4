@@ -40,10 +40,20 @@ public class AuctionRepository : IAuctionRepository
             new CreateIndexOptions { Name = "idx_auction_status_ends_at" }));
     }
 
-    public List<Auction> GetAll(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null)
+    public List<Auction> GetAll(int page = 1, int pageSize = 20, int? excludeAuctioneerId = null, string? status = null)
     {
-        // Only return Active auctions — Closed and Cancelled auctions are not browsable in the marketplace.
-        var filter = Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active);
+        FilterDefinition<Auction> filter;
+
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<AuctionStatus>(status, ignoreCase: true, out var parsedStatus))
+        {
+            // Caller requested a specific status: filter by it.
+            filter = Builders<Auction>.Filter.Eq(a => a.Status, parsedStatus);
+        }
+        else
+        {
+            // Default marketplace behavior: only Active auctions are browsable.
+            filter = Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active);
+        }
 
         if (excludeAuctioneerId.HasValue)
             filter = Builders<Auction>.Filter.And(

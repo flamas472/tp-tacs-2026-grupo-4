@@ -60,7 +60,7 @@ public class ExchangeProposalService
             if (sticker.UserId != callerUserId)
                 throw new InvalidOperationException("All offered stickers must belong to the proponent.");
 
-            if (sticker.Quantity <= 0)
+            if (!sticker.Active || sticker.Quantity <= 0)
                 throw new InvalidOperationException("All offered stickers must have quantity greater than zero.");
 
             if (!sticker.CanBeDirectlyExchanged)
@@ -73,6 +73,9 @@ public class ExchangeProposalService
 
         if (requestedSticker.UserId != dto.ProposedUserId)
             throw new InvalidOperationException("The requested sticker does not belong to the proposed recipient.");
+
+        if (!requestedSticker.Active)
+            throw new InvalidOperationException("The requested sticker is not available for direct exchange.");
 
         if (!requestedSticker.CanBeDirectlyExchanged)
             throw new InvalidOperationException("The requested sticker is not available for direct exchange.");

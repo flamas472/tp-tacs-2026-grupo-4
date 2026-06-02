@@ -14,7 +14,5 @@ public class ExchangeSuggestionResponseDTO
     public string StickerImageUrl { get; set; } = string.Empty;
     public int TheirQuantity { get; set; }
     public bool IsPerfectMatch { get; set; }
-    public int? CallerUserStickerId { get; set; }
-    public int? CallerMatchedStickerNumber { get; set; }
-    public string? CallerMatchedStickerDescription { get; set; }
+    public List<StickerPreviewDTO> CallerMatchedStickers { get; set; } = new();
 }
