@@ -24,18 +24,10 @@
             <MudNavGroup Title="Mis Operaciones"
                          Icon="@Icons.Material.Filled.SwapHoriz"
                          Expanded="true">
-                <MudNavGroup Title="Intercambios"
-                             Icon="@Icons.Material.Filled.CompareArrows"
-                             Expanded="false">
-                    <MudNavLink Href="propuestas" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.SwapHoriz">Propuestas</MudNavLink>
-                    <MudNavLink Href="intercambios" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CheckCircle">Finalizados</MudNavLink>
-                </MudNavGroup>
-                <MudNavGroup Title="Subastas"
-                             Icon="@Icons.Material.Filled.Gavel"
-                             Expanded="false">
-                    <MudNavLink Href="mis-subastas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Inventory2">Mis subastas</MudNavLink>
-                    <MudNavLink Href="mis-pujas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PriceChange">Mis pujas</MudNavLink>
-                </MudNavGroup>
+                <MudNavLink Href="propuestas" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.CompareArrows">Propuestas</MudNavLink>
+                <MudNavLink Href="intercambios" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Handshake">Intercambios</MudNavLink>
+                <MudNavLink Href="mis-subastas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Gavel">Mis subastas</MudNavLink>
+                <MudNavLink Href="mis-pujas" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PriceChange">Mis pujas</MudNavLink>
             </MudNavGroup>
 
             @if (AuthState.IsAdmin)

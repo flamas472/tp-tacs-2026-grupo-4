@@ -36,7 +36,8 @@
             </div>
 
             <MudIcon Icon="@Icons.Material.Filled.SwapHoriz"
-                     Color="Color.Secondary" Style="font-size:2rem; align-self:center" />
+                     Color="Color.Secondary" Class="proposal-swap-icon"
+                     Style="font-size:2rem" />
 
             <div class="proposal-detail-side">
                 <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
@@ -107,13 +108,13 @@
                            OnClick="HandleAceptar"
                            Disabled="loading">
                     @if (loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
-                    Aceptar intercambio
+                    Aceptar
                 </MudButton>
             }
             else
             {
-                <MudButton Variant="Variant.Outlined"
-                           Color="Color.Default"
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Error"
                            StartIcon="@Icons.Material.Filled.Cancel"
                            OnClick="HandleCancelar"
                            Disabled="loading">

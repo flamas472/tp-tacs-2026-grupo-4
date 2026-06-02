@@ -5,8 +5,8 @@
     {
         <div class="proposal-sticker-mini">
             <img src="@Proposal.RequestedSticker.ImageUrl"
-                 alt="#@Proposal.RequestedSticker.Number.ToString("D3")" />
-            <span class="proposal-sticker-num">#@Proposal.RequestedSticker.Number.ToString("D3")</span>
+                 alt="#@Proposal.RequestedSticker.Number.ToString("D3")"
+                 title="#@Proposal.RequestedSticker.Number.ToString("D3") — @Proposal.RequestedSticker.Description" />
         </div>
     }
     else
@@ -23,8 +23,9 @@
         @foreach (var s in Proposal.OfferedStickers)
         {
             <div class="proposal-sticker-mini">
-                <img src="@s.ImageUrl" alt="#@s.Number.ToString("D3")" />
-                <span class="proposal-sticker-num">#@s.Number.ToString("D3")</span>
+                <img src="@s.ImageUrl"
+                     alt="#@s.Number.ToString("D3")"
+                     title="#@s.Number.ToString("D3") — @s.Description" />
             </div>
         }
         @if (!Proposal.OfferedStickers.Any())
@@ -39,6 +40,7 @@
     </div>
 
     <div class="proposal-state">
+        <div class="proposal-state-dot @DotClass" title="@StateLabel"></div>
         <MudChip T="string" Size="Size.Small" Color="@StateColor" Variant="Variant.Filled">
             @StateLabel
         </MudChip>
@@ -56,6 +58,15 @@
         "Rejected"  => Color.Error,
         "Cancelled" => Color.Default,
         _           => Color.Default
+    };
+
+    private string DotClass => Proposal.State switch
+    {
+        "Pending"   => "proposal-dot-pending",
+        "Accepted"  => "proposal-dot-accepted",
+        "Rejected"  => "proposal-dot-rejected",
+        "Cancelled" => "proposal-dot-cancelled",
+        _           => "proposal-dot-cancelled"
     };
 
     private string StateLabel => Proposal.State switch

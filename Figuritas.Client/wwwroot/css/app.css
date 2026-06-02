@@ -677,19 +677,19 @@ code {
     align-items: center;
     gap: 2px;
     flex-shrink: 0;
-    width: 40px;
+    width: 50px;
 }
 
 .proposal-sticker-mini img {
-    width: 36px;
-    height: 48px;
+    width: 50px;
+    aspect-ratio: 10 / 13;
     object-fit: cover;
     border-radius: 3px;
 }
 
 .proposal-sticker-placeholder {
-    width: 36px;
-    height: 48px;
+    width: 50px;
+    aspect-ratio: 10 / 13;
     border-radius: 3px;
     background: rgba(255, 255, 255, 0.06);
     display: flex;
@@ -719,6 +719,58 @@ code {
 .proposal-state {
     flex-shrink: 0;
     margin-left: auto;
+}
+
+/* Mobile: círculo de color, chip oculto */
+.proposal-state .mud-chip { display: none; }
+
+.proposal-state-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.proposal-dot-pending   { background: var(--mud-palette-warning); }
+.proposal-dot-accepted  { background: var(--mud-palette-success); }
+.proposal-dot-rejected  { background: var(--mud-palette-error); }
+.proposal-dot-cancelled { background: rgba(120, 120, 140, 0.7); }
+
+/* Desktop: chip visible, círculo oculto */
+@media (min-width: 1280px) {
+    .proposal-state .mud-chip { display: inline-flex; }
+    .proposal-state-dot { display: none; }
+}
+
+/* Separación entre filas */
+.proposal-row + .proposal-row {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Ícono de intercambio: centrado en desktop (columna flex), rotado en mobile */
+.proposal-swap-icon {
+    align-self: center;
+    flex-shrink: 0;
+}
+
+/* Mobile: layout vertical del detalle */
+@media (max-width: 1279px) {
+    .proposal-detail-sides {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .proposal-detail-side {
+        width: 100%;
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .proposal-swap-icon {
+        align-self: center;
+        transform: rotate(90deg);
+    }
 }
 
 .proposal-empty {
@@ -760,4 +812,36 @@ code {
 .proposal-offered-large {
     flex-wrap: wrap;
     justify-content: flex-start;
+}
+
+.proposal-panel {
+    border-radius: 12px;
+    padding: 1rem 1rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Desktop: altura fija ~6 intercambios con scroll + previews más grandes */
+@media (min-width: 1280px) {
+    .proposal-list-scroll {
+        height: 420px;
+        overflow-y: auto;
+        min-height: 0;
+    }
+
+    .proposal-sticker-mini {
+        width: 86px;
+    }
+
+    .proposal-sticker-mini img,
+    .proposal-sticker-placeholder {
+        width: 80px;
+    }
+}
+
+.proposal-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.75rem;
 }
