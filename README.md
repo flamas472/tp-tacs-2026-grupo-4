@@ -93,7 +93,7 @@ ejecutar `dotnet watch run` para ejecutar con hot reload para ver cambios en tim
  - Utilizamos Claude con VSCode para creación de código para terminar api, tests y para la creación de UI.
 
 
-## Decisiones de diseño (PENDIENTE ACTUALIZACIOONO)
+## Decisiones de diseño
  - Como equipo, decidimos implementar la solución utilizando el ecosistema .NET por interés particular y porque tiene todas las herramientas necesarias para cumplir con todos los requisitos del trabajo práctico utilizando un único lenguaje de programación: C#.
   - Utilizamos ASP.NET Core 10 como framework principal para implementar el backend (API REST).
   - Utilizamos Blazor WebAssembly (WASM) como framework principal para implementar el frontend. Blazor permite ejecutar código C# directamente en el navegador del cliente a través de un entorno de ejecución binario. Este framework incorpora la sintaxis Razor que permite combinar HTML y C# para crear componentes dinámicos e interactivos.
