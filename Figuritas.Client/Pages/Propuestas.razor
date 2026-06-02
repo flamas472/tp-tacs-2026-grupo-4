@@ -1,10 +1,89 @@
 @page "/propuestas"
 @attribute [Authorize]
+@using Figuritas.Client.Requests
+@using Figuritas.Shared.DTO.response
 
-<PageTitle>Propuestas — Figuritas</PageTitle>
+@inject DashboardHttpClient DashboardHttp
+@inject IDialogService DialogService
 
-<UnderConstruction Section="Propuestas"
-                   Stories="@(new (int, string)[]{
-                       (5, "Como usuario quiero hacer una propuesta por una figurita, pudiendo ofrecer una o más figuritas de mi colección."),
-                       (9, "Como usuario quiero aceptar o rechazar propuestas recibidas.")
-                   })" />
+<PageTitle>Propuestas — FiguriTACS</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Propuestas de intercambio</MudText>
+
+@if (receivedProposals == null || sentProposals == null)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando propuestas...</MudText>
+    </div>
+}
+else
+{
+    @* ── Mobile/tablet: pestañas ── *@
+    <MudHidden Breakpoint="Breakpoint.LgAndUp">
+        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true">
+            <MudTabPanel Text="Recibidas" Icon="@Icons.Material.Filled.MoveToInbox">
+                <ProposalListPanel Proposals="receivedProposals" OnProposalClick="OpenDetail" />
+            </MudTabPanel>
+            <MudTabPanel Text="Enviadas" Icon="@Icons.Material.Filled.Send">
+                <ProposalListPanel Proposals="sentProposals" OnProposalClick="OpenDetail" />
+            </MudTabPanel>
+        </MudTabs>
+    </MudHidden>
+
+    @* ── Desktop: dos columnas ── *@
+    <MudHidden Breakpoint="Breakpoint.MdAndDown">
+        <MudGrid>
+            <MudItem xs="12" lg="6">
+                <MudText Typo="Typo.h6" Class="mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.MoveToInbox" Size="Size.Small" Class="mr-1" />
+                    Recibidas
+                </MudText>
+                <ProposalListPanel Proposals="receivedProposals" OnProposalClick="OpenDetail" />
+            </MudItem>
+            <MudItem xs="12" lg="6">
+                <MudText Typo="Typo.h6" Class="mb-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Send" Size="Size.Small" Class="mr-1" />
+                    Enviadas
+                </MudText>
+                <ProposalListPanel Proposals="sentProposals" OnProposalClick="OpenDetail" />
+            </MudItem>
+        </MudGrid>
+    </MudHidden>
+}
+
+@code {
+    private List<ExchangeProposalResponseDTO>? receivedProposals;
+    private List<ExchangeProposalResponseDTO>? sentProposals;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var receivedTask = DashboardHttp.GetMyReceivedProposalsAsync();
+        var sentTask = DashboardHttp.GetMySentProposalsAsync();
+        await Task.WhenAll(receivedTask, sentTask);
+
+        receivedProposals = receivedTask.Result.Success
+            ? (receivedTask.Result.Data ?? new()) : new();
+        sentProposals = sentTask.Result.Success
+            ? (sentTask.Result.Data ?? new()) : new();
+    }
+
+    private async Task OpenDetail(ExchangeProposalResponseDTO proposal)
+    {
+        var parameters = new DialogParameters<ProposalDetailDialog>
+        {
+            { d => d.Proposal, proposal }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Medium,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<ProposalDetailDialog>(
+            "Propuesta", parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            await OnInitializedAsync();
+    }
+}

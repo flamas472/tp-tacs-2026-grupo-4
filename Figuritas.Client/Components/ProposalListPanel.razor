@@ -1,0 +1,25 @@
+@using Figuritas.Shared.DTO.response
+
+@if (!Proposals.Any())
+{
+    <div class="proposal-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.SwapHoriz" Color="Color.Secondary" Style="font-size:2.5rem" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-1">Sin propuestas</MudText>
+    </div>
+}
+else
+{
+    <div class="proposal-list">
+        @foreach (var proposal in Proposals)
+        {
+            <ProposalRowComponent Proposal="@proposal"
+                                  @key="proposal.Id"
+                                  OnClick="OnProposalClick" />
+        }
+    </div>
+}
+
+@code {
+    [Parameter][EditorRequired] public List<ExchangeProposalResponseDTO> Proposals { get; set; } = new();
+    [Parameter][EditorRequired] public EventCallback<ExchangeProposalResponseDTO> OnProposalClick { get; set; }
+}

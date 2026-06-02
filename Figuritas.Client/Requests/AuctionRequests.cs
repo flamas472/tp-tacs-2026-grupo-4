@@ -16,11 +16,11 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
-        public async Task<ApiResponse<List<AuctionResponseDTO>>> GetAuctionsAsync()
+        public async Task<ApiResponse<List<AuctionResponseDTO>>> GetAuctionsAsync(int page = 1, int pageSize = 20)
         {
             try
             {
-                var response = await _http.GetAsync("api/auctions");
+                var response = await _http.GetAsync($"api/auctions?page={page}&pageSize={pageSize}");
 
                 if (response.IsSuccessStatusCode)
                 {

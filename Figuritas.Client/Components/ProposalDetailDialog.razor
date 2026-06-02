@@ -1,0 +1,188 @@
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Client.Requests
+
+@inject ExchangeProposalHttpClient ProposalHttp
+@inject AuthStateService AuthState
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Propuesta de intercambio</MudText>
+            <MudChip T="string" Size="Size.Small" Color="@StateColor" Variant="Variant.Filled" Class="ml-1">
+                @StateLabel
+            </MudChip>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="proposal-detail-sides">
+            <div class="proposal-detail-side">
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                    @(IsRecipient ? "Tu figurita (solicitada)" : "Figurita que querés")
+                </MudText>
+                @if (Proposal.RequestedSticker is not null)
+                {
+                    <div class="proposal-detail-sticker">
+                        <img src="@Proposal.RequestedSticker.ImageUrl"
+                             alt="@Proposal.RequestedSticker.Description" />
+                        <MudText Typo="Typo.subtitle2">
+                            #@Proposal.RequestedSticker.Number.ToString("D3")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @Proposal.RequestedSticker.Description
+                        </MudText>
+                    </div>
+                }
+            </div>
+
+            <MudIcon Icon="@Icons.Material.Filled.SwapHoriz"
+                     Color="Color.Secondary" Style="font-size:2rem; align-self:center" />
+
+            <div class="proposal-detail-side">
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">
+                    @(IsRecipient ? $"Figuritas ofrecidas por {Proposal.ProponentUsername}" : "Figuritas que ofrecés")
+                </MudText>
+                <div class="proposal-offered-list proposal-offered-large">
+                    @foreach (var s in Proposal.OfferedStickers)
+                    {
+                        <div class="proposal-detail-sticker">
+                            <img src="@s.ImageUrl" alt="@s.Description" />
+                            <MudText Typo="Typo.subtitle2">#@s.Number.ToString("D3")</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@s.Description</MudText>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <MudDivider Class="my-3" />
+
+        <div class="d-flex gap-3 flex-wrap">
+            @if (IsRecipient)
+            {
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">De</MudText>
+                    <MudText Typo="Typo.body2">@Proposal.ProponentUsername</MudText>
+                </div>
+            }
+            else
+            {
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Para</MudText>
+                    <MudText Typo="Typo.body2">@Proposal.ProposedUsername</MudText>
+                </div>
+            }
+            <div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Enviada el</MudText>
+                <MudText Typo="Typo.body2">@Proposal.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</MudText>
+            </div>
+        </div>
+
+        @if (feedbackMsg is not null)
+        {
+            <MudAlert Severity="@(feedbackSuccess ? Severity.Success : Severity.Error)"
+                      Dense="true" Class="mt-3">
+                @feedbackMsg
+            </MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())" Disabled="loading">Cerrar</MudButton>
+
+        @if (Proposal.State == "Pending")
+        {
+            @if (IsRecipient)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.Close"
+                           OnClick="HandleRechazar"
+                           Disabled="loading">
+                    @if (loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Rechazar
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.Check"
+                           OnClick="HandleAceptar"
+                           Disabled="loading">
+                    @if (loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Aceptar intercambio
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Cancel"
+                           OnClick="HandleCancelar"
+                           Disabled="loading">
+                    @if (loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Cancelar propuesta
+                </MudButton>
+            }
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public ExchangeProposalResponseDTO Proposal { get; set; } = default!;
+
+    private bool loading = false;
+    private string? feedbackMsg;
+    private bool feedbackSuccess = false;
+
+    private bool IsRecipient => AuthState.UserId == Proposal.ProposedUserId;
+
+    private Color StateColor => Proposal.State switch
+    {
+        "Pending"   => Color.Warning,
+        "Accepted"  => Color.Success,
+        "Rejected"  => Color.Error,
+        "Cancelled" => Color.Default,
+        _           => Color.Default
+    };
+
+    private string StateLabel => Proposal.State switch
+    {
+        "Pending"   => "Pendiente",
+        "Accepted"  => "Aceptada",
+        "Rejected"  => "Rechazada",
+        "Cancelled" => "Cancelada",
+        _           => Proposal.State
+    };
+
+    private async Task HandleAceptar()
+    {
+        loading = true; feedbackMsg = null;
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var result = await ProposalHttp.AcceptProposalAsync(Proposal.Id, token);
+        loading = false;
+        feedbackSuccess = result.Success;
+        feedbackMsg = result.Success ? "¡Intercambio aceptado!" : result.ErrorMessage ?? "Error al aceptar.";
+        if (feedbackSuccess) { await Task.Delay(1200); MudDialog.Close(DialogResult.Ok(true)); }
+    }
+
+    private async Task HandleRechazar()
+    {
+        loading = true; feedbackMsg = null;
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var result = await ProposalHttp.RejectProposalAsync(Proposal.Id, token);
+        loading = false;
+        feedbackSuccess = result.Success;
+        feedbackMsg = result.Success ? "Propuesta rechazada." : result.ErrorMessage ?? "Error al rechazar.";
+        if (feedbackSuccess) { await Task.Delay(1200); MudDialog.Close(DialogResult.Ok(true)); }
+    }
+
+    private async Task HandleCancelar()
+    {
+        loading = true; feedbackMsg = null;
+        var token = await AuthState.GetTokenAsync() ?? string.Empty;
+        var result = await ProposalHttp.CancelProposalAsync(Proposal.Id, token);
+        loading = false;
+        feedbackSuccess = result.Success;
+        feedbackMsg = result.Success ? "Propuesta cancelada." : result.ErrorMessage ?? "Error al cancelar.";
+        if (feedbackSuccess) { await Task.Delay(1200); MudDialog.Close(DialogResult.Ok(true)); }
+    }
+}

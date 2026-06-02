@@ -1,6 +1,7 @@
 using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
+using Figuritas.Shared.Model;
 using Figuritas.Shared.Model.Intercambios;
 using Figuritas.Shared.Model.Notificaciones;
 
@@ -12,6 +13,7 @@ public class ExchangeProposalService
     private readonly IExchangeProposalRepository _exchangePropRepo;
     private readonly IMissingStickerRepository _missingStickerRepo;
     private readonly INotificationService _notificationService;
+    private readonly IUserRepository _userRepo;
     private readonly int _rateLimitWindowSeconds;
 
     public ExchangeProposalService(
@@ -19,12 +21,14 @@ public class ExchangeProposalService
         IExchangeProposalRepository exchangePropRepo,
         IMissingStickerRepository missingStickerRepo,
         INotificationService notificationService,
+        IUserRepository userRepo,
         IConfiguration configuration)
     {
         _inventoryRepo = inventoryRepo;
         _exchangePropRepo = exchangePropRepo;
         _missingStickerRepo = missingStickerRepo;
         _notificationService = notificationService;
+        _userRepo = userRepo;
         _rateLimitWindowSeconds = configuration.GetValue<int>("RateLimit:ExchangeProposalWindowSeconds", defaultValue: 3);
     }
 
@@ -102,20 +106,32 @@ public class ExchangeProposalService
     {
         int page = dto?.Page ?? 1;
         int pageSize = dto?.PageSize ?? 20;
-
-        return _exchangePropRepo.GetAllUserSentProposals(userID, dto?.State, page, pageSize)
-                                .Select(MapToResponseDto)
-                                .ToList();
+        var proposals = _exchangePropRepo.GetAllUserSentProposals(userID, dto?.State, page, pageSize);
+        return EnrichAndMap(proposals);
     }
 
     public List<ExchangeProposalResponseDTO> GetAllReceivedProposals(int userID, GetMyProposalsDTO? dto = null)
     {
         int page = dto?.Page ?? 1;
         int pageSize = dto?.PageSize ?? 20;
+        var proposals = _exchangePropRepo.GetAllUserReceivedProposals(userID, dto?.State, page, pageSize);
+        return EnrichAndMap(proposals);
+    }
 
-        return _exchangePropRepo.GetAllUserReceivedProposals(userID, dto?.State, page, pageSize)
-                                .Select(MapToResponseDto)
-                                .ToList();
+    private List<ExchangeProposalResponseDTO> EnrichAndMap(List<ExchangeProposal> proposals)
+    {
+        var allStickerIds = proposals
+            .SelectMany(p => p.OfferedUserStickerIds.Append(p.RequestedUserStickerId))
+            .Distinct().ToList();
+
+        var stickers = _inventoryRepo.GetMultipleByIdIncludingInactive(allStickerIds)
+            .ToDictionary(us => us.Id);
+
+        var userIds = proposals.SelectMany(p => new[] { p.ProponentID, p.ProposedID })
+            .Distinct().ToList();
+        var users = _userRepo.GetByIds(userIds).ToDictionary(u => u.Id);
+
+        return proposals.Select(p => MapToResponseDto(p, stickers, users)).ToList();
     }
 
     public ExchangeProposal? GetProposalByID(int proposalID)
@@ -161,8 +177,19 @@ public class ExchangeProposalService
         return accepted;
     }
 
-    private static ExchangeProposalResponseDTO MapToResponseDto(ExchangeProposal proposal)
+    private static ExchangeProposalResponseDTO MapToResponseDto(
+        ExchangeProposal proposal,
+        Dictionary<int, UserSticker>? stickers = null,
+        Dictionary<int, User>? users = null)
     {
+        UserSticker? requested = null;
+        stickers?.TryGetValue(proposal.RequestedUserStickerId, out requested);
+
+        User? proponent = null;
+        User? proposed = null;
+        users?.TryGetValue(proposal.ProponentID, out proponent);
+        users?.TryGetValue(proposal.ProposedID, out proposed);
+
         return new ExchangeProposalResponseDTO
         {
             Id = proposal.Id,
@@ -171,7 +198,29 @@ public class ExchangeProposalService
             RequestedUserStickerId = proposal.RequestedUserStickerId,
             OfferedUserStickerIds = proposal.OfferedUserStickerIds,
             State = proposal.State.ToString(),
-            CreatedAt = proposal.CreatedAt
+            CreatedAt = proposal.CreatedAt,
+            RequestedSticker = requested == null ? null : new StickerPreviewDTO
+            {
+                UserStickerId = requested.Id,
+                Number = requested.Sticker.Number,
+                ImageUrl = requested.Sticker.ImageUrl,
+                Description = requested.Sticker.Description
+            },
+            OfferedStickers = proposal.OfferedUserStickerIds
+                .Select(id => stickers != null && stickers.TryGetValue(id, out var us)
+                    ? new StickerPreviewDTO
+                    {
+                        UserStickerId = us.Id,
+                        Number = us.Sticker.Number,
+                        ImageUrl = us.Sticker.ImageUrl,
+                        Description = us.Sticker.Description
+                    }
+                    : null)
+                .Where(s => s != null)
+                .Select(s => s!)
+                .ToList(),
+            ProponentUsername = proponent?.Username ?? string.Empty,
+            ProposedUsername = proposed?.Username ?? string.Empty
         };
     }
 }

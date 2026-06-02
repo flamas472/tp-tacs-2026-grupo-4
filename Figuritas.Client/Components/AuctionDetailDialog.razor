@@ -1,0 +1,128 @@
+@using Figuritas.Shared.Model
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Client.Requests
+
+@inject StickerHttpClient StickerHttp
+@inject IDialogService DialogService
+@inject AuthStateService AuthState
+
+<MudDialog>
+    <DialogContent>
+        @if (loading)
+        {
+            <div class="d-flex justify-center pa-4">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else
+        {
+            <StickerDialogContent Sticker="@AsSticker()">
+                <div class="auction-detail-meta mt-2">
+                    <div class="d-flex align-center gap-1 mb-1">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@Auction.AuctioneerUsername</MudText>
+                    </div>
+                    <div class="d-flex align-center gap-1 mb-1">
+                        <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small"
+                                 Color="@(IsOpen ? Color.Warning : Color.Secondary)" />
+                        <MudText Typo="Typo.body2" Color="@(IsOpen ? Color.Warning : Color.Secondary)">
+                            @(IsOpen ? "Cierra el" : "Cerró el") @Auction.EndsAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </MudText>
+                    </div>
+
+                    @if (minimumStickers.Any())
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 mb-1">
+                            Figuritas mínimas requeridas:
+                        </MudText>
+                        <div class="ssl-chips mb-1">
+                            @foreach (var s in minimumStickers)
+                            {
+                                <div class="ssl-chip">
+                                    <MudText Typo="Typo.caption" Class="ssl-chip-label">
+                                        #@s.Number.ToString("D3") — @s.Description
+                                    </MudText>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (Auction.BestCurrentOfferId.HasValue)
+                    {
+                        <div class="d-flex align-center gap-1 mt-1">
+                            <MudIcon Icon="@Icons.Material.Filled.Gavel" Size="Size.Small" Color="Color.Warning" />
+                            <MudText Typo="Typo.body2" Color="Color.Warning">Tiene puja activa</MudText>
+                        </div>
+                    }
+                </div>
+            </StickerDialogContent>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())">Cerrar</MudButton>
+        @if (IsOpen && AuthState.UserId != Auction.AuctioneerId && AuthState.UserId != 0)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Warning"
+                       StartIcon="@Icons.Material.Filled.Gavel"
+                       OnClick="HandleOfertar">
+                Ofertar
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter][EditorRequired] public AuctionResponseDTO Auction { get; set; } = default!;
+
+    private bool loading = true;
+    private List<Sticker> minimumStickers = new();
+
+    private bool IsOpen => Auction.Status == "Active" && Auction.EndsAt > DateTime.UtcNow;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Auction.MinimumOfferStickerIds.Any())
+        {
+            var tasks = Auction.MinimumOfferStickerIds
+                .Select(id => StickerHttp.GetByIdAsync(id));
+            var results = await Task.WhenAll(tasks);
+            minimumStickers = results
+                .Where(r => r.Success && r.Data is not null)
+                .Select(r => r.Data!)
+                .ToList();
+        }
+        loading = false;
+    }
+
+    private Sticker AsSticker() => new Sticker
+    {
+        Number = Auction.StickerNumber,
+        Description = Auction.StickerDescription,
+        NationalTeam = Auction.StickerNationalTeam,
+        Team = Auction.StickerTeam,
+        Category = string.Empty,
+        ImageUrl = Auction.StickerImageUrl
+    };
+
+    private async Task HandleOfertar()
+    {
+        var parameters = new DialogParameters<NewAuctionOfferComponent>
+        {
+            { c => c.Auction, Auction },
+            { c => c.MinimumStickers, minimumStickers }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+        var dialog = await DialogService.ShowAsync<NewAuctionOfferComponent>(
+            string.Empty, parameters, options);
+        var result = await dialog.Result;
+        if (result is { Canceled: false })
+            MudDialog.Close();
+    }
+}
