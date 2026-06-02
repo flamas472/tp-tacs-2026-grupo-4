@@ -14,6 +14,7 @@ public class ExchangeProposalService
     private readonly IMissingStickerRepository _missingStickerRepo;
     private readonly INotificationService _notificationService;
     private readonly IUserRepository _userRepo;
+    private readonly IExchangeRepository _exchangeRepo;
     private readonly int _rateLimitWindowSeconds;
 
     public ExchangeProposalService(
@@ -22,6 +23,7 @@ public class ExchangeProposalService
         IMissingStickerRepository missingStickerRepo,
         INotificationService notificationService,
         IUserRepository userRepo,
+        IExchangeRepository exchangeRepo,
         IConfiguration configuration)
     {
         _inventoryRepo = inventoryRepo;
@@ -29,6 +31,7 @@ public class ExchangeProposalService
         _missingStickerRepo = missingStickerRepo;
         _notificationService = notificationService;
         _userRepo = userRepo;
+        _exchangeRepo = exchangeRepo;
         _rateLimitWindowSeconds = configuration.GetValue<int>("RateLimit:ExchangeProposalWindowSeconds", defaultValue: 3);
     }
 
@@ -120,7 +123,7 @@ public class ExchangeProposalService
         int page = dto?.Page ?? 1;
         int pageSize = dto?.PageSize ?? 20;
         var proposals = _exchangePropRepo.GetAllUserSentProposals(userID, dto?.State, page, pageSize);
-        return EnrichAndMap(proposals);
+        return EnrichAndMap(proposals, callerUserId: userID);
     }
 
     public List<ExchangeProposalResponseDTO> GetAllReceivedProposals(int userID, GetMyProposalsDTO? dto = null)
@@ -128,10 +131,16 @@ public class ExchangeProposalService
         int page = dto?.Page ?? 1;
         int pageSize = dto?.PageSize ?? 20;
         var proposals = _exchangePropRepo.GetAllUserReceivedProposals(userID, dto?.State, page, pageSize);
-        return EnrichAndMap(proposals);
+        return EnrichAndMap(proposals, callerUserId: userID);
     }
 
-    private List<ExchangeProposalResponseDTO> EnrichAndMap(List<ExchangeProposal> proposals)
+    /// <summary>
+    /// Enriches a list of proposals with sticker and user info, and with rating state for
+    /// accepted proposals. For each accepted proposal the matching Exchange record is looked up
+    /// and the counterpart's Ratings subdocument is inspected to determine whether
+    /// <paramref name="callerUserId"/> has already submitted a rating.
+    /// </summary>
+    private List<ExchangeProposalResponseDTO> EnrichAndMap(List<ExchangeProposal> proposals, int callerUserId)
     {
         var allStickerIds = proposals
             .SelectMany(p => p.OfferedUserStickerIds.Append(p.RequestedUserStickerId))
@@ -144,7 +153,47 @@ public class ExchangeProposalService
             .Distinct().ToList();
         var users = _userRepo.GetByIds(userIds).ToDictionary(u => u.Id);
 
-        return proposals.Select(p => MapToResponseDto(p, stickers, users)).ToList();
+        // For accepted proposals, fetch the associated Exchange and resolve rating info.
+        // Ratings are stored as subdocuments on the rated user, so we look in the counterpart's Ratings list.
+        var acceptedProposalIds = proposals
+            .Where(p => p.State == ExchangeProposalState.Accepted)
+            .Select(p => p.Id)
+            .ToList();
+
+        // Build a map: proposalId → (hasRated, stars, comment)
+        var ratingInfoByProposalId = new Dictionary<int, (bool HasRated, int? Stars, string? Comment)>();
+
+        foreach (var proposalId in acceptedProposalIds)
+        {
+            var exchange = _exchangeRepo.GetByProposalId(proposalId);
+            if (exchange == null) continue;
+
+            // Determine who the counterpart is from the caller's perspective
+            var counterpartId = exchange.ProponentID == callerUserId
+                ? exchange.ProposedID
+                : exchange.ProponentID;
+
+            // The rating submitted by caller is stored in the counterpart's Ratings list
+            users.TryGetValue(counterpartId, out var counterpart);
+            var existing = counterpart?.Ratings.FirstOrDefault(r =>
+                r.EvaluatorUserId == callerUserId && r.ExchangeId == exchange.Id);
+
+            ratingInfoByProposalId[proposalId] = existing is not null
+                ? (true, existing.Stars, existing.Comment)
+                : (false, null, null);
+        }
+
+        return proposals.Select(p =>
+        {
+            var dto = MapToResponseDto(p, stickers, users);
+            if (ratingInfoByProposalId.TryGetValue(p.Id, out var info))
+            {
+                dto.HasRated      = info.HasRated;
+                dto.RatingStars   = info.Stars;
+                dto.RatingComment = info.Comment;
+            }
+            return dto;
+        }).ToList();
     }
 
     public ExchangeProposal? GetProposalByID(int proposalID)
