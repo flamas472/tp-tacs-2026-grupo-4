@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Guía de Deploy paso a paso — Figuritas en Cloud Run</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #1a1a2e;
+    background: #fff;
+  }
+
+  /* COVER */
+  .cover {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 72px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    color: #fff;
+    page-break-after: always;
+  }
+  .cover .badge { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #4ade80; margin-bottom: 24px; }
+  .cover .divider { width: 60px; height: 4px; background: linear-gradient(90deg, #3b82f6, #4ade80); border-radius: 2px; margin-bottom: 40px; }
+  .cover h1 { font-size: 36px; font-weight: 700; line-height: 1.2; margin-bottom: 16px; }
+  .cover h1 span { color: #60a5fa; }
+  .cover .subtitle { font-size: 15px; color: #94a3b8; max-width: 500px; margin-bottom: 48px; }
+  .cover .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 480px; }
+  .cover .meta label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 4px; }
+  .cover .meta p { color: #e2e8f0; font-size: 13px; }
+
+  /* PAGE */
+  .page { padding: 52px 72px; max-width: 860px; margin: 0 auto; }
+
+  h2 { font-size: 21px; font-weight: 700; color: #0f3460; margin-top: 44px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; page-break-after: avoid; }
+  h2:first-child { margin-top: 0; }
+  h3 { font-size: 15px; font-weight: 700; color: #1e40af; margin-top: 28px; margin-bottom: 10px; page-break-after: avoid; }
+  h4 { font-size: 13px; font-weight: 600; color: #374151; margin-top: 18px; margin-bottom: 6px; }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 10px 0 14px 22px; }
+  li { margin-bottom: 5px; }
+  strong { font-weight: 600; }
+
+  /* CODE */
+  pre, code { font-family: 'Consolas', 'Courier New', monospace; font-size: 11.5px; }
+  pre { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 16px 20px; margin: 12px 0 20px; line-height: 1.6; page-break-inside: avoid; }
+  code { background: #f1f5f9; color: #0f3460; padding: 2px 6px; border-radius: 4px; }
+  pre code { background: none; color: inherit; padding: 0; }
+  .cm { color: #475569; font-style: italic; }
+  .kw { color: #7dd3fc; }
+  .st { color: #86efac; }
+  .vr { color: #c4b5fd; }
+
+  /* CALLOUT */
+  .callout { border-left: 4px solid; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 18px 0; page-break-inside: avoid; }
+  .callout.info    { border-color: #3b82f6; background: #eff6ff; }
+  .callout.success { border-color: #22c55e; background: #f0fdf4; }
+  .callout.warning { border-color: #f59e0b; background: #fffbeb; }
+  .callout.tip     { border-color: #a855f7; background: #faf5ff; }
+  .callout-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .callout.info .callout-title    { color: #1d4ed8; }
+  .callout.success .callout-title { color: #15803d; }
+  .callout.warning .callout-title { color: #b45309; }
+  .callout.tip .callout-title     { color: #7e22ce; }
+
+  /* TABLES */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 22px; font-size: 12px; page-break-inside: avoid; }
+  th { background: #0f3460; color: #fff; padding: 9px 14px; text-align: left; font-weight: 600; font-size: 11px; letter-spacing: 0.5px; }
+  td { padding: 9px 14px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:last-child td { border-bottom: none; }
+
+  /* STEPS */
+  .steps { counter-reset: step; list-style: none; margin: 14px 0; padding: 0; }
+  .steps > li { counter-increment: step; display: flex; gap: 14px; margin-bottom: 18px; page-break-inside: avoid; }
+  .steps > li::before { content: counter(step); background: #0f3460; color: #fff; min-width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+
+  /* BADGES */
+  .badge-free   { background: #dcfce7; color: #15803d; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-size: 11px; }
+  .badge-cli    { background: #fef9c3; color: #92400e; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-size: 11px; }
+  .badge-nocli  { background: #ede9fe; color: #5b21b6; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-size: 11px; }
+
+  .page-break { page-break-before: always; }
+  .section-num { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #3b82f6; margin-top: 44px; margin-bottom: 4px; display: block; }
+
+  @media print {
+    .cover { height: 100vh; padding: 40px 50px; }
+    .page { padding: 36px 50px; }
+    pre { font-size: 10.5px; }
+    h2 { margin-top: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="cover">
+  <div class="badge">Documentación Técnica · tp-tacs-2026-grupo-4</div>
+  <div class="divider"></div>
+  <h1>Deploy paso a paso<br/><span>Google Cloud Run + MongoDB Atlas</span></h1>
+  <p class="subtitle">Guía completa para publicar Figuritas.Api y Figuritas.Client en un entorno serverless gratuito, incluyendo alternativas sin instalar el CLI de Google.</p>
+  <div class="meta">
+    <div><label>Plataforma</label><p>Google Cloud Run (free tier)</p></div>
+    <div><label>Base de datos</label><p>MongoDB Atlas M0 (free)</p></div>
+    <div><label>Stack</label><p>ASP.NET Core 10 + Blazor WASM</p></div>
+    <div><label>Fecha</label><p>Junio 2026</p></div>
+  </div>
+</div>
+
+<!-- CONTENIDO -->
+<div class="page">
+
+<!-- ===== COSTOS ===== -->
+<span class="section-num">Sección 1</span>
+<h2>¿Es realmente gratis?</h2>
+
+<div class="callout warning">
+  <div class="callout-title">Punto clave: min-instances</div>
+  Con <code>min-instances=1</code> (sugerido en otros documentos para el AuctionEndingWorker),
+  Cloud Run cobra la instancia idle aunque no haya tráfico. Para que sea 100% gratis hay que usar
+  <code>min-instances=0</code> (scale to zero).
+</div>
+
+<p>Con <code>min-instances=0</code>, el contenedor se detiene cuando no hay tráfico y solo se factura durante las peticiones. Para un TP con poco tráfico, todo entra cómodamente en el free tier:</p>
+
+<table>
+  <tr><th>Servicio</th><th>Free tier</th><th>Uso estimado (TP)</th></tr>
+  <tr><td>Cloud Run</td><td>2M requests/mes, 360k GB-seg memoria</td><td>&lt; 10k requests/mes ✅</td></tr>
+  <tr><td>Artifact Registry</td><td>0.5 GB por región</td><td>~200 MB imágenes ✅</td></tr>
+  <tr><td>Secret Manager</td><td>6 versiones, 10k operaciones/mes</td><td>2 secretos ✅</td></tr>
+  <tr><td>MongoDB Atlas M0</td><td>Cluster gratuito permanente</td><td>512 MB almacenamiento ✅</td></tr>
+  <tr><td>Cloud Build</td><td>120 minutos/día</td><td>~5 min por build ✅</td></tr>
+</table>
+
+<div class="callout info">
+  <div class="callout-title">Impacto de min-instances=0 en el AuctionEndingWorker</div>
+  Con scale to zero, el <code>AuctionEndingWorker</code> (que cierra subastas cada 5 min) solo corre mientras haya instancias activas.
+  Si no hay tráfico, las subastas se cierran con demora hasta el próximo request que despierte el contenedor.
+  Para un TP esto es aceptable. En producción real, se resolvería con Cloud Scheduler + un endpoint HTTP.
+</div>
+
+<!-- ===== MONGODB ===== -->
+<div class="page-break"></div>
+<span class="section-num">Sección 2</span>
+<h2>MongoDB Atlas</h2>
+
+<p>Ya tenés el cluster M0 creado. Hay tres cosas que configurar antes de conectarlo a Cloud Run:</p>
+
+<h3>2.1 — Crear usuario de base de datos</h3>
+<ol class="steps">
+  <li>En Atlas → tu cluster → pestaña <strong>Database Access</strong> → <em>Add New Database User</em>.</li>
+  <li>Elegí <strong>Password</strong> como método de autenticación.</li>
+  <li>Username: <code>figuritas-prod</code> · Password: generá una segura (podés usar el botón <em>Autogenerate</em>). Guardala.</li>
+  <li>Built-in role: <strong>Atlas admin</strong> (o <em>readWriteAnyDatabase</em> si preferís menos permisos).</li>
+  <li>Click en <em>Add User</em>.</li>
+</ol>
+
+<h3>2.2 — Permitir conexiones desde Cloud Run</h3>
+<ol class="steps">
+  <li>En Atlas → <strong>Network Access</strong> → <em>Add IP Address</em>.</li>
+  <li>Click en <em>Allow Access from Anywhere</em> → se completa automáticamente con <code>0.0.0.0/0</code>.</li>
+  <li>Click en <em>Confirm</em>.</li>
+</ol>
+
+<div class="callout warning">
+  <div class="callout-title">¿Por qué 0.0.0.0/0?</div>
+  Cloud Run no tiene una IP de salida fija, por eso no se puede restringir a una IP específica sin agregar infraestructura extra (VPC Connector + Cloud NAT). Para un TP, permitir acceso desde cualquier IP y proteger con usuario/contraseña es el enfoque estándar.
+</div>
+
+<h3>2.3 — Obtener el connection string</h3>
+<ol class="steps">
+  <li>En tu cluster → <em>Connect</em> → <em>Drivers</em> → Driver: <strong>.NET</strong>, versión: <strong>2.13 or later</strong>.</li>
+  <li>Copiá la URI. Tiene este formato:<br/>
+    <code>mongodb+srv://&lt;user&gt;:&lt;password&gt;@cluster0.xxxxx.mongodb.net/</code>
+  </li>
+  <li>Editá la URI: reemplazá <code>&lt;password&gt;</code> con la contraseña creada, y agregá el nombre de la DB al final:</li>
+</ol>
+<pre><code>mongodb+srv://figuritas-prod:TuPasswordAqui@cluster0.xxxxx.mongodb.net/FiguriTACS_DB?retryWrites=true&amp;w=majority</code></pre>
+<p>Guardá este string completo. Se carga como secreto en el paso siguiente.</p>
+
+<!-- ===== GCP SETUP ===== -->
+<div class="page-break"></div>
+<span class="section-num">Sección 3</span>
+<h2>Google Cloud — Configuración inicial (una sola vez)</h2>
+
+<p>Todo esto se hace desde el navegador en <strong>console.cloud.google.com</strong>, sin necesidad de instalar nada.</p>
+
+<h3>3.1 — Crear proyecto</h3>
+<ol class="steps">
+  <li>En la consola de GCP → menú superior → <em>Select a project</em> → <em>New Project</em>.</li>
+  <li>Nombre: <code>figuritas-tp</code> → <em>Create</em>. Anotá el <strong>Project ID</strong> que se genera.</li>
+</ol>
+
+<h3>3.2 — Activar APIs necesarias</h3>
+<ol class="steps">
+  <li>Ir a <em>APIs &amp; Services</em> → <em>Enable APIs and Services</em>.</li>
+  <li>Buscá y activá una por una: <strong>Cloud Run API</strong>, <strong>Artifact Registry API</strong>, <strong>Cloud Build API</strong>, <strong>Secret Manager API</strong>.</li>
+</ol>
+
+<h3>3.3 — Crear repositorio en Artifact Registry</h3>
+<ol class="steps">
+  <li>Ir a <em>Artifact Registry</em> → <em>Create Repository</em>.</li>
+  <li>Name: <code>figuritas</code> · Format: <code>Docker</code> · Region: <code>us-central1</code> → <em>Create</em>.</li>
+</ol>
+
+<h3>3.4 — Guardar secretos en Secret Manager</h3>
+<ol class="steps">
+  <li>Ir a <em>Secret Manager</em> → <em>Create Secret</em>.</li>
+  <li>
+    Crear el secreto del JWT:<br/>
+    Name: <code>figuritas-jwt-key</code><br/>
+    Secret value: una cadena aleatoria larga, mínimo 32 caracteres (ej: <code>X7kP2mN9qR4tL8vW1sA5hJ0cE3bY6uId</code>).
+  </li>
+  <li>
+    Crear el secreto de MongoDB:<br/>
+    Name: <code>figuritas-mongo-uri</code><br/>
+    Secret value: el connection string completo del paso 2.3.
+  </li>
+</ol>
+
+<!-- ===== PASO 4: IMÁGENES ===== -->
+<div class="page-break"></div>
+<span class="section-num">Sección 4</span>
+<h2>Construir y subir las imágenes Docker</h2>
+
+<p>Este paso tiene <strong>dos formas</strong>: con el CLI de Google instalado localmente, o directamente desde el navegador con <strong>Cloud Shell</strong> (sin instalar nada).</p>
+
+<div class="callout tip">
+  <div class="callout-title">Recomendación: usá Cloud Shell</div>
+  Cloud Shell es un terminal Linux en el navegador, dentro de la consola de GCP.
+  Ya tiene <code>gcloud</code>, <code>docker</code> y <code>git</code> pre-instalados.
+  Es la opción más rápida si no querés instalar nada localmente.
+</div>
+
+<h3>Opción A — Cloud Shell (sin instalar CLI) <span class="badge-nocli">Sin instalación</span></h3>
+
+<ol class="steps">
+  <li>En console.cloud.google.com → click en el ícono <strong>Activate Cloud Shell</strong> (terminal en la esquina superior derecha, ícono <code>&gt;_</code>). Se abre un terminal Linux en el navegador.</li>
+  <li>
+    Cloná el repositorio dentro de Cloud Shell (necesitás las credenciales de GitHub):
+    <pre><code>git clone https://github.com/tu-usuario/tp-tacs-2026-grupo-4.git
+cd tp-tacs-2026-grupo-4</code></pre>
+  </li>
+  <li>
+    Autenticá Docker con Artifact Registry:
+    <pre><code>gcloud auth configure-docker us-central1-docker.pkg.dev</code></pre>
+  </li>
+  <li>
+    Build y push de la API:
+    <pre><code>docker build --target api-runtime \
+  -t us-central1-docker.pkg.dev/figuritas-tp/figuritas/api:latest .
+docker push us-central1-docker.pkg.dev/figuritas-tp/figuritas/api:latest</code></pre>
+  </li>
+  <li>
+    Build y push del Client:
+    <pre><code>docker build --target client-runtime \
+  -t us-central1-docker.pkg.dev/figuritas-tp/figuritas/client:latest .
+docker push us-central1-docker.pkg.dev/figuritas-tp/figuritas/client:latest</code></pre>
+  </li>
+</ol>
+
+<div class="callout info">
+  <div class="callout-title">Nota sobre Cloud Shell</div>
+  Cloud Shell tiene 5 GB de almacenamiento persistente y tiempos de sesión de hasta 1 hora sin actividad. El build de .NET 10 tarda ~3-5 minutos. Si la sesión expira, podés retomarlo — los archivos persisten.
+</div>
+
+<h3>Opción B — CLI local <span class="badge-cli">Requiere instalación</span></h3>
+
+<p>Instalá el <strong>Google Cloud SDK</strong> desde <em>cloud.google.com/sdk</em>, luego:</p>
+<pre><code><span class="cm"># Login y selección de proyecto</span>
+gcloud auth login
+gcloud config set project figuritas-tp
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
+<span class="cm"># Build y push (igual que en Cloud Shell)</span>
+docker build --target api-runtime \
+  -t us-central1-docker.pkg.dev/figuritas-tp/figuritas/api:latest .
+docker push us-central1-docker.pkg.dev/figuritas-tp/figuritas/api:latest
+
+docker build --target client-runtime \
+  -t us-central1-docker.pkg.dev/figuritas-tp/figuritas/client:latest .
+docker push us-central1-docker.pkg.dev/figuritas-tp/figuritas/client:latest</code></pre>
+
+<h3>Opción C — Cloud Build desde la consola (sin Docker local) <span class="badge-nocli">Sin instalación</span></h3>
+
+<p>Si no querés ni clonar ni correr Docker, podés conectar el repositorio de GitHub a Cloud Build y que GCP haga el build automáticamente con cada push:</p>
+<ol class="steps">
+  <li>Ir a <em>Cloud Build</em> → <em>Triggers</em> → <em>Create Trigger</em>.</li>
+  <li>Conectar el repositorio de GitHub (autorizá el acceso).</li>
+  <li>Configurar el trigger: rama <code>main</code>, tipo <em>Dockerfile</em>, imagen destino en Artifact Registry.</li>
+  <li>Crear un trigger por cada imagen (api y client), especificando el <code>--target</code> correspondiente en la configuración del build.</li>
+  <li>Hacer un push a <code>main</code> → Cloud Build construye y sube las imágenes automáticamente.</li>
+</ol>
+<p>Esta opción también permite <strong>re-deploy automático</strong> con cada commit al repositorio.</p>
+
+<!-- ===== DEPLOY ===== -->
+<div class="page-break"></div>
+<span class="section-num">Sección 5</span>
+<h2>Deployar los servicios en Cloud Run</h2>
+
+<p>Una vez que las imágenes están en Artifact Registry (paso anterior), podés deployar desde la consola web o desde Cloud Shell. Se muestra la versión Cloud Shell (más rápida).</p>
+
+<h3>5.1 — Otorgar permisos para leer secretos</h3>
+<p>El servicio de Cloud Run necesita permiso para leer los secretos de Secret Manager:</p>
+<pre><code><span class="cm"># Obtener el número de proyecto</span>
+PROJECT_NUMBER=$(gcloud projects describe figuritas-tp --format='value(projectNumber)')
+
+<span class="cm"># Dar permiso al Service Account de Cloud Run</span>
+gcloud projects add-iam-policy-binding figuritas-tp \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"</code></pre>
+
+<h3>5.2 — Deployar Figuritas.Api</h3>
+<pre><code>gcloud run deploy figuritas-api \
+  --image=us-central1-docker.pkg.dev/figuritas-tp/figuritas/api:latest \
+  --region=us-central1 \
+  --allow-unauthenticated \
+  --port=8080 \
+  --min-instances=0 \
+  --max-instances=3 \
+  --memory=512Mi \
+  --set-secrets="Jwt__Key=figuritas-jwt-key:latest,\
+Mongo__ConnectionString=figuritas-mongo-uri:latest" \
+  --set-env-vars="Mongo__DatabaseName=FiguriTACS_DB,\
+ASPNETCORE_ENVIRONMENT=Production"</code></pre>
+
+<p>Al finalizar, GCP imprime la URL del servicio. <strong>Copiala</strong>:</p>
+<pre><code>Service URL: https://figuritas-api-xxxxxxxx-uc.a.run.app</code></pre>
+
+<h3>5.3 — Deployar Figuritas.Client</h3>
+<p>Reemplazá la URL del paso anterior en <code>API_BASE_URL</code>:</p>
+<pre><code>gcloud run deploy figuritas-client \
+  --image=us-central1-docker.pkg.dev/figuritas-tp/figuritas/client:latest \
+  --region=us-central1 \
+  --allow-unauthenticated \
+  --port=80 \
+  --min-instances=0 \
+  --max-instances=3 \
+  --set-env-vars="API_BASE_URL=https://figuritas-api-xxxxxxxx-uc.a.run.app,\
+NGINX_ENVSUBST_FILTER=^API_BASE_URL$"</code></pre>
+
+<h3>5.4 — Verificar</h3>
+<ol class="steps">
+  <li>Abrí la URL del Client en el browser.</li>
+  <li>Hacé login con <code>Ivanabete / figuritacs</code>.</li>
+  <li>En DevTools → Network: verificá que las llamadas a <code>/api/...</code> devuelvan 200 y tengan el header <code>Authorization: Bearer ...</code>.</li>
+  <li>En la consola de GCP → Cloud Run → tu servicio → <em>Logs</em>: verificá que no haya errores de MongoDB ni de JWT.</li>
+</ol>
+
+<!-- ===== RE-DEPLOY ===== -->
+<span class="section-num">Sección 6</span>
+<h2>Actualizar la aplicación (re-deploy)</h2>
+
+<p>Para deployar una nueva versión, repetir el build + push de la imagen y luego el comando <code>gcloud run deploy</code> con la misma imagen y parámetros. Cloud Run mantiene el historial de revisiones y permite hacer rollback desde la consola.</p>
+
+<pre><code><span class="cm"># Re-build y push de la API con cambios</span>
+docker build --target api-runtime \
+  -t us-central1-docker.pkg.dev/figuritas-tp/figuritas/api:latest .
+docker push us-central1-docker.pkg.dev/figuritas-tp/figuritas/api:latest
+
+<span class="cm"># Re-deploy (Cloud Run crea una nueva revisión automáticamente)</span>
+gcloud run deploy figuritas-api \
+  --image=us-central1-docker.pkg.dev/figuritas-tp/figuritas/api:latest \
+  --region=us-central1</code></pre>
+
+<div class="callout success">
+  <div class="callout-title">Sin downtime</div>
+  Cloud Run hace el switch entre revisiones sin cortar el tráfico. La revisión anterior sigue respondiendo hasta que la nueva está lista.
+</div>
+
+</div><!-- /page -->
+</body>
+</html>

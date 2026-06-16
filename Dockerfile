@@ -45,6 +45,6 @@ WORKDIR /usr/share/nginx/html
 COPY --from=build-env /app/out-client/wwwroot .
 
 # Copiamos la configuración de Nginx (debe estar en la carpeta del cliente)
-COPY Figuritas.Client/nginx.conf /etc/nginx/conf.d/default.conf
+COPY Figuritas.Client/nginx.conf /etc/nginx/templates/default.conf.template
 
 EXPOSE 80
