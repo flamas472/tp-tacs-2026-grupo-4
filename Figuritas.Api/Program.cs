@@ -126,6 +126,11 @@ using (var scope = app.Services.CreateScope())
 
 if (app.Environment.IsDevelopment())
 {
+    using (var devScope = app.Services.CreateScope())
+    {
+        Figuritas.Api.Infrastructure.Persistence.DevSeedData.SeedDevData(devScope.ServiceProvider);
+    }
+
     app.UseSwagger();
     app.UseSwaggerUI();
 

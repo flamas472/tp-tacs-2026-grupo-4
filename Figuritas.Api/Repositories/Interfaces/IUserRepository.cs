@@ -7,6 +7,7 @@ public interface IUserRepository
 {
     bool ExistsId(int userId);
     List<User> GetAll();
+    List<User> GetAllPaginated(int page, int pageSize);
     void Add(User user);
     User? GetById(int userId);
     User? GetByUsername(string username);

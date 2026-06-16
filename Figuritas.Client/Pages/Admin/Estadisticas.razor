@@ -1,20 +1,12 @@
+@* Redirección de compatibilidad: la sección de estadísticas fue migrada al panel unificado. *@
 @page "/admin/estadisticas"
 @attribute [Authorize]
 
-@inject AuthStateService AuthState
 @inject NavigationManager Nav
-
-<PageTitle>Estadísticas — Figuritas</PageTitle>
-
-<UnderConstruction Section="Estadísticas de la plataforma"
-                   Stories="@(new (int, string)[]{
-                       (12, "Como administrador quiero ver estadísticas de uso y actividad de la plataforma.")
-                   })" />
 
 @code {
     protected override void OnInitialized()
     {
-        if (!AuthState.IsAdmin)
-            Nav.NavigateTo("/");
+        Nav.NavigateTo("/admin/dashboard", replace: true);
     }
 }

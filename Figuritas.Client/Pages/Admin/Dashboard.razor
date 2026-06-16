@@ -1,0 +1,885 @@
+@page "/admin/dashboard"
+@attribute [Authorize(Roles = "Admin,SuperAdmin")]
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Shared.DTO.request
+@using Figuritas.Shared.Enums
+@using Figuritas.Client.Requests
+
+@inject AdminHttpClient AdminHttp
+@inject AuthStateService AuthState
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Administración — FiguriTACS</PageTitle>
+
+<div class="admin-header-row mb-4">
+    <div class="d-flex align-center gap-2">
+        <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings"
+                 Color="Color.Primary"
+                 Style="font-size:2rem" />
+        <MudText Typo="Typo.h5">Panel de Administración</MudText>
+    </div>
+    <MudChip T="string"
+             Color="Color.Primary"
+             Variant="Variant.Outlined"
+             Size="Size.Small"
+             Icon="@Icons.Material.Filled.Person">
+        @AuthState.Username
+    </MudChip>
+</div>
+
+<AuthorizeView Roles="Admin,SuperAdmin" Context="adminAuth">
+    <Authorized>
+        <MudTabs Elevation="2"
+                 Rounded="true"
+                 ApplyEffectsToContainer="true">
+
+            @* ── Pestaña 1: Analíticas ─────────────────────────────────────────── *@
+            <MudTabPanel Text="Estadísticas"
+                         Icon="@Icons.Material.Filled.BarChart">
+                <div class="pa-4">
+                    @if (summary == null && !summaryError)
+                    {
+                        <div class="admin-loading-feedback">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando estadísticas...</MudText>
+                        </div>
+                    }
+                    else if (summaryError)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mb-3">
+                            No se pudieron cargar las estadísticas. @summaryErrorMessage
+                        </MudAlert>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="LoadSummaryAsync">
+                            Reintentar
+                        </MudButton>
+                    }
+                    else if (summary is not null)
+                    {
+                        <MudGrid Spacing="3">
+
+                            @* — Actividad de usuarios — *@
+                            <MudItem xs="12" sm="6" lg="3">
+                                <MudCard Class="admin-stat-card admin-stat-card--users" Elevation="2">
+                                    <MudCardContent>
+                                        <div class="admin-stat-icon-row">
+                                            <MudIcon Icon="@Icons.Material.Filled.Group"
+                                                     Color="Color.Primary"
+                                                     Style="font-size:2rem" />
+                                            <MudText Typo="Typo.overline" Color="Color.Secondary">
+                                                Actividad de Usuarios
+                                            </MudText>
+                                        </div>
+                                        <MudDivider Class="my-2" />
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Total registrados</MudText>
+                                            <MudText Typo="Typo.h5" Color="Color.Primary">
+                                                @summary.UserActivity.TotalRegisteredUsers
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Con figuritas publicadas</MudText>
+                                            <MudText Typo="Typo.h6">
+                                                @summary.UserActivity.ActiveUsersWithPublishedStickers
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Reputación promedio</MudText>
+                                            <div class="d-flex align-center gap-1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Star"
+                                                         Color="Color.Warning"
+                                                         Size="Size.Small" />
+                                                <MudText Typo="Typo.subtitle1">
+                                                    @summary.UserActivity.AverageCommunityReputation.ToString("F2")
+                                                </MudText>
+                                            </div>
+                                        </div>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+
+                            @* — Métricas de intercambios — *@
+                            <MudItem xs="12" sm="6" lg="3">
+                                <MudCard Class="admin-stat-card admin-stat-card--exchanges" Elevation="2">
+                                    <MudCardContent>
+                                        <div class="admin-stat-icon-row">
+                                            <MudIcon Icon="@Icons.Material.Filled.SwapHoriz"
+                                                     Color="Color.Secondary"
+                                                     Style="font-size:2rem" />
+                                            <MudText Typo="Typo.overline" Color="Color.Secondary">
+                                                Métricas de Intercambios
+                                            </MudText>
+                                        </div>
+                                        <MudDivider Class="my-2" />
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Total propuestas</MudText>
+                                            <MudText Typo="Typo.h5">
+                                                @summary.ExchangeMetrics.TotalProposalsCreated
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Aceptadas</MudText>
+                                            <MudText Typo="Typo.subtitle1" Color="Color.Success">
+                                                @summary.ExchangeMetrics.AcceptedProposals
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Rechazadas</MudText>
+                                            <MudText Typo="Typo.subtitle1" Color="Color.Error">
+                                                @summary.ExchangeMetrics.RejectedProposals
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Canceladas</MudText>
+                                            <MudText Typo="Typo.subtitle1">
+                                                @summary.ExchangeMetrics.CancelledProposals
+                                            </MudText>
+                                        </div>
+                                        <MudDivider Class="my-2" />
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Tasa de aceptación</MudText>
+                                            <MudChip T="string"
+                                                     Size="Size.Small"
+                                                     Color="@GetAcceptanceRateColor(summary.ExchangeMetrics.AcceptanceRatePercent)"
+                                                     Variant="Variant.Filled"
+                                                     Icon="@Icons.Material.Filled.TrendingUp">
+                                                @summary.ExchangeMetrics.AcceptanceRatePercent.ToString("F1")%
+                                            </MudChip>
+                                        </div>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+
+                            @* — Volumen de subastas — *@
+                            <MudItem xs="12" sm="6" lg="3">
+                                <MudCard Class="admin-stat-card admin-stat-card--auctions" Elevation="2">
+                                    <MudCardContent>
+                                        <div class="admin-stat-icon-row">
+                                            <MudIcon Icon="@Icons.Material.Filled.Gavel"
+                                                     Color="Color.Warning"
+                                                     Style="font-size:2rem" />
+                                            <MudText Typo="Typo.overline" Color="Color.Secondary">
+                                                Volumen de Subastas
+                                            </MudText>
+                                        </div>
+                                        <MudDivider Class="my-2" />
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Total creadas</MudText>
+                                            <MudText Typo="Typo.h5">
+                                                @summary.AuctionVolume.TotalAuctionsCreated
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Activas</MudText>
+                                            <MudText Typo="Typo.subtitle1" Color="Color.Success">
+                                                @summary.AuctionVolume.ActiveAuctions
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Cerradas con ganador</MudText>
+                                            <MudText Typo="Typo.subtitle1">
+                                                @summary.AuctionVolume.ClosedAuctionsWithWinner
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Cerradas sin ganador</MudText>
+                                            <MudText Typo="Typo.subtitle1" Color="Color.Secondary">
+                                                @summary.AuctionVolume.ClosedAuctionsWithoutWinner
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Canceladas</MudText>
+                                            <MudText Typo="Typo.subtitle1" Color="Color.Error">
+                                                @summary.AuctionVolume.CancelledAuctions
+                                            </MudText>
+                                        </div>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+
+                            @* — Tráfico de notificaciones — *@
+                            <MudItem xs="12" sm="6" lg="3">
+                                <MudCard Class="admin-stat-card admin-stat-card--notifications" Elevation="2">
+                                    <MudCardContent>
+                                        <div class="admin-stat-icon-row">
+                                            <MudIcon Icon="@Icons.Material.Filled.Notifications"
+                                                     Color="Color.Tertiary"
+                                                     Style="font-size:2rem" />
+                                            <MudText Typo="Typo.overline" Color="Color.Secondary">
+                                                Tráfico de Notificaciones
+                                            </MudText>
+                                        </div>
+                                        <MudDivider Class="my-2" />
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Total enviadas</MudText>
+                                            <MudText Typo="Typo.h5">
+                                                @summary.NotificationTraffic.TotalNotificationsSent
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Nueva propuesta</MudText>
+                                            <MudText Typo="Typo.subtitle1">
+                                                @summary.NotificationTraffic.NewProposalNotifications
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Fin de subasta</MudText>
+                                            <MudText Typo="Typo.subtitle1">
+                                                @summary.NotificationTraffic.AuctionEndingNotifications
+                                            </MudText>
+                                        </div>
+                                        <div class="admin-stat-row">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Faltante disponible</MudText>
+                                            <MudText Typo="Typo.subtitle1">
+                                                @summary.NotificationTraffic.MissingStickerAvailableNotifications
+                                            </MudText>
+                                        </div>
+                                    </MudCardContent>
+                                </MudCard>
+                            </MudItem>
+
+                        </MudGrid>
+                    }
+                </div>
+            </MudTabPanel>
+
+            @* ── Pestaña 2: Gestión de usuarios ───────────────────────────────── *@
+            <MudTabPanel Text="Usuarios"
+                         Icon="@Icons.Material.Filled.ManageAccounts">
+                <div class="pa-4">
+                    @if (users == null && !usersError)
+                    {
+                        <div class="admin-loading-feedback">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando usuarios...</MudText>
+                        </div>
+                    }
+                    else if (usersError)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mb-3">
+                            No se pudieron cargar los usuarios. @usersErrorMessage
+                        </MudAlert>
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Refresh"
+                                   OnClick="LoadUsersAsync">
+                            Reintentar
+                        </MudButton>
+                    }
+                    else if (users is not null)
+                    {
+                        @if (!users.Any())
+                        {
+                            <div class="admin-loading-feedback">
+                                <MudIcon Icon="@Icons.Material.Outlined.Group"
+                                         Style="font-size:3rem"
+                                         Color="Color.Secondary" />
+                                <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">
+                                    No hay usuarios registrados
+                                </MudText>
+                            </div>
+                        }
+                        else
+                        {
+                            @* Mobile: cards *@
+                            <div class="admin-users-cards-mobile">
+                                @foreach (var user in users)
+                                {
+                                    <MudCard @key="@user.Id"
+                                             Class="admin-user-card mb-2"
+                                             Elevation="1">
+                                        <MudCardContent Class="pb-1">
+                                            <div class="d-flex align-center justify-space-between">
+                                                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                                                    @user.Username
+                                                </MudText>
+                                                <MudChip T="string"
+                                                         Size="Size.Small"
+                                                         Color="@GetUserStateColor(user)"
+                                                         Variant="Variant.Filled">
+                                                    @GetUserStateLabel(user)
+                                                </MudChip>
+                                            </div>
+                                            <div class="d-flex align-center gap-1 mt-1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Star"
+                                                         Size="Size.Small"
+                                                         Color="Color.Warning" />
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    Reputación: @user.Reputation.ToString("F1")
+                                                </MudText>
+                                            </div>
+                                        </MudCardContent>
+                                        <MudCardActions Class="pt-0">
+                                            @if (!IsBanned(user))
+                                            {
+                                                <MudButton Size="Size.Small"
+                                                           Variant="Variant.Outlined"
+                                                           Color="Color.Error"
+                                                           StartIcon="@Icons.Material.Filled.Block"
+                                                           OnClick="@(() => HandleBanAsync(user))"
+                                                           Disabled="@(actionUserId == user.Id)">
+                                                    @if (actionUserId == user.Id)
+                                                    {
+                                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                                    }
+                                                    Banear
+                                                </MudButton>
+                                            }
+                                            else
+                                            {
+                                                <MudButton Size="Size.Small"
+                                                           Variant="Variant.Outlined"
+                                                           Color="Color.Success"
+                                                           StartIcon="@Icons.Material.Filled.CheckCircle"
+                                                           OnClick="@(() => HandleUnbanAsync(user))"
+                                                           Disabled="@(actionUserId == user.Id)">
+                                                    @if (actionUserId == user.Id)
+                                                    {
+                                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                                    }
+                                                    Desbanear
+                                                </MudButton>
+                                            }
+                                        </MudCardActions>
+                                    </MudCard>
+                                }
+                            </div>
+
+                            @* Desktop: table *@
+                            <div class="admin-users-table-desktop">
+                                <MudTable Items="users"
+                                          Hover="true"
+                                          Dense="true"
+                                          Breakpoint="Breakpoint.None"
+                                          Class="admin-users-table">
+                                    <HeaderContent>
+                                        <MudTh>Usuario</MudTh>
+                                        <MudTh>Estado</MudTh>
+                                        <MudTh>Reputación</MudTh>
+                                        <MudTh Style="text-align:right;">Acciones</MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate Context="userRow">
+                                        <MudTd DataLabel="Usuario" @key="@userRow.Id">
+                                            <MudText Typo="Typo.body2" Style="font-weight:600;">
+                                                @userRow.Username
+                                            </MudText>
+                                        </MudTd>
+                                        <MudTd DataLabel="Estado">
+                                            <MudChip T="string"
+                                                     Size="Size.Small"
+                                                     Color="@GetUserStateColor(userRow)"
+                                                     Variant="Variant.Filled">
+                                                @GetUserStateLabel(userRow)
+                                            </MudChip>
+                                        </MudTd>
+                                        <MudTd DataLabel="Reputación">
+                                            <div class="d-flex align-center gap-1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Star"
+                                                         Size="Size.Small"
+                                                         Color="Color.Warning" />
+                                                <MudText Typo="Typo.body2">
+                                                    @userRow.Reputation.ToString("F1")
+                                                </MudText>
+                                            </div>
+                                        </MudTd>
+                                        <MudTd DataLabel="Acciones" Style="text-align:right;">
+                                            @if (!IsBanned(userRow))
+                                            {
+                                                <MudTooltip Text="Banear usuario" Placement="Placement.Top">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Block"
+                                                                   Size="Size.Small"
+                                                                   Color="Color.Error"
+                                                                   OnClick="@(() => HandleBanAsync(userRow))"
+                                                                   Disabled="@(actionUserId == userRow.Id)" />
+                                                </MudTooltip>
+                                            }
+                                            else
+                                            {
+                                                <MudTooltip Text="Desbanear usuario" Placement="Placement.Top">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                                                                   Size="Size.Small"
+                                                                   Color="Color.Success"
+                                                                   OnClick="@(() => HandleUnbanAsync(userRow))"
+                                                                   Disabled="@(actionUserId == userRow.Id)" />
+                                                </MudTooltip>
+                                            }
+                                        </MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            </div>
+
+                            @* Paginación de usuarios *@
+                            <div class="sticker-pagination">
+                                <MudTooltip Text="Página anterior">
+                                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                                   Color="Color.Primary"
+                                                   Disabled="@(usersPage <= 1)"
+                                                   OnClick="HandleUsersPrevPage"
+                                                   Size="Size.Large" />
+                                </MudTooltip>
+                                <MudText Typo="Typo.body1" Class="pagination-label">
+                                    Página @usersPage
+                                </MudText>
+                                <MudTooltip Text="Página siguiente">
+                                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                                   Color="Color.Primary"
+                                                   Disabled="@(!usersHasNextPage)"
+                                                   OnClick="HandleUsersNextPage"
+                                                   Size="Size.Large" />
+                                </MudTooltip>
+                            </div>
+                        }
+                    }
+                </div>
+            </MudTabPanel>
+
+            @* ── Pestaña 3: Gestión de administradores (solo SuperAdmin) ─────── *@
+            <MudTabPanel Text="Administradores"
+                         Icon="@Icons.Material.Filled.SupervisedUserCircle">
+                <div class="pa-4">
+                    <AuthorizeView Roles="SuperAdmin" Context="superAdminAuth">
+                        <Authorized>
+                            <div class="admin-subpanel-header mb-3">
+                                <MudText Typo="Typo.h6">Administradores activos</MudText>
+                                <MudButton Variant="Variant.Filled"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.PersonAdd"
+                                           OnClick="HandlePromoteAdmin">
+                                    Crear administrador
+                                </MudButton>
+                            </div>
+
+                            @if (admins == null && !adminsError)
+                            {
+                                <div class="admin-loading-feedback">
+                                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+                                    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">
+                                        Cargando administradores...
+                                    </MudText>
+                                </div>
+                            }
+                            else if (adminsError)
+                            {
+                                <MudAlert Severity="Severity.Error" Class="mb-3">
+                                    No se pudieron cargar los administradores. @adminsErrorMessage
+                                </MudAlert>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Refresh"
+                                           OnClick="LoadAdminsAsync">
+                                    Reintentar
+                                </MudButton>
+                            }
+                            else if (admins is not null)
+                            {
+                                @if (!admins.Any())
+                                {
+                                    <div class="admin-loading-feedback">
+                                        <MudIcon Icon="@Icons.Material.Outlined.AdminPanelSettings"
+                                                 Style="font-size:3rem"
+                                                 Color="Color.Secondary" />
+                                        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-2">
+                                            No hay administradores registrados
+                                        </MudText>
+                                    </div>
+                                }
+                                else
+                                {
+                                    @* Mobile: cards *@
+                                    <div class="admin-users-cards-mobile">
+                                        @foreach (var admin in admins)
+                                        {
+                                            <MudCard @key="@admin.Id"
+                                                     Class="admin-user-card mb-2"
+                                                     Elevation="1">
+                                                <MudCardContent Class="pb-1">
+                                                    <div class="d-flex align-center justify-space-between">
+                                                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">
+                                                            @admin.Username
+                                                        </MudText>
+                                                        <MudChip T="string"
+                                                                 Size="Size.Small"
+                                                                 Color="@GetAdminRoleColor(admin.Role)"
+                                                                 Variant="Variant.Filled"
+                                                                 Icon="@Icons.Material.Filled.AdminPanelSettings">
+                                                            @GetAdminRoleLabel(admin.Role)
+                                                        </MudChip>
+                                                    </div>
+                                                    <div class="d-flex align-center gap-1 mt-1">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Star"
+                                                                 Size="Size.Small"
+                                                                 Color="Color.Warning" />
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                            Reputación: @admin.Reputation.ToString("F1")
+                                                        </MudText>
+                                                    </div>
+                                                </MudCardContent>
+                                                @if (admin.Role == UserRole.Admin)
+                                                {
+                                                    <MudCardActions Class="pt-0">
+                                                        <MudButton Size="Size.Small"
+                                                                   Variant="Variant.Outlined"
+                                                                   Color="Color.Warning"
+                                                                   StartIcon="@Icons.Material.Filled.ArrowUpward"
+                                                                   OnClick="@(() => HandlePromoteToSuperAdmin(admin))"
+                                                                   Disabled="@(adminActionId == admin.Id)">
+                                                            @if (adminActionId == admin.Id)
+                                                            {
+                                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                                            }
+                                                            Promover a SuperAdmin
+                                                        </MudButton>
+                                                        <MudButton Size="Size.Small"
+                                                                   Variant="Variant.Outlined"
+                                                                   Color="Color.Error"
+                                                                   StartIcon="@Icons.Material.Filled.RemoveModerator"
+                                                                   OnClick="@(() => HandleRevokeAdminAsync(admin))"
+                                                                   Disabled="@(adminActionId == admin.Id || admin.Id == AuthState.UserId)">
+                                                            @if (adminActionId == admin.Id)
+                                                            {
+                                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                                            }
+                                                            Quitar Rol Admin
+                                                        </MudButton>
+                                                    </MudCardActions>
+                                                }
+                                            </MudCard>
+                                        }
+                                    </div>
+
+                                    @* Desktop: table *@
+                                    <div class="admin-users-table-desktop">
+                                        <MudTable Items="admins"
+                                                  Hover="true"
+                                                  Dense="true"
+                                                  Breakpoint="Breakpoint.None"
+                                                  Class="admin-users-table">
+                                            <HeaderContent>
+                                                <MudTh>Usuario</MudTh>
+                                                <MudTh>Rol</MudTh>
+                                                <MudTh>Reputación</MudTh>
+                                                <MudTh Style="text-align:right;">Acciones</MudTh>
+                                            </HeaderContent>
+                                            <RowTemplate Context="adminRow">
+                                                <MudTd DataLabel="Usuario" @key="@adminRow.Id">
+                                                    <MudText Typo="Typo.body2" Style="font-weight:600;">
+                                                        @adminRow.Username
+                                                    </MudText>
+                                                </MudTd>
+                                                <MudTd DataLabel="Rol">
+                                                    <MudChip T="string"
+                                                             Size="Size.Small"
+                                                             Color="@GetAdminRoleColor(adminRow.Role)"
+                                                             Variant="Variant.Filled"
+                                                             Icon="@Icons.Material.Filled.AdminPanelSettings">
+                                                        @GetAdminRoleLabel(adminRow.Role)
+                                                    </MudChip>
+                                                </MudTd>
+                                                <MudTd DataLabel="Reputación">
+                                                    <div class="d-flex align-center gap-1">
+                                                        <MudIcon Icon="@Icons.Material.Filled.Star"
+                                                                 Size="Size.Small"
+                                                                 Color="Color.Warning" />
+                                                        <MudText Typo="Typo.body2">
+                                                            @adminRow.Reputation.ToString("F1")
+                                                        </MudText>
+                                                    </div>
+                                                </MudTd>
+                                                <MudTd DataLabel="Acciones" Style="text-align:right;">
+                                                    @if (adminRow.Role == UserRole.Admin)
+                                                    {
+                                                        <MudTooltip Text="Promover a SuperAdmin" Placement="Placement.Top">
+                                                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
+                                                                           Size="Size.Small"
+                                                                           Color="Color.Warning"
+                                                                           OnClick="@(() => HandlePromoteToSuperAdmin(adminRow))"
+                                                                           Disabled="@(adminActionId == adminRow.Id)" />
+                                                        </MudTooltip>
+                                                        <MudTooltip Text="Quitar rol de administrador" Placement="Placement.Top">
+                                                            <MudIconButton Icon="@Icons.Material.Filled.RemoveModerator"
+                                                                           Size="Size.Small"
+                                                                           Color="Color.Error"
+                                                                           OnClick="@(() => HandleRevokeAdminAsync(adminRow))"
+                                                                           Disabled="@(adminActionId == adminRow.Id || adminRow.Id == AuthState.UserId)" />
+                                                        </MudTooltip>
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudText Typo="Typo.caption" Color="Color.Secondary">—</MudText>
+                                                    }
+                                                </MudTd>
+                                            </RowTemplate>
+                                        </MudTable>
+                                    </div>
+
+                                    @* Paginación de admins *@
+                                    <div class="sticker-pagination">
+                                        <MudTooltip Text="Página anterior">
+                                            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                                                           Color="Color.Primary"
+                                                           Disabled="@(adminsPage <= 1)"
+                                                           OnClick="HandleAdminsPrevPage"
+                                                           Size="Size.Large" />
+                                        </MudTooltip>
+                                        <MudText Typo="Typo.body1" Class="pagination-label">
+                                            Página @adminsPage
+                                        </MudText>
+                                        <MudTooltip Text="Página siguiente">
+                                            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                                                           Color="Color.Primary"
+                                                           Disabled="@(!adminsHasNextPage)"
+                                                           OnClick="HandleAdminsNextPage"
+                                                           Size="Size.Large" />
+                                        </MudTooltip>
+                                    </div>
+                                }
+                            }
+                        </Authorized>
+                        <NotAuthorized>
+                            <MudAlert Severity="Severity.Warning" Class="mt-2">
+                                Solo los SuperAdministradores pueden gestionar roles de administrador.
+                            </MudAlert>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </div>
+            </MudTabPanel>
+
+        </MudTabs>
+    </Authorized>
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private const int PageSize = 20;
+
+    // ── Analytics ─────────────────────────────────────────────────────────────
+    private PlatformSummaryResponseDTO? summary;
+    private bool summaryError = false;
+    private string? summaryErrorMessage;
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    private List<UserResponseDTO>? users;
+    private bool usersError = false;
+    private string? usersErrorMessage;
+    private int usersPage = 1;
+    private bool usersHasNextPage = false;
+
+    private int? actionUserId;
+
+    // ── Admins ────────────────────────────────────────────────────────────────
+    private List<AdminUserResponseDTO>? admins;
+    private bool adminsError = false;
+    private string? adminsErrorMessage;
+    private int adminsPage = 1;
+    private bool adminsHasNextPage = false;
+    private int? adminActionId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(
+            LoadSummaryAsync(),
+            LoadUsersAsync(),
+            LoadAdminsAsync()
+        );
+    }
+
+    // ── Loaders ───────────────────────────────────────────────────────────────
+
+    private async Task LoadSummaryAsync()
+    {
+        summaryError = false;
+        summaryErrorMessage = null;
+        summary = null;
+
+        var result = await AdminHttp.GetAnalyticsSummaryAsync();
+        if (result.Success && result.Data is not null)
+        {
+            summary = result.Data;
+        }
+        else
+        {
+            summaryError = true;
+            summaryErrorMessage = result.ErrorMessage ?? "Error desconocido.";
+        }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        usersError = false;
+        usersErrorMessage = null;
+        users = null;
+
+        var result = await AdminHttp.GetAllUsersAsync(usersPage, PageSize);
+        if (result.Success && result.Data is not null)
+        {
+            users = result.Data;
+            usersHasNextPage = users.Count == PageSize;
+        }
+        else
+        {
+            usersError = true;
+            usersErrorMessage = result.ErrorMessage ?? "Error desconocido.";
+            users = new();
+        }
+    }
+
+    private async Task LoadAdminsAsync()
+    {
+        adminsError = false;
+        adminsErrorMessage = null;
+        admins = null;
+
+        var result = await AdminHttp.GetAdminsAsync(adminsPage, PageSize);
+        if (result.Success && result.Data is not null)
+        {
+            admins = result.Data;
+            adminsHasNextPage = admins.Count == PageSize;
+        }
+        else
+        {
+            adminsError = true;
+            adminsErrorMessage = result.ErrorMessage ?? "Error desconocido.";
+            admins = new();
+        }
+    }
+
+    // ── User ban/unban actions ────────────────────────────────────────────────
+
+    private async Task HandleBanAsync(UserResponseDTO user)
+    {
+        actionUserId = user.Id;
+        var result = await AdminHttp.BanUserAsync(user.Id);
+        actionUserId = null;
+
+        if (result.Success)
+        {
+            // Optimistic update: mutate the DTO in place so the UI reflects the change immediately
+            user.Banned = true;
+            Snackbar.Add($"Usuario \"{user.Username}\" baneado.", Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add(result.ErrorMessage ?? "No se pudo banear el usuario.", Severity.Error);
+        }
+    }
+
+    private async Task HandleUnbanAsync(UserResponseDTO user)
+    {
+        actionUserId = user.Id;
+        var result = await AdminHttp.UnbanUserAsync(user.Id);
+        actionUserId = null;
+
+        if (result.Success)
+        {
+            // Optimistic update: mutate the DTO in place so the UI reflects the change immediately
+            user.Banned = false;
+            Snackbar.Add($"Usuario \"{user.Username}\" desbaneado.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result.ErrorMessage ?? "No se pudo desbanear el usuario.", Severity.Error);
+        }
+    }
+
+    private static bool IsBanned(UserResponseDTO user) => user.Banned;
+
+    // ── Admin management actions ──────────────────────────────────────────────
+
+    private async Task HandlePromoteAdmin()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            CloseOnEscapeKey = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<PromoteAdminDialog>(
+            "Crear administrador", new DialogParameters(), options);
+        var result = await dialog.Result;
+
+        if (result is { Canceled: false })
+            await LoadAdminsAsync();
+    }
+
+    private async Task HandlePromoteToSuperAdmin(AdminUserResponseDTO admin)
+    {
+        adminActionId = admin.Id;
+        var dto = new PatchAdminRoleRequestDTO { Role = UserRole.SuperAdmin };
+        var result = await AdminHttp.PatchAdminRoleAsync(admin.Id, dto);
+        adminActionId = null;
+
+        if (result.Success && result.Data is not null)
+        {
+            Snackbar.Add($"\"{admin.Username}\" promovido a SuperAdmin.", Severity.Success);
+            await LoadAdminsAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.ErrorMessage ?? "No se pudo cambiar el rol.", Severity.Error);
+        }
+    }
+
+    private async Task HandleRevokeAdminAsync(AdminUserResponseDTO admin)
+    {
+        adminActionId = admin.Id;
+        var result = await AdminHttp.RevokeAdminRoleAsync(admin.Id);
+        adminActionId = null;
+
+        if (result.Success)
+        {
+            // Optimistic update: remove the user from the admins list immediately
+            admins?.Remove(admin);
+            Snackbar.Add($"Permisos de administrador de \"{admin.Username}\" revocados correctamente.", Severity.Success);
+            // Reload the regular users table so the promoted-back user appears there
+            await LoadUsersAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.ErrorMessage ?? "No se pudieron revocar los permisos.", Severity.Error);
+        }
+    }
+
+    // ── Pagination ────────────────────────────────────────────────────────────
+
+    private async Task HandleUsersNextPage() { usersPage++; await LoadUsersAsync(); }
+    private async Task HandleUsersPrevPage() { if (usersPage > 1) { usersPage--; await LoadUsersAsync(); } }
+
+    private async Task HandleAdminsNextPage() { adminsPage++; await LoadAdminsAsync(); }
+    private async Task HandleAdminsPrevPage() { if (adminsPage > 1) { adminsPage--; await LoadAdminsAsync(); } }
+
+    // ── Display helpers ───────────────────────────────────────────────────────
+
+    private Color GetAcceptanceRateColor(double rate) => rate switch
+    {
+        >= 60 => Color.Success,
+        >= 30 => Color.Warning,
+        _ => Color.Error
+    };
+
+    private Color GetUserStateColor(UserResponseDTO user) =>
+        IsBanned(user) ? Color.Error : Color.Success;
+
+    private string GetUserStateLabel(UserResponseDTO user) =>
+        IsBanned(user) ? "Baneado" : "Activo";
+
+    private Color GetAdminRoleColor(UserRole role) => role switch
+    {
+        UserRole.SuperAdmin => Color.Warning,
+        UserRole.Admin => Color.Primary,
+        _ => Color.Default
+    };
+
+    private string GetAdminRoleLabel(UserRole role) => role switch
+    {
+        UserRole.SuperAdmin => "SuperAdmin",
+        UserRole.Admin => "Admin",
+        _ => role.ToString()
+    };
+}

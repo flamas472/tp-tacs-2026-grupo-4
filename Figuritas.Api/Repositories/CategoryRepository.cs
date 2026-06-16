@@ -12,14 +12,6 @@ public class CategoryRepository : ICategoryRepository
     {
         _categories = context.Collection<Category>("Categories");
         _idGenerator = idGenerator;
-        SeedDefaultCategories();
-    }
-
-    private void SeedDefaultCategories()
-    {
-        CreateIfNonExistent(new Category { Description = "Jugador" });
-        CreateIfNonExistent(new Category { Description = "Escudo" });
-        CreateIfNonExistent(new Category { Description = "Estadio" });
     }
 
     public List<Category> GetAll()

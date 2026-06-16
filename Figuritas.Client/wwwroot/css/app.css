@@ -1172,3 +1172,88 @@ code {
         transform: rotate(90deg);
     }
 }
+
+
+/* ─── Admin Dashboard ────────────────────────────────────────────────────── */
+
+/* Header row: título + chip de usuario */
+.admin-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Sub-panel header: título + botón de acción (ej. "Crear administrador") */
+.admin-subpanel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Feedback de carga centrado (mismo patrón que .sticker-list-feedback) */
+.admin-loading-feedback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1rem;
+    width: 100%;
+}
+
+/* Tarjeta de estadística individual */
+.admin-stat-card {
+    height: 100%;
+    border-top: 3px solid transparent;
+    border-radius: 10px !important;
+}
+
+.admin-stat-card--users        { border-top-color: var(--mud-palette-primary); }
+.admin-stat-card--exchanges    { border-top-color: var(--mud-palette-secondary); }
+.admin-stat-card--auctions     { border-top-color: var(--mud-palette-warning); }
+.admin-stat-card--notifications { border-top-color: var(--mud-palette-tertiary, #7e6fff); }
+
+/* Fila de ícono + etiqueta dentro de cada tarjeta */
+.admin-stat-icon-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+/* Fila de métrica: label a la izquierda, valor a la derecha */
+.admin-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.2rem 0;
+}
+
+/* Mobile: show cards, hide table */
+.admin-users-cards-mobile  { display: block; }
+.admin-users-table-desktop { display: none; }
+
+/* md+ (960px): show table, hide cards */
+@media (min-width: 960px) {
+    .admin-users-cards-mobile  { display: none; }
+    .admin-users-table-desktop { display: block; }
+}
+
+.admin-user-card {
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    transition: border-color 0.15s;
+}
+
+.admin-user-card:hover {
+    border-color: var(--mud-palette-primary) !important;
+}
+
+.admin-users-table {
+    border-radius: 10px;
+    overflow: hidden;
+}

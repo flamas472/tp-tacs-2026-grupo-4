@@ -26,6 +26,15 @@ public class UserRepository : IUserRepository
         return _users.Find(_ => true).ToList();
     }
 
+    public List<User> GetAllPaginated(int page, int pageSize)
+    {
+        return _users.Find(_ => true)
+            .SortBy(u => u.Id)
+            .Skip((page - 1) * pageSize)
+            .Limit(pageSize)
+            .ToList();
+    }
+
     public void Add(User user)
     {
         user.Id = _idGenerator.GetNextId<User>();

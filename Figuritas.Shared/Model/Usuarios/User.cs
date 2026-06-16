@@ -17,6 +17,11 @@ public class User
     /// </summary>
     public UserRole Role { get; set; } = UserRole.User;
 
+    /// <summary>
+    /// When true, the user has been banned by an administrator and cannot log in.
+    /// </summary>
+    public bool Banned { get; set; } = false;
+
     public List<Rate> Ratings { get; set; } = [];
 
     [Range(0, 5)]

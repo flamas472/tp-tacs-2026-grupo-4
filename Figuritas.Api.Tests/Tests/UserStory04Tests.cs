@@ -198,7 +198,7 @@ public class UserStory04Tests : IAsyncLifetime
         var suggestion = results.FirstOrDefault(r => r.SuggestedUserId == userB.Id && r.StickerId == stickerX.Id);
         Assert.NotNull(suggestion);
         Assert.True(suggestion.IsPerfectMatch);
-        Assert.NotNull(suggestion.CallerMatchedStickerNumber);
+        Assert.NotEmpty(suggestion.CallerMatchedStickers);
     }
 
     /// <summary>

@@ -15,4 +15,11 @@ public class ExchangeProposalResponseDTO
     public List<StickerPreviewDTO> OfferedStickers { get; set; } = new();
     public string ProponentUsername { get; set; } = string.Empty;
     public string ProposedUsername { get; set; } = string.Empty;
+
+    // Rating info: populated server-side for accepted proposals.
+    // HasRated is true when the calling user already submitted a rating for this exchange.
+    // RatingStars and RatingComment hold the values of that existing rating (read-only display).
+    public bool HasRated { get; set; }
+    public int? RatingStars { get; set; }
+    public string? RatingComment { get; set; }
 }

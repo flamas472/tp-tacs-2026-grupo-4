@@ -3,10 +3,12 @@
 @using Figuritas.Shared.DTO.response
 @using Figuritas.Shared.Model.Intercambios
 @using Figuritas.Client.Requests
+@using Figuritas.Client.Components
 
 @inject DashboardHttpClient DashboardHttp
 @inject IDialogService DialogService
 @inject AuthStateService AuthState
+@inject ISnackbar Snackbar
 
 <PageTitle>Intercambios — FiguriTACS</PageTitle>
 
@@ -68,6 +70,7 @@ else
     <div class="exchanges-cards-mobile">
         @foreach (var exchange in VisibleExchanges)
         {
+            var hasRated = IsRated(exchange);
             <MudCard @key="@($"exch_{exchange.Id}")"
                      Class="mb-3 exchange-card">
                 <MudCardContent Class="pb-1">
@@ -115,6 +118,14 @@ else
                                OnClick="@(() => OpenExchangeDetailAsync(exchange))">
                         Ver intercambio
                     </MudButton>
+                    <MudButton Size="Size.Small"
+                               Variant="Variant.Outlined"
+                               Color="@(hasRated ? Color.Default : Color.Warning)"
+                               StartIcon="@(hasRated ? Icons.Material.Filled.StarRate : Icons.Material.Filled.Star)"
+                               OnClick="@(() => OpenRatingDialogAsync(exchange))"
+                               Class="ml-2">
+                        @(hasRated ? "Ver calificación" : "Calificar usuario")
+                    </MudButton>
                 </MudCardActions>
             </MudCard>
         }
@@ -135,6 +146,9 @@ else
                 <MudTh Style="text-align:right;">Acciones</MudTh>
             </HeaderContent>
             <RowTemplate>
+                @{
+                    var rowHasRated = IsRated(context);
+                }
                 <MudTd DataLabel="Figurita" @key="@($"row_{context.Id}")">
                     @if (context.RequestedSticker is not null)
                     {
@@ -171,6 +185,13 @@ else
                                        Size="Size.Small"
                                        Color="Color.Primary"
                                        OnClick="@(() => OpenExchangeDetailAsync(context))" />
+                    </MudTooltip>
+                    <MudTooltip Text="@(rowHasRated ? "Ver tu calificación" : "Calificar usuario")"
+                                Placement="Placement.Top">
+                        <MudIconButton Icon="@(rowHasRated ? Icons.Material.Filled.StarRate : Icons.Material.Filled.Star)"
+                                       Size="Size.Small"
+                                       Color="@(rowHasRated ? Color.Default : Color.Warning)"
+                                       OnClick="@(() => OpenRatingDialogAsync(context))" />
                     </MudTooltip>
                 </MudTd>
             </RowTemplate>
@@ -209,6 +230,22 @@ else
     private int currentPage = 1;
     private bool hasNextPage;
     private bool hasPrevPage => currentPage > 1;
+
+    /// <summary>
+    /// Fallback optimista para la sesión actual: registra intercambios calificados
+    /// durante esta sesión de navegación. La fuente de verdad es proposal.HasRated
+    /// que viene del servidor; este HashSet solo cubre la latencia de re-fetch tras
+    /// calificar (permite que el botón cambie sin esperar a la recarga de la página).
+    /// </summary>
+    private readonly HashSet<int> sessionRatedIds = new();
+
+    /// <summary>
+    /// Determina si el usuario ya calificó este intercambio.
+    /// Combina el campo HasRated del servidor (persistente entre sesiones) con el
+    /// fallback optimista de la sesión actual.
+    /// </summary>
+    private bool IsRated(ExchangeProposalResponseDTO exchange) =>
+        exchange.HasRated || sessionRatedIds.Contains(exchange.Id);
 
     /// <summary>
     /// Filtra cliente-side por dirección (Recibido = yo soy ProposedUserId, Enviado = soy ProponentUserId).
@@ -296,6 +333,70 @@ else
             FullWidth = true
         };
         await DialogService.ShowAsync<ExchangeDetailDialog>(title, parameters, options);
+    }
+
+    /// <summary>
+    /// Abre el diálogo de calificación/visualización para la contraparte del intercambio.
+    /// - Si HasRated == true (o ya calificó en esta sesión): abre el diálogo en modo lectura.
+    /// - Si HasRated == false: abre el diálogo en modo edición para enviar una calificación.
+    /// Cuando la calificación se envía con éxito, actualiza el DTO en memoria y registra
+    /// el ID en sessionRatedIds como fallback optimista.
+    /// </summary>
+    private async Task OpenRatingDialogAsync(ExchangeProposalResponseDTO exchange)
+    {
+        var counterpartName = GetCounterpartName(exchange);
+        var counterpartId   = AuthState.UserId == exchange.ProponentUserId
+            ? exchange.ProposedUserId
+            : exchange.ProponentUserId;
+
+        var alreadyRated = IsRated(exchange);
+
+        var parameters = new DialogParameters<NewRatingDialog>
+        {
+            { d => d.Proposal,        exchange        },
+            { d => d.CounterpartName, counterpartName },
+            { d => d.CounterpartId,   counterpartId   },
+            { d => d.IsReadOnly,      alreadyRated    },
+            { d => d.ExistingStars,   exchange.RatingStars ?? 0 },
+            { d => d.ExistingComment, exchange.RatingComment  }
+        };
+        var options = new DialogOptions
+        {
+            CloseOnEscapeKey = true,
+            MaxWidth         = MaxWidth.Small,
+            FullWidth        = true
+        };
+
+        var dialogTitle = alreadyRated
+            ? $"Tu calificación para {counterpartName}"
+            : $"Calificar a {counterpartName}";
+
+        var dialog = await DialogService.ShowAsync<NewRatingDialog>(dialogTitle, parameters, options);
+
+        // En modo lectura no hay resultado que procesar
+        if (alreadyRated) return;
+
+        var result = await dialog.Result;
+
+        // DialogResult.Ok contiene un RatingSubmitResult cuando la calificación fue exitosa
+        if (result is not null && !result.Canceled
+            && result.Data is NewRatingDialog.RatingSubmitResult submitResult)
+        {
+            // Actualizar el DTO en memoria para reflejar la calificación sin re-fetch
+            var target = allExchanges?.FirstOrDefault(e => e.Id == submitResult.ProposalId);
+            if (target is not null)
+            {
+                target.HasRated      = true;
+                target.RatingStars   = submitResult.Stars;
+                target.RatingComment = submitResult.Comment;
+            }
+
+            // Fallback optimista para cubrir el caso en que allExchanges no tenga el ítem
+            sessionRatedIds.Add(submitResult.ProposalId);
+
+            Snackbar.Add($"¡Calificaste a {counterpartName} exitosamente!", Severity.Success);
+            StateHasChanged();
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

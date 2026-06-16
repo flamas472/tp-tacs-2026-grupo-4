@@ -1,0 +1,115 @@
+@using Figuritas.Shared.DTO.request
+@using Figuritas.Shared.DTO.response
+@using Figuritas.Client.Requests
+
+@inject AdminHttpClient AdminHttp
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Promover a Administrador</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+            Crea una cuenta de administrador con nombre de usuario y contraseña.
+            El nuevo administrador podrá acceder a estadísticas y gestionar usuarios de la plataforma.
+        </MudText>
+
+        <MudTextField T="string"
+                      Label="Nombre de usuario"
+                      @bind-Value="username"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Person"
+                      Required="true"
+                      RequiredError="El nombre de usuario es obligatorio."
+                      Disabled="loading"
+                      Class="mb-3" />
+
+        <MudTextField T="string"
+                      Label="Contraseña"
+                      @bind-Value="password"
+                      InputType="@(showPassword ? InputType.Text : InputType.Password)"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.End"
+                      AdornmentIcon="@(showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                      OnAdornmentClick="@(() => showPassword = !showPassword)"
+                      Required="true"
+                      RequiredError="La contraseña es obligatoria."
+                      Disabled="loading"
+                      Class="mb-2" />
+
+        <MudText Typo="Typo.caption" Color="Color.Secondary">
+            La contraseña debe tener al menos 8 caracteres.
+        </MudText>
+
+        @if (errorMessage is not null)
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mt-3">@errorMessage</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog.Cancel())"
+                   Disabled="loading">
+            Cancelar
+        </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.AdminPanelSettings"
+                   OnClick="HandlePromote"
+                   Disabled="@(loading || string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))">
+            @if (loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Crear administrador
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    /// <summary>Cascading parameter injected by MudBlazor's dialog infrastructure.</summary>
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    private string username = string.Empty;
+    private string password = string.Empty;
+    private bool showPassword = false;
+    private bool loading = false;
+    private string? errorMessage;
+
+    private async Task HandlePromote()
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "El nombre de usuario y la contraseña son obligatorios.";
+            return;
+        }
+
+        if (password.Length < 8)
+        {
+            errorMessage = "La contraseña debe tener al menos 8 caracteres.";
+            return;
+        }
+
+        loading = true;
+        errorMessage = null;
+
+        var dto = new CreateAdminRequestDTO { Username = username.Trim(), Password = password };
+        var result = await AdminHttp.CreateAdminAsync(dto);
+
+        loading = false;
+
+        if (result.Success && result.Data is not null)
+        {
+            Snackbar.Add($"Administrador \"{result.Data.Username}\" creado exitosamente.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(result.Data));
+        }
+        else
+        {
+            errorMessage = result.ErrorMessage ?? "No se pudo crear el administrador. Intentá nuevamente.";
+        }
+    }
+}
