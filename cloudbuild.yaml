@@ -6,7 +6,7 @@ steps:
       - --target
       - api-runtime
       - -t
-      - us-central1-docker.pkg.dev/$PROJECT_ID/figuritas/api:latest
+      - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/api:latest
       - .
 
   # Build del Client (Blazor WASM + nginx)
@@ -16,12 +16,12 @@ steps:
       - --target
       - client-runtime
       - -t
-      - us-central1-docker.pkg.dev/$PROJECT_ID/figuritas/client:latest
+      - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/client:latest
       - .
 
 images:
-  - us-central1-docker.pkg.dev/$PROJECT_ID/figuritas/api:latest
-  - us-central1-docker.pkg.dev/$PROJECT_ID/figuritas/client:latest
+  - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/api:latest
+  - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/client:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
