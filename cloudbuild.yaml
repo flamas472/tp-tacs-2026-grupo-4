@@ -1,5 +1,5 @@
 steps:
-  # Build de la API (.NET 10 backend)
+  # Build de la API (.NET backend)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - build
@@ -19,9 +19,39 @@ steps:
       - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/client:latest
       - .
 
-images:
-  - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/api:latest
-  - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/client:latest
+  # Push de las imágenes a Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/api:latest
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - push
+      - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/client:latest
+
+  # Deploy automático a Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - gcloud
+      - run
+      - deploy
+      - figuritacs-api
+      - --image
+      - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/api:latest
+      - --region
+      - southamerica-east1
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - gcloud
+      - run
+      - deploy
+      - figuritacs-client
+      - --image
+      - southamerica-east1-docker.pkg.dev/$PROJECT_ID/figuritacs/client:latest
+      - --region
+      - southamerica-east1
 
 options:
   logging: CLOUD_LOGGING_ONLY
