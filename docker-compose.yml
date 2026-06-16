@@ -37,6 +37,9 @@ services:
     container_name: tp-tacs-grupo-4-client
     ports:
       - "5001:80"
+    environment:
+      - API_BASE_URL=http://web-api:8080
+      - NGINX_ENVSUBST_FILTER=^API_BASE_URL$$
     depends_on:
       - web-api
 

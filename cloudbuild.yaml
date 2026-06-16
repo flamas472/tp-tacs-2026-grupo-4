@@ -1,0 +1,27 @@
+steps:
+  # Build de la API (.NET 10 backend)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - --target
+      - api-runtime
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/figuritas/api:latest
+      - .
+
+  # Build del Client (Blazor WASM + nginx)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - build
+      - --target
+      - client-runtime
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/figuritas/client:latest
+      - .
+
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/figuritas/api:latest
+  - us-central1-docker.pkg.dev/$PROJECT_ID/figuritas/client:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
