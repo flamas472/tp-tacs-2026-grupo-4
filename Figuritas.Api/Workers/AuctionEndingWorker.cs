@@ -81,8 +81,8 @@ public class AuctionEndingWorker : BackgroundService
                 await notificationService.SendNotificationAsync(
                     watcherId,
                     NotificationType.AuctionEnding,
-                    "Auction Ending Soon",
-                    $"Auction #{auction.Id} is ending at {auction.EndsAt:u}. Don't miss out!",
+                    "Subasta por finalizar",
+                    $"La subasta #{auction.Id} finaliza el {auction.EndsAt:dd/MM/yyyy HH:mm}. ¡No te la pierdas!",
                     expiresAt: auction.EndsAt);
             }
 

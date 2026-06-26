@@ -22,6 +22,8 @@ public class User
     /// </summary>
     public bool Banned { get; set; } = false;
 
+    public DateTime CreatedAt { get; set; }
+
     public List<Rate> Ratings { get; set; } = [];
 
     [Range(0, 5)]

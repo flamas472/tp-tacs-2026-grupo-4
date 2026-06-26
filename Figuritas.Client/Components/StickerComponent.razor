@@ -1,4 +1,5 @@
 @using Figuritas.Shared.Model
+@inject NavigationManager Nav
 
 <MudCard Class="sticker-card" Elevation="2" @onclick="HandleCardClick">
     <div class="sticker-image-container">
@@ -17,11 +18,22 @@
         </div>
         @if (!string.IsNullOrEmpty(OwnerUsername))
         {
-            <div class="sticker-owner-label">
+            <div class="sticker-owner-label sticker-owner-link"
+                 role="button"
+                 aria-label="@($"Ver perfil de {OwnerUsername}")"
+                 tabindex="0"
+                 @onclick:stopPropagation="true"
+                 @onclick="NavigateToProfile"
+                 @onkeydown:stopPropagation="true"
+                 @onkeydown="HandleOwnerKeyDown">
                 <MudIcon Icon="@Icons.Material.Filled.Person"
                          Size="Size.Small"
                          Style="font-size:0.7rem;vertical-align:middle;" />
                 <MudText Typo="Typo.caption">@OwnerUsername</MudText>
+                @if (OwnerReputation > 0)
+                {
+                    <span class="sticker-owner-rep">★ @OwnerReputation.ToString("F1")</span>
+                }
             </div>
         }
     </MudCardContent>
@@ -33,10 +45,24 @@
     [Parameter] public EventCallback<Sticker> OnStickerClick { get; set; }
     /// <summary>Username del propietario a mostrar debajo de la selección. Si es null o vacío, no se renderiza.</summary>
     [Parameter] public string? OwnerUsername { get; set; }
+    /// <summary>Reputación del propietario (0–5). Si es 0 no se muestra la calificación. Clickear navega a /perfil/{OwnerUsername}.</summary>
+    [Parameter] public double OwnerReputation { get; set; } = 0;
 
     private async Task HandleCardClick()
     {
         if (OnStickerClick.HasDelegate)
             await OnStickerClick.InvokeAsync(Sticker);
+    }
+
+    private void NavigateToProfile()
+    {
+        if (!string.IsNullOrEmpty(OwnerUsername))
+            Nav.NavigateTo($"/perfil/{Uri.EscapeDataString(OwnerUsername)}");
+    }
+
+    private void HandleOwnerKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+            NavigateToProfile();
     }
 }

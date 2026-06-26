@@ -34,7 +34,8 @@ public static class SeedData
             {
                 Username = superAdminUsername,
                 HashedPassword = BCrypt.Net.BCrypt.HashPassword("figuritacs"),
-                Role = UserRole.SuperAdmin
+                Role = UserRole.SuperAdmin,
+                CreatedAt = DateTime.UtcNow
             });
         }
 

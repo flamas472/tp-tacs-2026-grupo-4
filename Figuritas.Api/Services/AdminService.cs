@@ -106,7 +106,8 @@ public class AdminService
                 Id = u.Id,
                 Username = u.Username,
                 Reputation = u.Reputation,
-                Banned = u.Banned
+                Banned = u.Banned,
+                Role = u.Role
             })
             .ToList();
     }

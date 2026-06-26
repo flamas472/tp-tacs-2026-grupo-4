@@ -14,6 +14,7 @@ public class AuthStateService
     public int UserId { get; private set; }
     public string Username { get; private set; } = string.Empty;
     public bool IsAdmin { get; private set; }
+    public bool IsSuperAdmin { get; private set; }
 
     public AuthStateService(AuthStateProvider provider, AuthHttpClient authHttp, UserHttpClient userHttp)
     {
@@ -56,6 +57,7 @@ public class AuthStateService
         UserId = 0;
         Username = string.Empty;
         IsAdmin = false;
+        IsSuperAdmin = false;
         await _provider.SetTokenAsync(null);
     }
 
@@ -86,6 +88,7 @@ public class AuthStateService
         var roleValue = TryGetString(doc.RootElement,
             "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
             "role");
+        IsSuperAdmin = roleValue == "SuperAdmin";
         IsAdmin = roleValue == "Admin" || roleValue == "SuperAdmin";
     }
 

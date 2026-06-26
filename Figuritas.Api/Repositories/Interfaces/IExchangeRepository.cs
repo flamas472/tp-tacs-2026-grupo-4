@@ -10,4 +10,5 @@ public interface IExchangeRepository
     void Add(Exchange exchange, IClientSessionHandle session);
     Exchange? GetById(int exchangeId);
     Exchange? GetByProposalId(int proposalId);
+    long CountByUserId(int userId);
 }

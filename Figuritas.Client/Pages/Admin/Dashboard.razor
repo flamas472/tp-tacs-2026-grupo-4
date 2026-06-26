@@ -316,18 +316,20 @@
                                         <MudCardActions Class="pt-0">
                                             @if (!IsBanned(user))
                                             {
-                                                <MudButton Size="Size.Small"
-                                                           Variant="Variant.Outlined"
-                                                           Color="Color.Error"
-                                                           StartIcon="@Icons.Material.Filled.Block"
-                                                           OnClick="@(() => HandleBanAsync(user))"
-                                                           Disabled="@(actionUserId == user.Id)">
-                                                    @if (actionUserId == user.Id)
-                                                    {
-                                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
-                                                    }
-                                                    Banear
-                                                </MudButton>
+                                                <MudTooltip Text="@(IsUserAnAdmin(user) ? "No se puede banear a un administrador" : "Banear usuario")">
+                                                    <MudButton Size="Size.Small"
+                                                               Variant="Variant.Outlined"
+                                                               Color="Color.Error"
+                                                               StartIcon="@Icons.Material.Filled.Block"
+                                                               OnClick="@(() => HandleBanAsync(user))"
+                                                               Disabled="@(actionUserId == user.Id || IsUserAnAdmin(user))">
+                                                        @if (actionUserId == user.Id)
+                                                        {
+                                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                                        }
+                                                        Banear
+                                                    </MudButton>
+                                                </MudTooltip>
                                             }
                                             else
                                             {
@@ -389,12 +391,12 @@
                                         <MudTd DataLabel="Acciones" Style="text-align:right;">
                                             @if (!IsBanned(userRow))
                                             {
-                                                <MudTooltip Text="Banear usuario" Placement="Placement.Top">
+                                                <MudTooltip Text="@(IsUserAnAdmin(userRow) ? "No se puede banear a un administrador" : "Banear usuario")" Placement="Placement.Top">
                                                     <MudIconButton Icon="@Icons.Material.Filled.Block"
                                                                    Size="Size.Small"
                                                                    Color="Color.Error"
                                                                    OnClick="@(() => HandleBanAsync(userRow))"
-                                                                   Disabled="@(actionUserId == userRow.Id)" />
+                                                                   Disabled="@(actionUserId == userRow.Id || IsUserAnAdmin(userRow))" />
                                                 </MudTooltip>
                                             }
                                             else
@@ -438,6 +440,8 @@
             </MudTabPanel>
 
             @* ── Pestaña 3: Gestión de administradores (solo SuperAdmin) ─────── *@
+            @if (AuthState.IsSuperAdmin)
+            {
             <MudTabPanel Text="Administradores"
                          Icon="@Icons.Material.Filled.SupervisedUserCircle">
                 <div class="pa-4">
@@ -647,6 +651,7 @@
                     </AuthorizeView>
                 </div>
             </MudTabPanel>
+            } @* fin @if (AuthState.IsSuperAdmin) *@
 
         </MudTabs>
     </Authorized>
@@ -753,7 +758,19 @@
 
     private async Task HandleBanAsync(UserResponseDTO user)
     {
+        var parameters = new DialogParameters<MudMessageBox>
+        {
+            { x => x.Message, $"¿Estás seguro de que querés banear a \"{user.Username}\"? Esta acción impedirá que el usuario acceda a la plataforma." },
+            { x => x.YesText, "Banear" },
+            { x => x.CancelText, "Cancelar" }
+        };
+        var dialogOptions = new DialogOptions { CloseButton = false, MaxWidth = MaxWidth.ExtraSmall };
+        var dialog = await DialogService.ShowAsync<MudMessageBox>("Confirmar baneo", parameters, dialogOptions);
+        var dialogResult = await dialog.Result;
+        if (dialogResult is null || dialogResult.Canceled) return;
+
         actionUserId = user.Id;
+        StateHasChanged();
         var result = await AdminHttp.BanUserAsync(user.Id);
         actionUserId = null;
 
@@ -788,6 +805,16 @@
     }
 
     private static bool IsBanned(UserResponseDTO user) => user.Banned;
+
+    /// <summary>
+    /// Devuelve true si el usuario tiene rol de Admin o SuperAdmin.
+    /// Usa el campo Role del DTO (populado por GET /api/admin/users) cuando está disponible;
+    /// si no, verifica si el usuario aparece en la lista de admins cargada (fallback para SuperAdmin).
+    /// </summary>
+    private bool IsUserAnAdmin(UserResponseDTO user) =>
+        user.Role == UserRole.Admin ||
+        user.Role == UserRole.SuperAdmin ||
+        admins?.Any(a => a.Id == user.Id) == true;
 
     // ── Admin management actions ──────────────────────────────────────────────
 

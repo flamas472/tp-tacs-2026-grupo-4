@@ -40,4 +40,9 @@ public class ExchangeRepository : IExchangeRepository
     {
         return _exchanges.Find(e => e.ExchangeProposalID == proposalId).FirstOrDefault();
     }
+
+    public long CountByUserId(int userId)
+    {
+        return _exchanges.CountDocuments(e => e.ProponentID == userId || e.ProposedID == userId);
+    }
 }

@@ -109,11 +109,13 @@ public class ExchangeProposalService
         }
 
         // Notify the recipient about the new proposal
+        var callerUser = _userRepo.GetById(callerUserId);
+        var callerUsername = callerUser?.Username ?? $"Usuario {callerUserId}";
         await _notificationService.SendNotificationAsync(
             dto.ProposedUserId,
             NotificationType.NewProposal,
-            "New Exchange Proposal",
-            $"User {callerUserId} sent you a new exchange proposal.");
+            "Nueva propuesta de intercambio",
+            $"{callerUsername} te envió una nueva propuesta de intercambio.");
 
         return MapToResponseDto(proposal);
     }

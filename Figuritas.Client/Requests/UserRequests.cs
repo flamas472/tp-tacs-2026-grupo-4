@@ -245,11 +245,11 @@ namespace Figuritas.Client.Requests
             }
         }
 
-        public async Task<ApiResponse<List<RatingResponseDTO>>> GetUserRatingsAsync(int userId)
+        public async Task<ApiResponse<List<RatingResponseDTO>>> GetUserRatingsAsync(int userId, int page = 1, int pageSize = 100)
         {
             try
             {
-                var response = await _http.GetAsync($"api/users/{userId}/ratings");
+                var response = await _http.GetAsync($"api/users/{userId}/ratings?Page={page}&PageSize={pageSize}");
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -263,6 +263,30 @@ namespace Figuritas.Client.Requests
             catch (Exception ex)
             {
                 return ApiResponse<List<RatingResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>Obtiene un usuario por su nombre de usuario (búsqueda exacta). GET /api/users?username={username}</summary>
+        public async Task<ApiResponse<UserResponseDTO>> GetUserByUsernameAsync(string username)
+        {
+            try
+            {
+                var response = await _http.GetAsync($"api/users?username={Uri.EscapeDataString(username)}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<UserResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<UserResponseDTO>.Ok(data)
+                        : ApiResponse<UserResponseDTO>.Fail("No se pudo leer el usuario.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<UserResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<UserResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
@@ -307,6 +331,33 @@ namespace Figuritas.Client.Requests
             catch (Exception ex)
             {
                 return ApiResponse<double>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Obtiene la cantidad de intercambios completados de un usuario.
+        /// GET /api/users/{userId}/completed-exchanges
+        /// </summary>
+        public async Task<ApiResponse<CompletedExchangesResponseDTO>> GetCompletedExchangesAsync(int userId)
+        {
+            try
+            {
+                var response = await _http.GetAsync($"api/users/{userId}/completed-exchanges");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var data = await response.ProcesarRespuesta<CompletedExchangesResponseDTO>();
+                    return data is not null
+                        ? ApiResponse<CompletedExchangesResponseDTO>.Ok(data)
+                        : ApiResponse<CompletedExchangesResponseDTO>.Fail("No se pudo leer la cantidad de intercambios completados.");
+                }
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<CompletedExchangesResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<CompletedExchangesResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
     }

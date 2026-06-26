@@ -1,0 +1,203 @@
+@using Figuritas.Client.Models
+@using Figuritas.Client.Services
+@inject NotificationService NotifService
+@inject NavigationManager Nav
+@implements IDisposable
+
+@* Overlay transparente para cerrar el dropdown al hacer click fuera *@
+@if (_open)
+{
+    <div class="notif-overlay" @onclick="CloseDropdown"></div>
+}
+
+<div class="notif-bell-container">
+    <MudTooltip Text="@(_open ? "" : "Notificaciones")">
+        <MudIconButton Color="Color.Inherit"
+                       OnClick="ToggleDropdown"
+                       aria-label="Notificaciones">
+            <MudBadge Content="@NotifService.UnreadCount"
+                      Color="Color.Error"
+                      Overlap="true"
+                      Origin="Origin.TopRight"
+                      Visible="@(NotifService.UnreadCount > 0)"
+                      Max="99">
+                <MudIcon Icon="@Icons.Material.Filled.Notifications" />
+            </MudBadge>
+        </MudIconButton>
+    </MudTooltip>
+
+    @if (_open)
+    {
+        <div class="notif-dropdown" @onclick:stopPropagation>
+            @* Encabezado del dropdown *@
+            <div class="notif-dropdown-header">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:700;">Notificaciones</MudText>
+                @if (NotifService.UnreadCount > 0)
+                {
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               Size="Size.Small"
+                               OnClick="MarkAllRead"
+                               Class="notif-mark-all-btn">
+                        Marcar todas como leídas
+                    </MudButton>
+                }
+            </div>
+
+            <MudDivider />
+
+            @* Lista de notificaciones recientes *@
+            @{
+                var recent = NotifService.GetRecent(5);
+            }
+            @if (!recent.Any())
+            {
+                <div class="notif-empty">
+                    <MudIcon Icon="@Icons.Material.Outlined.NotificationsNone"
+                             Size="Size.Large"
+                             Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                        No tenés notificaciones
+                    </MudText>
+                </div>
+            }
+            else
+            {
+                <div class="notif-list">
+                    @foreach (var notif in recent)
+                    {
+                        <div class="notif-item @(notif.IsRead ? "" : "notif-item--unread")"
+                             @key="notif.Id"
+                             @onclick="() => HandleNotifClick(notif)">
+                            <div class="notif-item-icon">
+                                <MudIcon Icon="@GetIcon(notif.Type)"
+                                         Size="Size.Small"
+                                         Style="@($"color:{GetIconColor(notif.Type)}")" />
+                            </div>
+                            <div class="notif-item-body">
+                                <MudText Typo="Typo.body2" Style="font-weight:600; line-height:1.3;">
+                                    @notif.Title
+                                </MudText>
+                                <MudText Typo="Typo.caption"
+                                         Color="Color.Secondary"
+                                         Style="line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">
+                                    @notif.Message
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="font-size:0.65rem;">
+                                    @GetRelativeTime(notif.CreatedAt)
+                                </MudText>
+                            </div>
+                            @if (!notif.IsRead)
+                            {
+                                <div class="notif-unread-dot"></div>
+                            }
+                        </div>
+                        <MudDivider />
+                    }
+                </div>
+            }
+
+            @* Pie del dropdown con link a página completa *@
+            <div class="notif-dropdown-footer">
+                <MudButton FullWidth="true"
+                           Variant="Variant.Text"
+                           Color="Color.Primary"
+                           OnClick="GoToAllNotifications"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           Size="Size.Small">
+                    Ver todas las notificaciones
+                </MudButton>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _open = false;
+
+    protected override void OnInitialized()
+    {
+        NotifService.OnChange += HandleChange;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await NotifService.LoadAsync();
+    }
+
+    private void HandleChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleDropdown()
+    {
+        _open = !_open;
+    }
+
+    private void CloseDropdown()
+    {
+        _open = false;
+    }
+
+    private void HandleNotifClick(AppNotification notif)
+    {
+        NotifService.MarkAsRead(notif.Id);
+        _open = false;
+        if (!string.IsNullOrEmpty(notif.NavigationUrl))
+            Nav.NavigateTo(notif.NavigationUrl);
+    }
+
+    private void MarkAllRead()
+    {
+        NotifService.MarkAllAsRead();
+    }
+
+    private void GoToAllNotifications()
+    {
+        _open = false;
+        Nav.NavigateTo("notificaciones");
+    }
+
+    // ─── Helpers de presentación ────────────────────────────────────────────
+
+    private static string GetIcon(NotificationType type) => type switch
+    {
+        NotificationType.NewProposal     => Icons.Material.Filled.CompareArrows,
+        NotificationType.ProposalAccepted => Icons.Material.Filled.CheckCircle,
+        NotificationType.ProposalRejected => Icons.Material.Filled.Cancel,
+        NotificationType.StickerAvailable => Icons.Material.Filled.Style,
+        NotificationType.AuctionEnding   => Icons.Material.Filled.Timer,
+        NotificationType.NewBid          => Icons.Material.Filled.Gavel,
+        NotificationType.RatingReceived  => Icons.Material.Filled.Star,
+        _                                => Icons.Material.Filled.Notifications
+    };
+
+    private static string GetIconColor(NotificationType type) => type switch
+    {
+        NotificationType.NewProposal     => "var(--mud-palette-info)",
+        NotificationType.ProposalAccepted => "var(--mud-palette-success)",
+        NotificationType.ProposalRejected => "var(--mud-palette-error)",
+        NotificationType.StickerAvailable => "var(--mud-palette-primary)",
+        NotificationType.AuctionEnding   => "var(--mud-palette-warning)",
+        NotificationType.NewBid          => "var(--mud-palette-warning)",
+        NotificationType.RatingReceived  => "#f4c430",
+        _                                => "var(--mud-palette-text-secondary)"
+    };
+
+    private static string GetRelativeTime(DateTime dateTime)
+    {
+        var diff = DateTime.Now - dateTime;
+        if (diff.TotalSeconds < 60) return "ahora mismo";
+        if (diff.TotalMinutes < 60) return $"hace {(int)diff.TotalMinutes} min";
+        if (diff.TotalHours  < 24) return $"hace {(int)diff.TotalHours} h";
+        if (diff.TotalDays   < 2)  return "ayer";
+        if (diff.TotalDays   < 7)  return $"hace {(int)diff.TotalDays} días";
+        return dateTime.ToString("dd/MM/yyyy");
+    }
+
+    public void Dispose()
+    {
+        NotifService.OnChange -= HandleChange;
+    }
+}

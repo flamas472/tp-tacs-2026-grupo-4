@@ -1,0 +1,276 @@
+@page "/perfil/{Username}"
+@attribute [Authorize]
+@using System.Globalization
+@using Figuritas.Client.Models
+@using Figuritas.Client.Services
+
+@inject UserProfileService ProfileService
+@inject NavigationManager Nav
+
+<PageTitle>@Username — FiguriTACS</PageTitle>
+
+@if (_loading)
+{
+    <div class="sticker-list-feedback">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-3">Cargando perfil...</MudText>
+    </div>
+}
+else if (profile == null)
+{
+    <div class="sticker-list-feedback">
+        <MudIcon Icon="@Icons.Material.Outlined.PersonOff" Style="font-size:3rem;" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-3">Usuario no encontrado</MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+            No existe ningún usuario con el nombre "@Username".
+        </MudText>
+    </div>
+}
+else
+{
+    @* ─── Encabezado del perfil ─────────────────────────────────────────────── *@
+    <MudPaper Class="user-profile-header pa-4 mb-4" Elevation="2">
+        <MudAvatar Color="@GetAvatarColor(profile.Username)"
+                   Style="width: var(--profile-avatar-size); height: var(--profile-avatar-size); font-size: calc(var(--profile-avatar-size) * 0.4); flex-shrink: 0;">
+            @GetInitials(profile.Username)
+        </MudAvatar>
+
+        <div class="user-profile-info">
+            <MudText Typo="Typo.h5" Class="mb-1"><strong>@profile.Username</strong></MudText>
+
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">
+                Miembro desde @profile.RegisteredAt.ToString("MMMM 'del' yyyy", new CultureInfo("es-AR"))
+            </MudText>
+
+            @if (profile.TotalReviews > 0)
+            {
+                <div class="user-profile-rep-row mb-2">
+                    <MudRating SelectedValue="@((int)Math.Round(profile.AverageReputation))"
+                               MaxValue="5"
+                               ReadOnly="true"
+                               Color="Color.Warning"
+                               Size="Size.Small" />
+                    <MudText Typo="Typo.body2" Class="ml-2">
+                        <strong>@profile.AverageReputation.ToString("F1", CultureInfo.InvariantCulture)</strong>
+                        <span style="color: var(--mud-palette-text-secondary);">
+                            — @profile.TotalReviews @(profile.TotalReviews == 1 ? "reseña" : "reseñas")
+                        </span>
+                    </MudText>
+                </div>
+            }
+
+            <div class="d-flex align-center gap-1">
+                <MudIcon Icon="@Icons.Material.Filled.Handshake" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @profile.CompletedExchanges @(profile.CompletedExchanges == 1 ? "intercambio completado" : "intercambios completados")
+                </MudText>
+            </div>
+        </div>
+    </MudPaper>
+
+    @* ─── Sección de reseñas ─────────────────────────────────────────────────── *@
+    <MudGrid Spacing="3">
+
+        @* ─── Columna izquierda: distribución de estrellas ────────────────────── *@
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-4" Elevation="1" Style="height: 100%; box-sizing: border-box;">
+                <MudText Typo="Typo.h6" Class="mb-3">Distribución de reseñas</MudText>
+
+                @for (int s = 5; s >= 1; s--)
+                {
+                    var stars = s;
+                    var pct = profile.GetStarPercentage(stars);
+                    <div class="star-bar-row">
+                        <MudText Typo="Typo.caption" Class="star-bar-label">@stars ★</MudText>
+                        <MudTooltip Text="@($"{pct:F0}%")">
+                            <MudProgressLinear Value="@pct"
+                                               Max="100"
+                                               Color="Color.Warning"
+                                               Rounded="true"
+                                               Class="star-bar-progress" />
+                        </MudTooltip>
+                        <MudText Typo="Typo.caption" Class="star-bar-count">
+                            @profile.StarCounts[stars - 1]
+                        </MudText>
+                    </div>
+                }
+
+                @if (profile.TotalReviews == 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-3 d-block">
+                        Este usuario aún no tiene reseñas.
+                    </MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* ─── Columna derecha: lista de reseñas ───────────────────────────────── *@
+        <MudItem xs="12" md="8">
+
+            @* Filtro por cantidad de estrellas *@
+            <div class="review-filter-row mb-3">
+                <MudText Typo="Typo.subtitle2" Class="mr-2" Style="white-space: nowrap;">Filtrar por:</MudText>
+                <div class="review-filter-chips">
+                    <MudButton Size="Size.Small"
+                               Variant="@(selectedStarFilter == null ? Variant.Filled : Variant.Outlined)"
+                               Color="Color.Primary"
+                               OnClick="@(() => SetStarFilter(null))"
+                               Class="mr-1 mb-1">
+                        Todas
+                    </MudButton>
+                    @for (int s = 5; s >= 1; s--)
+                    {
+                        var stars = s;
+                        <MudButton Size="Size.Small"
+                                   Variant="@(selectedStarFilter == stars ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Warning"
+                                   OnClick="@(() => SetStarFilter(stars))"
+                                   Class="mr-1 mb-1">
+                            @stars ★
+                        </MudButton>
+                    }
+                </div>
+            </div>
+
+            @* Lista de reseñas *@
+            @{
+                var filteredReviews = FilteredReviews;
+            }
+
+            @if (filteredReviews.Count == 0)
+            {
+                <div class="sticker-list-feedback" style="padding: 2rem 1rem; min-height: 0;">
+                    <MudIcon Icon="@Icons.Material.Outlined.RateReview"
+                             Style="font-size: 2.5rem;" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">
+                        @(selectedStarFilter.HasValue
+                            ? $"No hay reseñas de {selectedStarFilter.Value} {(selectedStarFilter.Value == 1 ? "estrella" : "estrellas")}."
+                            : $"{profile!.Username} aún no tiene reseñas.")
+                    </MudText>
+                </div>
+            }
+            else
+            {
+                @foreach (var review in filteredReviews.Take(displayCount))
+                {
+                    <MudPaper @key="@($"{review.Id}_{review.ReviewerUsername}")"
+                              Class="review-card pa-3 mb-3"
+                              Elevation="1">
+                        <div class="review-header">
+                            <MudAvatar Color="@GetAvatarColor(review.ReviewerUsername)"
+                                       Size="Size.Small"
+                                       Class="review-avatar">
+                                @GetInitials(review.ReviewerUsername)
+                            </MudAvatar>
+                            <div class="review-header-info">
+                                <MudText Typo="Typo.subtitle2">@review.ReviewerUsername</MudText>
+                                <MudRating SelectedValue="@review.Stars"
+                                           MaxValue="5"
+                                           ReadOnly="true"
+                                           Color="Color.Warning"
+                                           Size="Size.Small" />
+                            </div>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="review-date">
+                                @GetRelativeDate(review.CreatedAt)
+                            </MudText>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(review.Comment))
+                        {
+                            <MudText Typo="Typo.body2" Class="mt-2 review-comment">
+                                "@review.Comment"
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 review-comment fst-italic">
+                                Sin comentario.
+                            </MudText>
+                        }
+                    </MudPaper>
+                }
+
+                @if (filteredReviews.Count > displayCount)
+                {
+                    <div class="d-flex justify-center mt-2 mb-2">
+                        <MudButton OnClick="LoadMore"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.ExpandMore">
+                            Cargar más reseñas (@(filteredReviews.Count - displayCount) restantes)
+                        </MudButton>
+                    </div>
+                }
+            }
+
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    /// <summary>Nombre de usuario del perfil a mostrar (tomado de la ruta /perfil/{Username}).</summary>
+    [Parameter] public string Username { get; set; } = string.Empty;
+
+    private UserProfileViewModel? profile;
+    private int? selectedStarFilter;
+    private int displayCount = 5;
+    private string? _loadedUsername;
+    private bool _loading = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Username == _loadedUsername) return;
+
+        _loadedUsername = Username;
+        profile = null;
+        _loading = true;
+        displayCount = 5;
+        selectedStarFilter = null;
+        StateHasChanged();
+
+        profile = await ProfileService.GetProfileAsync(Username);
+        _loading = false;
+    }
+
+    // ── Reseñas filtradas ───────────────────────────────────────────────────
+
+    private List<UserReviewViewModel> FilteredReviews =>
+        profile == null ? new()
+        : selectedStarFilter.HasValue
+            ? profile.Reviews.Where(r => r.Stars == selectedStarFilter.Value).ToList()
+            : profile.Reviews;
+
+    // ── Handlers ────────────────────────────────────────────────────────────
+
+    private void SetStarFilter(int? stars)
+    {
+        selectedStarFilter = stars;
+        displayCount = 5;
+    }
+
+    private void LoadMore() => displayCount += 5;
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    private static string GetInitials(string username) =>
+        string.IsNullOrEmpty(username) ? "?"
+        : username.Length >= 2 ? username[..2].ToUpper()
+        : username.ToUpper();
+
+    private static Color GetAvatarColor(string username)
+    {
+        var palette = new[] { Color.Primary, Color.Secondary, Color.Tertiary, Color.Success, Color.Warning, Color.Info, Color.Error };
+        return palette[(uint)username.GetHashCode() % (uint)palette.Length];
+    }
+
+    private static string GetRelativeDate(DateTime date)
+    {
+        var diff = DateTime.Now - date;
+        if (diff.TotalDays < 1)   return "hoy";
+        if (diff.TotalDays < 2)   return "ayer";
+        if (diff.TotalDays < 7)   return $"hace {(int)diff.TotalDays} días";
+        if (diff.TotalDays < 30)  return $"hace {(int)(diff.TotalDays / 7)} semanas";
+        if (diff.TotalDays < 365) return $"hace {(int)(diff.TotalDays / 30)} meses";
+        return date.ToString("MMMM yyyy", new CultureInfo("es-AR"));
+    }
+}

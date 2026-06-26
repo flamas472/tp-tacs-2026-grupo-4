@@ -46,7 +46,8 @@ public class UserService(
         var user = new User
         {
             Username = username,
-            HashedPassword = BCrypt.Net.BCrypt.HashPassword(password)
+            HashedPassword = BCrypt.Net.BCrypt.HashPassword(password),
+            CreatedAt = DateTime.UtcNow
         };
 
         try
@@ -159,8 +160,8 @@ public class UserService(
             await _notificationService.SendNotificationAsync(
                 interestedUserId,
                 NotificationType.MissingStickerAvailable,
-                "Missing Sticker Now Available",
-                $"Sticker #{sticker.Number} ({sticker.Description}) is now available for exchange.",
+                "Figurita faltante disponible",
+                $"Alguien publicó como repetida la figurita #{sticker.Number} ({sticker.Description}) que te falta. ¡No dejes pasar la oportunidad de proponer un intercambio!",
                 referenceId: userSticker.Id);
         }
 
@@ -225,29 +226,43 @@ public class UserService(
 
     public List<MarketStickerResponseDTO> SearchMarketStickers(GetMarketStickersDTO dto, int callerUserId)
     {
-        var filter = dto.ToPredicate(callerUserId);
+        List<int>? allowedOwnerIds = null;
+        if (dto.MinReputation != null)
+        {
+            allowedOwnerIds = _userRepo.GetAll()
+                .Where(u => u.Reputation >= dto.MinReputation.Value)
+                .Select(u => u.Id)
+                .ToList();
+        }
+
+        var filter = dto.ToPredicate(callerUserId, allowedOwnerIds);
         var userStickers = _inventoryRepo.GetPaginated(dto.Page, dto.PageSize, filter, sortDescending: true);
 
-        // Resolve all owner usernames in a single batch query to avoid N+1 calls.
+        // Resolve all owner data in a single batch query to avoid N+1 calls.
         var ownerIds = userStickers.Select(us => us.UserId).Distinct().ToList();
         var ownerMap = _userRepo.GetByIds(ownerIds)
-            .ToDictionary(u => u.Id, u => u.Username);
+            .ToDictionary(u => u.Id);
 
-        return userStickers.Select(us => new MarketStickerResponseDTO
+        return userStickers.Select(us =>
         {
-            UserStickerId = us.Id,
-            OwnerId = us.UserId,
-            StickerId = us.Sticker.Id,
-            StickerNumber = us.Sticker.Number,
-            StickerNationalTeam = us.Sticker.NationalTeam,
-            StickerTeam = us.Sticker.Team,
-            StickerCategory = us.Sticker.Category,
-            StickerDescription = us.Sticker.Description,
-            StickerImageUrl = us.Sticker.ImageUrl,
-            Quantity = us.Quantity,
-            CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
-            CanBeAuctioned = us.CanBeAuctioned,
-            OwnerUsername = ownerMap.GetValueOrDefault(us.UserId, string.Empty)
+            ownerMap.TryGetValue(us.UserId, out var owner);
+            return new MarketStickerResponseDTO
+            {
+                UserStickerId = us.Id,
+                OwnerId = us.UserId,
+                StickerId = us.Sticker.Id,
+                StickerNumber = us.Sticker.Number,
+                StickerNationalTeam = us.Sticker.NationalTeam,
+                StickerTeam = us.Sticker.Team,
+                StickerCategory = us.Sticker.Category,
+                StickerDescription = us.Sticker.Description,
+                StickerImageUrl = us.Sticker.ImageUrl,
+                Quantity = us.Quantity,
+                CanBeDirectlyExchanged = us.CanBeDirectlyExchanged,
+                CanBeAuctioned = us.CanBeAuctioned,
+                OwnerUsername = owner?.Username ?? string.Empty,
+                OwnerReputation = owner?.Reputation ?? 0
+            };
         }).ToList();
     }
 
@@ -290,9 +305,16 @@ public class UserService(
         User? user = _userRepo.GetById(userId);
         if (user == null) throw new ArgumentException("User not found");
 
-        return user.Ratings
+        var pageRatings = user.Ratings
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
+            .ToList();
+
+        var evaluatorIds = pageRatings.Select(r => r.EvaluatorUserId).Distinct().ToList();
+        var evaluatorMap = _userRepo.GetByIds(evaluatorIds)
+            .ToDictionary(u => u.Id, u => u.Username);
+
+        return pageRatings
             .Select(r => new RatingResponseDTO
             {
                 Id = r.Id,
@@ -301,7 +323,8 @@ public class UserService(
                 TargetUserId = r.TargetUserId,
                 Stars = r.Stars,
                 Comment = r.Comment,
-                CreatedAt = r.CreatedAt
+                CreatedAt = r.CreatedAt,
+                EvaluatorUsername = evaluatorMap.GetValueOrDefault(r.EvaluatorUserId, string.Empty)
             })
             .ToList();
     }
@@ -363,5 +386,13 @@ public class UserService(
         if (user == null) throw new ArgumentException("User not found");
 
         return user.Reputation;
+    }
+
+    public long GetCompletedExchangesCount(int userId)
+    {
+        if (!_userRepo.ExistsId(userId))
+            throw new ArgumentException("User not found");
+
+        return _exchangeRepo.CountByUserId(userId);
     }
 }

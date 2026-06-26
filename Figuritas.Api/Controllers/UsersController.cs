@@ -221,8 +221,24 @@ public class UsersController : ControllerBase
             Id = user.Id,
             Username = user.Username,
             Reputation = user.Reputation,
-            Banned = user.Banned
+            Banned = user.Banned,
+            CreatedAt = user.CreatedAt
         });
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id}/completed-exchanges")]
+    public ActionResult<CompletedExchangesResponseDTO> GetCompletedExchanges(int id)
+    {
+        try
+        {
+            var count = _userService.GetCompletedExchangesCount(id);
+            return Ok(new CompletedExchangesResponseDTO { CompletedExchanges = count });
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 
     [AllowAnonymous]
@@ -236,7 +252,8 @@ public class UsersController : ControllerBase
             Id = user.Id,
             Username = user.Username,
             Reputation = user.Reputation,
-            Banned = user.Banned
+            Banned = user.Banned,
+            CreatedAt = user.CreatedAt
         });
     }
 
@@ -258,7 +275,8 @@ public class UsersController : ControllerBase
                 Id = user.Id,
                 Username = user.Username,
                 Reputation = user.Reputation,
-                Banned = user.Banned
+                Banned = user.Banned,
+                CreatedAt = user.CreatedAt
             };
             return Ok(response);
         }
