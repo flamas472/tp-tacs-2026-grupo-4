@@ -174,9 +174,10 @@ else
 
     private string _activeFilter = FilterAll;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         NotifService.OnChange += HandleChange;
+        await NotifService.LoadAsync();
     }
 
     private void HandleChange() => InvokeAsync(StateHasChanged);

@@ -30,6 +30,23 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
+
+    // SignalR WebSocket connections cannot send HTTP headers, so the JWT token
+    // is passed as the 'access_token' query parameter during the upgrade handshake.
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) &&
+                path.StartsWithSegments("/api/notification-hub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddControllers()
@@ -145,10 +162,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseCors("BlazorLocalPolicy");
+
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.UseCors("BlazorLocalPolicy");
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/api/notification-hub");

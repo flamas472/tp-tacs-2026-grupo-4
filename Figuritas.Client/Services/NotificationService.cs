@@ -1,5 +1,6 @@
 using Figuritas.Client.Models;
 using Figuritas.Client.Requests;
+using Figuritas.Shared.DTO.response;
 using SharedNotifType = Figuritas.Shared.Model.Notificaciones.NotificationType;
 
 namespace Figuritas.Client.Services;
@@ -11,6 +12,7 @@ namespace Figuritas.Client.Services;
 public class NotificationService
 {
     private readonly DashboardHttpClient _dashboardHttp;
+    private readonly NotificationHubService _hubService;
     private readonly List<AppNotification> _notifications = new();
     private bool _loaded = false;
 
@@ -21,17 +23,24 @@ public class NotificationService
 
     public int UnreadCount => _notifications.Count(n => !n.IsRead);
 
-    public NotificationService(DashboardHttpClient dashboardHttp)
+    public NotificationService(DashboardHttpClient dashboardHttp, NotificationHubService hubService)
     {
         _dashboardHttp = dashboardHttp;
+        _hubService = hubService;
+        _hubService.OnNotificationReceived += AddRealtimeNotification;
     }
 
     /// <summary>
-    /// Carga las notificaciones desde el backend si aún no fueron cargadas.
-    /// Llamar desde el componente de campana al inicializar.
+    /// Carga las notificaciones desde el backend si aún no fueron cargadas
+    /// e inicia la conexión SignalR para actualizaciones en tiempo real.
     /// </summary>
     public async Task LoadAsync()
     {
+        // El inicio del hub es independiente de la carga HTTP: se reintenta siempre
+        // que la conexión no esté activa, incluso si los datos ya fueron cargados.
+        if (!_hubService.IsConnected)
+            _ = _hubService.StartAsync();
+
         if (_loaded) return;
         await FetchFromBackendAsync();
     }
@@ -102,6 +111,25 @@ public class NotificationService
             .OrderByDescending(n => n.CreatedAt)
             .Take(count)
             .ToList();
+
+    // ─── Tiempo real ────────────────────────────────────────────────────────────
+
+    private void AddRealtimeNotification(NotificationResponseDTO dto)
+    {
+        if (_notifications.Any(n => n.Id == dto.Id)) return;
+
+        _notifications.Insert(0, new AppNotification
+        {
+            Id            = dto.Id,
+            Type          = MapNotificationType(dto.Type),
+            Title         = dto.Title,
+            Message       = dto.Message,
+            IsRead        = dto.IsRead,
+            CreatedAt     = dto.CreatedAt,
+            NavigationUrl = GetNavigationUrl(dto.Type)
+        });
+        OnChange?.Invoke();
+    }
 
     // ─── Mapeos internos ────────────────────────────────────────────────────────
 
