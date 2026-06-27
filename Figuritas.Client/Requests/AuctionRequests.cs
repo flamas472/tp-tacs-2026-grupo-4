@@ -280,6 +280,31 @@ namespace Figuritas.Client.Requests
         }
 
         /// <summary>
+        /// Clears the auctioneer's pre-selected favorite offer without closing the auction.
+        /// Maps to DELETE /api/auctions/{auctionId}/selected-offer.
+        /// </summary>
+        public async Task<ApiResponse<bool>> ClearBestOfferAsync(int auctionId, string authToken)
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Delete, $"api/auctions/{auctionId}/selected-offer");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", authToken);
+
+                var response = await _http.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                    return ApiResponse<bool>.Ok(true);
+
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                return ApiResponse<bool>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+            }
+            catch (Exception ex)
+            {
+                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Allows the auctioneer to pre-select a preferred offer without closing the auction.
         /// Maps to PATCH /api/auctions/{auctionId}/selected-offer.
         /// </summary>

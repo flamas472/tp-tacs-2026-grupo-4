@@ -49,12 +49,12 @@ public class AuctionsController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<AuctionResponseDTO> PostAuction([FromBody] PostAuctionRequestDTO dto)
+    public async Task<ActionResult<AuctionResponseDTO>> PostAuction([FromBody] PostAuctionRequestDTO dto)
     {
         try
         {
             var callerUserId = _authService.GetUserIdFromToken(User);
-            var auction = _auctionService.CreateAuction(callerUserId, dto);
+            var auction = await _auctionService.CreateAuction(callerUserId, dto);
             return CreatedAtAction(nameof(GetAuction), new { id = auction.Id }, auction);
         }
         catch (InvalidOperationException ex)
@@ -167,6 +167,29 @@ public class AuctionsController : ControllerBase
             var callerUserId = _authService.GetUserIdFromToken(User);
             var offer = await _auctionService.UpdateOfferAsync(auctionId, offerId, dto, callerUserId);
             return Ok(offer);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{auctionId}/selected-offer")]
+    public async Task<ActionResult<AuctionResponseDTO>> ClearSelectedOffer(int auctionId)
+    {
+        try
+        {
+            var callerUserId = _authService.GetUserIdFromToken(User);
+            var auction = await _auctionService.ClearBestOfferAsync(auctionId, callerUserId);
+            return Ok(auction);
         }
         catch (KeyNotFoundException ex)
         {

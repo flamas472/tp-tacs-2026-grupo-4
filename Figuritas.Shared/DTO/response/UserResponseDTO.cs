@@ -12,8 +12,9 @@ public class UserResponseDTO
     public DateTime CreatedAt { get; set; }
     /// <summary>
     /// Rol del usuario. Solo lo populan los endpoints del área de administración;
-    /// los endpoints públicos lo dejan en null.
+    /// los endpoints públicos lo dejan en null y no lo serializan.
     /// </summary>
     [JsonConverter(typeof(JsonStringEnumConverter))]
+    [JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public UserRole? Role { get; set; }
 }

@@ -53,26 +53,29 @@ public class SuggestionService(
             var candidateMissingOrdered = missingByUser.GetValueOrDefault(candidateUserId, new List<MissingSticker>());
             var candidateMissingIds = candidateMissingOrdered.Select(ms => ms.StickerId).ToHashSet();
 
-            // Only include mutual matches: skip candidate if caller has nothing the candidate needs
-            if (!callerOwned.Any(sId => candidateMissingIds.Contains(sId)))
-                continue;
+            // A perfect match means the candidate needs at least one sticker the caller can offer.
+            // Simple matches (A needs from B but B needs nothing from A) are excluded.
+            var isPerfectMatch = callerOwned.Any(sId => candidateMissingIds.Contains(sId));
+            if (!isPerfectMatch) continue;
 
             candidateUsers.TryGetValue(candidateUserId, out var candidateUser);
 
-            // All caller stickers the candidate needs, ordered by candidate's RegisteredAt (oldest first)
-            var callerMatchedStickers = candidateMissingOrdered
-                .Where(ms => callerOwned.Contains(ms.StickerId))
-                .Select(ms => callerStickers.FirstOrDefault(us => us.Sticker.Id == ms.StickerId))
-                .Where(us => us != null)
-                .Cast<UserSticker>()
-                .Select(us => new StickerPreviewDTO
-                {
-                    UserStickerId = us.Id,
-                    Number        = us.Sticker.Number,
-                    ImageUrl      = us.Sticker.ImageUrl ?? string.Empty,
-                    Description   = us.Sticker.Description ?? string.Empty
-                })
-                .ToList();
+            // All caller stickers the candidate needs, ordered by candidate's RegisteredAt (oldest first).
+            var callerMatchedStickers = isPerfectMatch
+                ? candidateMissingOrdered
+                    .Where(ms => callerOwned.Contains(ms.StickerId))
+                    .Select(ms => callerStickers.FirstOrDefault(us => us.Sticker.Id == ms.StickerId))
+                    .Where(us => us != null)
+                    .Cast<UserSticker>()
+                    .Select(us => new StickerPreviewDTO
+                    {
+                        UserStickerId = us.Id,
+                        Number        = us.Sticker.Number,
+                        ImageUrl      = us.Sticker.ImageUrl ?? string.Empty,
+                        Description   = us.Sticker.Description ?? string.Empty
+                    })
+                    .ToList()
+                : new List<StickerPreviewDTO>();
 
             foreach (var listing in group)
             {
@@ -89,14 +92,15 @@ public class SuggestionService(
                     StickerDescription    = listing.Sticker.Description ?? string.Empty,
                     StickerImageUrl       = listing.Sticker.ImageUrl ?? string.Empty,
                     TheirQuantity         = listing.Quantity,
-                    IsPerfectMatch        = true,
+                    IsPerfectMatch        = isPerfectMatch,
                     CallerMatchedStickers = callerMatchedStickers
                 });
             }
         }
 
-        // Paso 7: paginar (todos los resultados son matches mutuos)
+        // Paso 7: ordenar (perfectos primero) y paginar.
         return results
+            .OrderByDescending(r => r.IsPerfectMatch)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToList();

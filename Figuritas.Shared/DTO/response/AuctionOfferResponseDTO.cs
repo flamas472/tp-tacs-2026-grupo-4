@@ -12,4 +12,11 @@ public class AuctionOfferResponseDTO
 
     /// <summary>Username of the user who placed this offer.</summary>
     public string BidderUsername { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Preview details for every sticker committed to this offer, including those that have
+    /// been deactivated (Active=false / Quantity=0) because their stock was fully reserved.
+    /// Populated server-side so the client never needs to filter by Active.
+    /// </summary>
+    public List<StickerPreviewDTO> OfferedStickerPreviews { get; set; } = new();
 }

@@ -301,8 +301,14 @@
         isCurrentWinner = myOffer.Id == Auction.BestCurrentOfferId
                           || myOffer.Id == Auction.UserSelectedBestOfferId;
 
-        // Cargar previews de stickers de la oferta a partir de los stickers del usuario (uses cache)
-        if (myOffer.OfferedUserStickerIds.Any() && cachedUserStickers is not null)
+        // Primary source: previews embedded in the DTO by the server.
+        // These include stickers with Active=false (stock fully reserved), so they are
+        // always present even when the user's visible inventory shows Quantity=0.
+        myOfferStickers = myOffer.OfferedStickerPreviews;
+
+        // Fallback: build previews from the cached active stickers in case the server
+        // returned an empty list (e.g. old data before the OfferedStickerPreviews field existed).
+        if (!myOfferStickers.Any() && myOffer.OfferedUserStickerIds.Any() && cachedUserStickers is not null)
         {
             var idSet = myOffer.OfferedUserStickerIds.ToHashSet();
             myOfferStickers = cachedUserStickers

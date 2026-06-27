@@ -1,4 +1,5 @@
 using BCrypt.Net;
+using Figuritas.Api.Exceptions;
 using Figuritas.Api.Repositories;
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.DTO.request;
@@ -17,7 +18,9 @@ public class UserService(
     StickerService stickerService,
     IExchangeRepository exchangeRepo,
     IMissingStickerRepository missingStickerRepo,
-    INotificationService notificationService
+    INotificationService notificationService,
+    IExchangeProposalRepository exchangeProposalRepo,
+    IAuctionRepository auctionRepo
     )
 {
     private readonly IUserStickerRepository _inventoryRepo = inventoryRepo;
@@ -26,6 +29,8 @@ public class UserService(
     private readonly IExchangeRepository _exchangeRepo = exchangeRepo;
     private readonly IMissingStickerRepository _missingStickerRepo = missingStickerRepo;
     private readonly INotificationService _notificationService = notificationService;
+    private readonly IExchangeProposalRepository _exchangeProposalRepo = exchangeProposalRepo;
+    private readonly IAuctionRepository _auctionRepo = auctionRepo;
 
     public User? GetUserById(int id) => _userRepo.GetById(id);
 
@@ -145,8 +150,45 @@ public class UserService(
             Active = true
         };
 
-        if (_inventoryRepo.Exists(userSticker))
-            throw new ArgumentException("Inventory already registered");
+        // Upsert: if the user already has this catalog sticker, increment quantity instead of creating.
+        var existing = await _inventoryRepo.GetByUserIdAndCatalogIdIncludingInactiveAsync(userId, data.StickerId);
+        if (existing != null)
+        {
+            // Retry loop for optimistic concurrency (same pattern as UpdateUserSticker).
+            for (var attempt = 1; attempt <= 3; attempt++)
+            {
+                var fresh = await _inventoryRepo.GetByUserIdAndCatalogIdIncludingInactiveAsync(userId, data.StickerId)
+                    ?? throw new ArgumentException("Sticker not found in inventory");
+
+                fresh.Quantity += data.Quantity;
+                fresh.Active = true;
+                fresh.CanBeDirectlyExchanged = data.CanBeDirectlyExchanged;
+                fresh.CanBeAuctioned = data.CanBeAuctioned;
+
+                try
+                {
+                    _inventoryRepo.Update(fresh);
+                    // Send notifications only if the sticker was previously inactive (reactivated).
+                    if (!existing.Active)
+                    {
+                        var reactivatedInterestedUserIds = await _missingStickerRepo.GetUserIdsForStickerAsync(data.StickerId);
+                        foreach (var interestedUserId in reactivatedInterestedUserIds)
+                        {
+                            if (interestedUserId == userId) continue;
+                            await _notificationService.SendNotificationAsync(
+                                interestedUserId,
+                                NotificationType.MissingStickerAvailable,
+                                "Figurita faltante disponible",
+                                $"Alguien publicó como repetida la figurita #{sticker.Number} ({sticker.Description}) que te falta. ¡No dejes pasar la oportunidad de proponer un intercambio!",
+                                referenceId: fresh.Id);
+                        }
+                    }
+                    return fresh;
+                }
+                catch (OptimisticConcurrencyException) when (attempt < 3) { }
+            }
+            throw new OptimisticConcurrencyException($"UserSticker could not be updated after 3 attempts.");
+        }
 
         _inventoryRepo.Add(userSticker);
 
@@ -266,7 +308,7 @@ public class UserService(
         }).ToList();
     }
 
-    public UserSticker UpdateUserSticker(int stickerId, bool? canBeDirectlyExchanged, bool? canBeAuctioned, int? quantity, int authenticatedUserId)
+    public async Task<UserSticker> UpdateUserSticker(int stickerId, bool? canBeDirectlyExchanged, bool? canBeAuctioned, int? quantity, int authenticatedUserId)
     {
         var sticker = _inventoryRepo.GetById(stickerId);
         if (sticker == null)
@@ -275,20 +317,52 @@ public class UserService(
         if (sticker.UserId != authenticatedUserId)
             throw new UnauthorizedAccessException("You do not own this sticker resource.");
 
-        if (canBeDirectlyExchanged.HasValue)
-            sticker.CanBeDirectlyExchanged = canBeDirectlyExchanged.Value;
-
-        if (canBeAuctioned.HasValue)
-            sticker.CanBeAuctioned = canBeAuctioned.Value;
-
+        // TAREA 7: Guard quantity reduction when the sticker has active reservations.
         if (quantity.HasValue)
-            sticker.Quantity = quantity.Value;
+        {
+            if (await _exchangeProposalRepo.HasActivePendingProposalForOfferedStickerAsync(stickerId))
+                throw new InvalidOperationException(
+                    "Cannot modify quantity: sticker is committed to a pending exchange proposal.");
 
-        _inventoryRepo.Update(sticker);
-        return sticker;
+            if (await _auctionRepo.HasActiveAuctionForUserStickerAsync(stickerId))
+                throw new InvalidOperationException(
+                    "Cannot modify quantity: sticker is listed in an active auction.");
+        }
+
+        // TAREA 8: Optimistic concurrency retry loop — up to 3 attempts.
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            var fresh = _inventoryRepo.GetById(stickerId)
+                ?? throw new ArgumentException("Sticker not found");
+
+            if (fresh.UserId != authenticatedUserId)
+                throw new UnauthorizedAccessException("You do not own this sticker resource.");
+
+            if (canBeDirectlyExchanged.HasValue)
+                fresh.CanBeDirectlyExchanged = canBeDirectlyExchanged.Value;
+
+            if (canBeAuctioned.HasValue)
+                fresh.CanBeAuctioned = canBeAuctioned.Value;
+
+            if (quantity.HasValue)
+                fresh.Quantity = quantity.Value;
+
+            try
+            {
+                _inventoryRepo.Update(fresh);
+                return fresh;
+            }
+            catch (OptimisticConcurrencyException) when (attempt < 3)
+            {
+                // Concurrent write detected — re-read and retry.
+            }
+        }
+
+        throw new OptimisticConcurrencyException(
+            $"UserSticker {stickerId} could not be updated after 3 attempts due to concurrent modifications.");
     }
 
-    public void DeleteUserSticker(int userStickerId, int authenticatedUserId)
+    public async Task DeleteUserSticker(int userStickerId, int authenticatedUserId)
     {
         var sticker = _inventoryRepo.GetById(userStickerId);
         if (sticker == null)
@@ -296,6 +370,15 @@ public class UserService(
 
         if (sticker.UserId != authenticatedUserId)
             throw new UnauthorizedAccessException("You do not own this sticker resource.");
+
+        // TAREA 7: Prevent deletion while sticker has active reservations.
+        if (await _exchangeProposalRepo.HasActivePendingProposalForOfferedStickerAsync(userStickerId))
+            throw new InvalidOperationException(
+                "Cannot delete sticker: it is committed to a pending exchange proposal.");
+
+        if (await _auctionRepo.HasActiveAuctionForUserStickerAsync(userStickerId))
+            throw new InvalidOperationException(
+                "Cannot delete sticker: it is listed in an active auction.");
 
         _inventoryRepo.Delete(userStickerId);
     }
@@ -329,7 +412,7 @@ public class UserService(
             .ToList();
     }
 
-    public Rate CreateUserRate(PostRatingRequestDTO dto, int raterId)
+    public async Task<Rate> CreateUserRate(PostRatingRequestDTO dto, int raterId)
     {
         // Guard 1: Anti-self-rating
         if (raterId == dto.TargetUserId)
@@ -341,11 +424,6 @@ public class UserService(
         if (exchange == null)
             throw new ArgumentException("Exchange not found");
 
-        // Guard 3 (state): Exchange entity only exists once a proposal has been accepted and
-        // the trade was completed — there is no State field because the record itself is proof
-        // of finalization. No additional state check is required; reaching this point means
-        // the exchange is finalized by definition.
-
         // Guard 5: Rater must be a participant in the exchange
         if (exchange.ProponentID != raterId && exchange.ProposedID != raterId)
             throw new ArgumentException("Not participant");
@@ -355,14 +433,9 @@ public class UserService(
         if (dto.TargetUserId != expectedTargetId)
             throw new ArgumentException("Not participant");
 
-        var targetUser = _userRepo.GetById(dto.TargetUserId)
-            ?? throw new ArgumentException("Rated user not found");
-
-        // Guard 7: Anti-duplicate — one rating per rater per exchange
-        bool alreadyRated = targetUser.Ratings.Any(r =>
-            r.EvaluatorUserId == raterId && r.ExchangeId == dto.ExchangeId);
-        if (alreadyRated)
-            throw new ArgumentException("Already rated");
+        // Guard: target user must exist
+        if (_userRepo.GetById(dto.TargetUserId) == null)
+            throw new ArgumentException("Rated user not found");
 
         var rate = new Rate
         {
@@ -374,8 +447,11 @@ public class UserService(
             CreatedAt = DateTime.UtcNow
         };
 
-        targetUser.Ratings.Add(rate);
-        _userRepo.Update(targetUser);
+        // TAREA 3: Atomic $push conditioned on absence of (raterUserId, exchangeId) pair.
+        // Guards against concurrent duplicate ratings without a read-modify-write race.
+        var added = await _userRepo.TryAddRatingAsync(dto.TargetUserId, rate, raterId, dto.ExchangeId);
+        if (!added)
+            throw new ArgumentException("Already rated");
 
         return rate;
     }

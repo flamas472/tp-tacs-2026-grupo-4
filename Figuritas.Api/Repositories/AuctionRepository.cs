@@ -184,6 +184,48 @@ public class AuctionRepository : IAuctionRepository
         );
         var update = Builders<Auction>.Update.Set(a => a.UserSelectedBestOfferId, offerId);
         var result = await _auctions.UpdateOneAsync(filter, update);
+        return result.MatchedCount == 1;
+    }
+
+    /// <inheritdoc/>
+    public async Task SetBestCurrentOfferIdAsync(int auctionId, int? bestOfferId)
+    {
+        var filter = Builders<Auction>.Filter.Eq(a => a.Id, auctionId);
+        var update = Builders<Auction>.Update.Set(a => a.BestCurrentOfferId, bestOfferId);
+        await _auctions.UpdateOneAsync(filter, update);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> HasActiveAuctionForUserStickerAsync(int userStickerId)
+    {
+        var filter = Builders<Auction>.Filter.And(
+            Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active),
+            Builders<Auction>.Filter.Eq(a => a.UserStickerId, userStickerId)
+        );
+        return await _auctions.Find(filter).AnyAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> TryMarkFinalizationCompletedAsync(int auctionId)
+    {
+        var filter = Builders<Auction>.Filter.And(
+            Builders<Auction>.Filter.Eq(a => a.Id, auctionId),
+            Builders<Auction>.Filter.Eq(a => a.FinalizationCompleted, false)
+        );
+        var update = Builders<Auction>.Update.Set(a => a.FinalizationCompleted, true);
+        var result = await _auctions.UpdateOneAsync(filter, update);
         return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> TryClearUserSelectedBestOfferAsync(int auctionId)
+    {
+        var filter = Builders<Auction>.Filter.And(
+            Builders<Auction>.Filter.Eq(a => a.Id, auctionId),
+            Builders<Auction>.Filter.Eq(a => a.Status, AuctionStatus.Active)
+        );
+        var update = Builders<Auction>.Update.Unset(a => a.UserSelectedBestOfferId);
+        var result = await _auctions.UpdateOneAsync(filter, update);
+        return result.MatchedCount == 1;
     }
 }
