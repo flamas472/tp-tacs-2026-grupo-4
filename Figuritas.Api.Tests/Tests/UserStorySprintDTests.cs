@@ -47,7 +47,7 @@ public class UserStorySprintDTests : IAsyncLifetime
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "password123")
+    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "Password123")
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
@@ -55,13 +55,13 @@ public class UserStorySprintDTests : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
     }
 
-    private async Task<string> LoginAsync(string username, string password = "password123")
+    private async Task<string> LoginAsync(string username, string password = "Password123")
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient AuthClient(string token)

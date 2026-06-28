@@ -15,10 +15,12 @@ namespace Figuritas.Api.Services;
 public class AdminService
 {
     private readonly IUserRepository _userRepo;
+    private readonly IRefreshTokenRepository _refreshTokenRepo;
 
-    public AdminService(IUserRepository userRepo)
+    public AdminService(IUserRepository userRepo, IRefreshTokenRepository refreshTokenRepo)
     {
         _userRepo = userRepo;
+        _refreshTokenRepo = refreshTokenRepo;
     }
 
     public User CreateAdmin(CreateAdminRequestDTO dto)
@@ -112,7 +114,7 @@ public class AdminService
             .ToList();
     }
 
-    public void BanUser(int userId, int callerAdminId)
+    public async Task BanUserAsync(int userId, int callerAdminId)
     {
         if (userId == callerAdminId)
             throw new ArgumentException("Administrators cannot ban themselves.");
@@ -125,6 +127,10 @@ public class AdminService
 
         user.Banned = true;
         _userRepo.Update(user);
+
+        // Invalidate all active refresh tokens so a banned user cannot silently
+        // keep re-authenticating using a previously issued refresh token.
+        await _refreshTokenRepo.RevokeAllForUserAsync(userId.ToString());
     }
 
     public void UnbanUser(int userId)

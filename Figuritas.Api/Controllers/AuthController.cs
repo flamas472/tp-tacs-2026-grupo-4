@@ -1,8 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Figuritas.Api.Services;
 using Figuritas.Shared.DTO;
+using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
+
 namespace Figuritas.Api.Controllers;
 
 [ApiController]
@@ -19,19 +23,19 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public IActionResult Login([FromBody] PostUserDTO loginDto)
+    [EnableRateLimiting("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequestDTO loginDto)
     {
-        var user = _userService.ValidateCredentials(loginDto);
+        var user = _userService.ValidateCredentials(loginDto.Username, loginDto.Password);
+        if (user == null)
+            return Unauthorized("Invalid credentials.");
 
-        if (user == null) return Unauthorized("Invalid credentials.");
-
-        var token = _authService.GenerateToken(user);
-
-        // El verdadero debate de seguridad: ¿Dónde lo guarda el Frontend? 
-        return Ok(new { Token = token });
+        var response = await _authService.LoginAsync(user);
+        return Ok(response);
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting("register")]
     public ActionResult<UserResponseDTO> Register([FromBody] PostUserDTO userDTO)
     {
         try
@@ -51,12 +55,23 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("refresh")]
+    [EnableRateLimiting("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDTO dto)
+    {
+        var result = await _authService.RefreshTokensAsync(dto.RefreshToken);
+        if (result == null)
+            return Unauthorized("Invalid or expired refresh token.");
+
+        return Ok(result);
+    }
+
     [HttpPost("logout")]
     [Authorize]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequestDTO dto)
     {
-        // JWT is stateless — no server-side invalidation required.
-        // Clients are responsible for discarding the token on their side.
-        return Ok(new { Message = "Logged out successfully." });
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        await _authService.RevokeRefreshTokenAsync(dto.RefreshToken, userId);
+        return NoContent();
     }
 }

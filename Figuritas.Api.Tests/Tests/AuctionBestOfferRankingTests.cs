@@ -49,7 +49,7 @@ public class AuctionBestOfferRankingTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -153,12 +153,12 @@ public class AuctionBestOfferRankingTests : IAsyncLifetime
         var suffix = DateTime.UtcNow.Ticks.ToString();
 
         // Setup: auctioneer A, bidder B (first — 4 stickers), bidder C (second — 10 stickers)
-        var auctioneer = await RegisterUserAsync($"bof_c1_auc_{suffix}", "password123");
-        var bidderB = await RegisterUserAsync($"bof_c1_b_{suffix}", "password123");
-        var bidderC = await RegisterUserAsync($"bof_c1_c_{suffix}", "password123");
-        var tokenAuctioneer = await LoginAsync($"bof_c1_auc_{suffix}", "password123");
-        var tokenB = await LoginAsync($"bof_c1_b_{suffix}", "password123");
-        var tokenC = await LoginAsync($"bof_c1_c_{suffix}", "password123");
+        var auctioneer = await RegisterUserAsync($"bof_c1_auc_{suffix}", "Password123");
+        var bidderB = await RegisterUserAsync($"bof_c1_b_{suffix}", "Password123");
+        var bidderC = await RegisterUserAsync($"bof_c1_c_{suffix}", "Password123");
+        var tokenAuctioneer = await LoginAsync($"bof_c1_auc_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"bof_c1_b_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"bof_c1_c_{suffix}", "Password123");
         var clientAuctioneer = ClientWithToken(tokenAuctioneer);
         var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);
@@ -226,12 +226,12 @@ public class AuctionBestOfferRankingTests : IAsyncLifetime
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
 
-        var auctioneer = await RegisterUserAsync($"bof_c2_auc_{suffix}", "password123");
-        var bidderA = await RegisterUserAsync($"bof_c2_a_{suffix}", "password123");
-        var bidderB = await RegisterUserAsync($"bof_c2_b_{suffix}", "password123");
-        var tokenAuctioneer = await LoginAsync($"bof_c2_auc_{suffix}", "password123");
-        var tokenA = await LoginAsync($"bof_c2_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"bof_c2_b_{suffix}", "password123");
+        var auctioneer = await RegisterUserAsync($"bof_c2_auc_{suffix}", "Password123");
+        var bidderA = await RegisterUserAsync($"bof_c2_a_{suffix}", "Password123");
+        var bidderB = await RegisterUserAsync($"bof_c2_b_{suffix}", "Password123");
+        var tokenAuctioneer = await LoginAsync($"bof_c2_auc_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"bof_c2_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"bof_c2_b_{suffix}", "Password123");
         var clientAuctioneer = ClientWithToken(tokenAuctioneer);
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
@@ -295,12 +295,12 @@ public class AuctionBestOfferRankingTests : IAsyncLifetime
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
 
-        var auctioneer = await RegisterUserAsync($"bof_c3_auc_{suffix}", "password123");
-        var bidderA = await RegisterUserAsync($"bof_c3_a_{suffix}", "password123");
-        var bidderB = await RegisterUserAsync($"bof_c3_b_{suffix}", "password123");
-        var tokenAuctioneer = await LoginAsync($"bof_c3_auc_{suffix}", "password123");
-        var tokenA = await LoginAsync($"bof_c3_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"bof_c3_b_{suffix}", "password123");
+        var auctioneer = await RegisterUserAsync($"bof_c3_auc_{suffix}", "Password123");
+        var bidderA = await RegisterUserAsync($"bof_c3_a_{suffix}", "Password123");
+        var bidderB = await RegisterUserAsync($"bof_c3_b_{suffix}", "Password123");
+        var tokenAuctioneer = await LoginAsync($"bof_c3_auc_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"bof_c3_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"bof_c3_b_{suffix}", "Password123");
         var clientAuctioneer = ClientWithToken(tokenAuctioneer);
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
@@ -351,12 +351,12 @@ public class AuctionBestOfferRankingTests : IAsyncLifetime
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
 
-        var auctioneer = await RegisterUserAsync($"bof_change_auc_{suffix}", "password123");
-        var bidderA = await RegisterUserAsync($"bof_change_a_{suffix}", "password123");
-        var bidderB = await RegisterUserAsync($"bof_change_b_{suffix}", "password123");
-        var tokenAuctioneer = await LoginAsync($"bof_change_auc_{suffix}", "password123");
-        var tokenA = await LoginAsync($"bof_change_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"bof_change_b_{suffix}", "password123");
+        var auctioneer = await RegisterUserAsync($"bof_change_auc_{suffix}", "Password123");
+        var bidderA = await RegisterUserAsync($"bof_change_a_{suffix}", "Password123");
+        var bidderB = await RegisterUserAsync($"bof_change_b_{suffix}", "Password123");
+        var tokenAuctioneer = await LoginAsync($"bof_change_auc_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"bof_change_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"bof_change_b_{suffix}", "Password123");
         var clientAuctioneer = ClientWithToken(tokenAuctioneer);
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
@@ -403,12 +403,12 @@ public class AuctionBestOfferRankingTests : IAsyncLifetime
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
 
-        var auctioneer = await RegisterUserAsync($"bof_stay_auc_{suffix}", "password123");
-        var bidderA = await RegisterUserAsync($"bof_stay_a_{suffix}", "password123");
-        var bidderB = await RegisterUserAsync($"bof_stay_b_{suffix}", "password123");
-        var tokenAuctioneer = await LoginAsync($"bof_stay_auc_{suffix}", "password123");
-        var tokenA = await LoginAsync($"bof_stay_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"bof_stay_b_{suffix}", "password123");
+        var auctioneer = await RegisterUserAsync($"bof_stay_auc_{suffix}", "Password123");
+        var bidderA = await RegisterUserAsync($"bof_stay_a_{suffix}", "Password123");
+        var bidderB = await RegisterUserAsync($"bof_stay_b_{suffix}", "Password123");
+        var tokenAuctioneer = await LoginAsync($"bof_stay_auc_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"bof_stay_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"bof_stay_b_{suffix}", "Password123");
         var clientAuctioneer = ClientWithToken(tokenAuctioneer);
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);

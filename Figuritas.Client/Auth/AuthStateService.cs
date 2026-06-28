@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Figuritas.Client.Requests;
 using Figuritas.Shared.DTO;
+using Figuritas.Shared.DTO.request;
 
 namespace Figuritas.Client.Auth;
 
@@ -33,12 +34,13 @@ public class AuthStateService
     // Retorna null si OK, o el mensaje de error.
     public async Task<string?> LoginAsync(string username, string password)
     {
-        var result = await _authHttp.LoginAsync(new PostUserDTO { Username = username, Password = password });
-        if (!result.Success || result.Data?.Token == null)
+        var result = await _authHttp.LoginAsync(new LoginRequestDTO { Username = username, Password = password });
+        if (!result.Success || result.Data?.AccessToken == null)
             return result.ErrorMessage ?? "Credenciales inválidas.";
 
-        CacheClaimsFromToken(result.Data.Token);
-        await _provider.SetTokenAsync(result.Data.Token);
+        CacheClaimsFromToken(result.Data.AccessToken);
+        await _provider.SetTokenAsync(result.Data.AccessToken);
+        await _provider.SetRefreshTokenAsync(result.Data.RefreshToken);
         return null;
     }
 
@@ -54,11 +56,16 @@ public class AuthStateService
 
     public async Task LogoutAsync()
     {
+        var refreshToken = await _provider.GetRefreshTokenAsync();
+        if (!string.IsNullOrEmpty(refreshToken))
+            await _authHttp.LogoutAsync(refreshToken);
+
         UserId = 0;
         Username = string.Empty;
         IsAdmin = false;
         IsSuperAdmin = false;
         await _provider.SetTokenAsync(null);
+        await _provider.SetRefreshTokenAsync(null);
     }
 
     public async Task<string?> GetTokenAsync() => await _provider.GetTokenAsync();

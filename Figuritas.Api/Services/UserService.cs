@@ -78,13 +78,12 @@ public class UserService(
         return user;
     }
 
-    public User? ValidateCredentials(PostUserDTO userDTO)
+    public User? ValidateCredentials(string username, string password)
     {
-        var username = userDTO.Username;
-        var password = userDTO.Password;
-
         var user = _userRepo.GetByUsername(username);
         if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.HashedPassword))
+            return null;
+        if (user.Banned)
             return null;
         return user;
     }

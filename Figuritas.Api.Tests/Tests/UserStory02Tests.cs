@@ -47,7 +47,7 @@ public class UserStory02Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private async Task<int> GetFirstCatalogStickerIdAsync()
@@ -79,8 +79,8 @@ public class UserStory02Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us02_post_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var authenticatedClient = ClientWithToken(token);
@@ -108,8 +108,8 @@ public class UserStory02Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us02_dup_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var authenticatedClient = ClientWithToken(token);
@@ -130,8 +130,8 @@ public class UserStory02Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us02_inv_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
 
         var authenticatedClient = ClientWithToken(token);
         var dto = new PostMissingStickerRequestDTO { StickerId = 999999 };
@@ -149,8 +149,8 @@ public class UserStory02Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us02_get_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var authenticatedClient = ClientWithToken(token);
@@ -175,8 +175,8 @@ public class UserStory02Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us02_del_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var authenticatedClient = ClientWithToken(token);
@@ -201,10 +201,10 @@ public class UserStory02Tests : IAsyncLifetime
     public async Task US02_PostMissingSticker_WithDifferentUserId_Returns403()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us02_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us02_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us02_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us02_b_{uniqueSuffix}", "Password123");
 
-        var tokenA = await LoginAsync($"us02_a_{uniqueSuffix}", "password123");
+        var tokenA = await LoginAsync($"us02_a_{uniqueSuffix}", "Password123");
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var authenticatedClientA = ClientWithToken(tokenA);

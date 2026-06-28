@@ -1,4 +1,5 @@
 using Figuritas.Shared.DTO;
+using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Responses;
 using Figuritas.Client.Extensions;
@@ -6,8 +7,6 @@ using System.Net.Http.Json;
 
 namespace Figuritas.Client.Requests
 {
-    public record LoginResponse(string Token);
-
     public class AuthHttpClient
     {
         private readonly HttpClient _http;
@@ -17,7 +16,7 @@ namespace Figuritas.Client.Requests
             _http = http;
         }
 
-        public async Task<ApiResponse<LoginResponse>> LoginAsync(PostUserDTO dto)
+        public async Task<ApiResponse<LoginResponseDTO>> LoginAsync(LoginRequestDTO dto)
         {
             try
             {
@@ -25,18 +24,18 @@ namespace Figuritas.Client.Requests
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var data = await response.ProcesarRespuesta<LoginResponse>();
+                    var data = await response.ProcesarRespuesta<LoginResponseDTO>();
                     return data is not null
-                        ? ApiResponse<LoginResponse>.Ok(data)
-                        : ApiResponse<LoginResponse>.Fail("No se pudo leer el token de la respuesta.");
+                        ? ApiResponse<LoginResponseDTO>.Ok(data)
+                        : ApiResponse<LoginResponseDTO>.Fail("No se pudo leer el token de la respuesta.");
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<LoginResponse>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<LoginResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
             }
             catch (Exception ex)
             {
-                return ApiResponse<LoginResponse>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<LoginResponseDTO>.Fail($"Error de conexión: {ex.Message}");
             }
         }
 
@@ -63,11 +62,12 @@ namespace Figuritas.Client.Requests
             }
         }
 
-        public async Task<ApiResponse<bool>> LogoutAsync()
+        public async Task<ApiResponse<bool>> LogoutAsync(string refreshToken)
         {
             try
             {
-                var response = await _http.PostAsync("api/auth/logout", null);
+                var dto = new RefreshTokenRequestDTO { RefreshToken = refreshToken };
+                var response = await _http.PostAsJsonAsync("api/auth/logout", dto);
 
                 if (response.IsSuccessStatusCode)
                     return ApiResponse<bool>.Ok(true);

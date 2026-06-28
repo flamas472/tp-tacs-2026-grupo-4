@@ -5,6 +5,7 @@ using System.Text.Json;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Figuritas.Api.Tests;
@@ -35,7 +36,7 @@ public class SecurityTests : IAsyncLifetime
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "password123")
+    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "Password123")
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
@@ -43,13 +44,13 @@ public class SecurityTests : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
     }
 
-    private async Task<string> LoginAsync(string username, string password = "password123")
+    private async Task<string> LoginAsync(string username, string password = "Password123")
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -194,7 +195,7 @@ public class SecurityTests : IAsyncLifetime
         var tokenA = await LoginAsync($"sec002b_a_{suffix}");
         var clientA = ClientWithToken(tokenA);
 
-        var patchDto = new { Password = "hacked_password" };
+        var patchDto = new { Password = "Hacked_P4ssword" };
 
         var patchResponse = await clientA.PatchAsJsonAsync($"/api/users/{userB.Id}", patchDto);
 
@@ -272,5 +273,69 @@ public class SecurityTests : IAsyncLifetime
         var response = await _client.GetAsync("/api/users?username=");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // ─── AUTH-001: Login failure must return 401, never 200 ─────────────────
+
+    /// <summary>
+    /// AUTH-001-A: Login with a valid username but wrong password returns 401.
+    /// Regression guard: the old endpoint used PostUserDTO as the request body,
+    /// which applied password-complexity model validation. A mismatch between
+    /// registration-time and login-time validation could cause a 400 to be
+    /// returned instead of the expected 401.
+    /// </summary>
+    [Fact]
+    public async Task Login_WithWrongPassword_Returns401()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var username = $"auth001a_{suffix}";
+        await RegisterUserAsync(username);
+
+        var dto = new { Username = username, Password = "WrongPassword999" };
+        var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// AUTH-001-B: Login with a username that does not exist returns 401.
+    /// </summary>
+    [Fact]
+    public async Task Login_WithNonExistentUser_Returns401()
+    {
+        var dto = new { Username = "user_that_does_not_exist_xyz", Password = "AnyPassword123" };
+        var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// AUTH-001-C: A banned user with correct credentials must not receive a token.
+    /// Regression guard: the old ValidateCredentials did not check user.Banned, so
+    /// banned users could still obtain a valid JWT.
+    /// The ban is applied via direct repository access because CleanMutableCollectionsAsync
+    /// clears the Users collection (including the seeded SuperAdmin) before every test.
+    /// </summary>
+    [Fact]
+    public async Task Login_WithBannedUser_Returns401()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var username = $"auth001c_{suffix}";
+        const string password = "Password123";
+        var registered = await RegisterUserAsync(username, password);
+
+        // Set the Banned flag directly on the persisted user.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var userRepo = scope.ServiceProvider.GetRequiredService<Figuritas.Api.Repositories.IUserRepository>();
+            var user = userRepo.GetById(registered.Id)!;
+            user.Banned = true;
+            userRepo.Update(user);
+        }
+
+        var dto = new { Username = username, Password = password };
+        var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

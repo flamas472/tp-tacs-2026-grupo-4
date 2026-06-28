@@ -46,7 +46,7 @@ public class UserStory11Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -145,10 +145,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_CreateProposal_GeneratesNewProposalNotification_ForRecipient()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11a1_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11a1_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11a1_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11a1_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11a1_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11a1_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11a1_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11a1_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -171,10 +171,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_CreateProposal_WithPreferenceDisabled_DoesNotNotify()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11b2_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11b2_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11b2_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11b2_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11b2_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11b2_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11b2_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11b2_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -207,10 +207,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_CreateOffer_AutoAddsToWatchlist()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11c3_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11c3_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11c3_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11c3_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11c3_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11c3_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11c3_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11c3_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -245,10 +245,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_WatchAuction_ManuallyAdds_ToWatchlist()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11d4a_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11d4a_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11d4a_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11d4a_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11d4a_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11d4a_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11d4a_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11d4a_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -273,10 +273,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_UnwatchAuction_ManuallyRemoves_FromWatchlist()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11d4b_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11d4b_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11d4b_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11d4b_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11d4b_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11d4b_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11d4b_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11d4b_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -306,10 +306,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_PublishSticker_NotifiesUsersWithMissingSticker()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11e5_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11e5_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11e5_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11e5_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11e5_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11e5_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11e5_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11e5_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -338,10 +338,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_PublishStickerTwice_DoesNotDuplicateMissingStickerNotification()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11f6_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11f6_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11f6_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11f6_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11f6_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11f6_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11f6_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11f6_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -359,8 +359,8 @@ public class UserStory11Tests : IAsyncLifetime
 
         // UserA publishes sticker[0] again — this would be a Conflict (Inventory already registered)
         // So we use a different user to publish the same catalog sticker
-        var userC = await RegisterUserAsync($"us11f6_c_{suffix}", "password123");
-        var tokenC = await LoginAsync($"us11f6_c_{suffix}", "password123");
+        var userC = await RegisterUserAsync($"us11f6_c_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"us11f6_c_{suffix}", "Password123");
         var clientC = ClientWithToken(tokenC);
 
         var sticker2 = await PublishStickerAsync(clientC, userC.Id, stickers[0].Id, quantity: 2);
@@ -384,10 +384,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_MarkNotificationAsRead_SetsIsReadTrue()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11g9_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11g9_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11g9_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11g9_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11g9_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11g9_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11g9_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11g9_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -416,12 +416,12 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_MarkNotificationAsRead_ByOtherUser_Returns403()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11g9b_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11g9b_b_{suffix}", "password123");
-        var userC = await RegisterUserAsync($"us11g9b_c_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11g9b_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11g9b_b_{suffix}", "password123");
-        var tokenC = await LoginAsync($"us11g9b_c_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11g9b_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11g9b_b_{suffix}", "Password123");
+        var userC = await RegisterUserAsync($"us11g9b_c_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11g9b_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11g9b_b_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"us11g9b_c_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);
@@ -449,10 +449,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_GetNotifications_ReturnsPaginatedDescending()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11h10_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11h10_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11h10_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11h10_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11h10_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11h10_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11h10_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11h10_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -484,12 +484,12 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_GetNotifications_Pagination_Page2DiffersFromPage1()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11h10b_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11h10b_b_{suffix}", "password123");
-        var userC = await RegisterUserAsync($"us11h10b_c_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11h10b_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11h10b_b_{suffix}", "password123");
-        var tokenC = await LoginAsync($"us11h10b_c_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11h10b_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11h10b_b_{suffix}", "Password123");
+        var userC = await RegisterUserAsync($"us11h10b_c_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11h10b_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11h10b_b_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"us11h10b_c_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);
@@ -538,10 +538,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_AuctionEnding_WithPreferenceDisabled_DoesNotNotify()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11b3_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11b3_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11b3_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11b3_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11b3_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11b3_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11b3_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11b3_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -581,10 +581,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_PublishSticker_WithMissingStickerPreferenceDisabled_DoesNotNotify()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11b4_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11b4_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11b4_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11b4_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11b4_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11b4_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11b4_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11b4_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -623,10 +623,10 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_WatchAuction_DuplicateWatch_ReturnsConflict()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11i7_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11i7_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11i7_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11i7_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11i7_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11i7_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11i7_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11i7_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -654,12 +654,12 @@ public class UserStory11Tests : IAsyncLifetime
     public async Task US11_GetNotifications_DoesNotExposeOtherUsersNotifications()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us11j8_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us11j8_b_{suffix}", "password123");
-        var userC = await RegisterUserAsync($"us11j8_c_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us11j8_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us11j8_b_{suffix}", "password123");
-        var tokenC = await LoginAsync($"us11j8_c_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us11j8_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us11j8_b_{suffix}", "Password123");
+        var userC = await RegisterUserAsync($"us11j8_c_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us11j8_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us11j8_b_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"us11j8_c_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);

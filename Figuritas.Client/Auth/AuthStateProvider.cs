@@ -10,6 +10,7 @@ public class AuthStateProvider : AuthenticationStateProvider
 {
     private readonly IJSRuntime _js;
     private const string TokenKey = "auth_token";
+    private const string RefreshTokenKey = "auth_refresh_token";
 
     private static readonly AuthenticationState Anonymous =
         new(new ClaimsPrincipal(new ClaimsIdentity()));
@@ -48,6 +49,17 @@ public class AuthStateProvider : AuthenticationStateProvider
 
     public async Task<string?> GetTokenAsync() =>
         await _js.InvokeAsync<string?>("localStorage.getItem", TokenKey);
+
+    public async Task SetRefreshTokenAsync(string? refreshToken)
+    {
+        if (refreshToken is null)
+            await _js.InvokeVoidAsync("localStorage.removeItem", RefreshTokenKey);
+        else
+            await _js.InvokeVoidAsync("localStorage.setItem", RefreshTokenKey, refreshToken);
+    }
+
+    public async Task<string?> GetRefreshTokenAsync() =>
+        await _js.InvokeAsync<string?>("localStorage.getItem", RefreshTokenKey);
 
     private static List<Claim> ParseClaimsFromJwt(string jwt)
     {

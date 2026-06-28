@@ -47,7 +47,7 @@ public class UserStory03Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private async Task<List<Sticker>> GetCatalogStickersAsync(int page, int pageSize)
@@ -103,8 +103,8 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_DoesNotReturnOwnStickers()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_own_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_own_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_own_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_own_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var authenticatedClient = ClientWithToken(tokenA);
@@ -125,10 +125,10 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_ExcludesZeroQuantityStickers()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_qty_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us03_qty_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_qty_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us03_qty_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_qty_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us03_qty_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_qty_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us03_qty_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 2);
 
@@ -157,10 +157,10 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_ExcludesNonExchangeableStickers()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_noex_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us03_noex_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_noex_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us03_noex_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_noex_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us03_noex_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_noex_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us03_noex_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var clientB = ClientWithToken(tokenB);
@@ -184,10 +184,10 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_FilterByNumber_ReturnsMatchingResults()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_num_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us03_num_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_num_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us03_num_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_num_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us03_num_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_num_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us03_num_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 2);
         var clientB = ClientWithToken(tokenB);
@@ -210,10 +210,10 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_FilterByNationalTeam_ReturnsMatchingResults()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_nat_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us03_nat_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_nat_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us03_nat_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_nat_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us03_nat_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_nat_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us03_nat_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var clientB = ClientWithToken(tokenB);
@@ -236,10 +236,10 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_FilterByDescription_ReturnsMatchingResults()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_desc_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us03_desc_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_desc_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us03_desc_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_desc_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us03_desc_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_desc_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us03_desc_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var clientB = ClientWithToken(tokenB);
@@ -262,8 +262,8 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_InvalidPagination_Returns400()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var user = await RegisterUserAsync($"us03_pag_{uniqueSuffix}", "password123");
-        var token = await LoginAsync($"us03_pag_{uniqueSuffix}", "password123");
+        var user = await RegisterUserAsync($"us03_pag_{uniqueSuffix}", "Password123");
+        var token = await LoginAsync($"us03_pag_{uniqueSuffix}", "Password123");
         var authenticatedClient = ClientWithToken(token);
 
         var responsePageZero = await authenticatedClient.GetAsync("/api/market/stickers?Page=0&PageSize=20");
@@ -280,10 +280,10 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_ReturnsOtherUsersValidStickers()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_vis_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us03_vis_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_vis_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us03_vis_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_vis_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us03_vis_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_vis_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us03_vis_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var clientB = ClientWithToken(tokenB);
@@ -309,10 +309,10 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_FilterByTeam_ReturnsMatchingResults()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_team_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us03_team_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_team_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us03_team_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_team_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us03_team_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_team_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us03_team_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var clientB = ClientWithToken(tokenB);
@@ -335,10 +335,10 @@ public class UserStory03Tests : IAsyncLifetime
     public async Task US03_GetMarketStickers_FilterByCategory_ReturnsMatchingResults()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us03_cat_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us03_cat_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us03_cat_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us03_cat_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us03_cat_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us03_cat_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us03_cat_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us03_cat_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var clientB = ClientWithToken(tokenB);

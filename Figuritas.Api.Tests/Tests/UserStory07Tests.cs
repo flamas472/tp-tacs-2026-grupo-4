@@ -39,7 +39,7 @@ public class UserStory07Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -117,10 +117,10 @@ public class UserStory07Tests : IAsyncLifetime
     public async Task CreateOffer_WithValidData_Returns201CreatedAndUpdatesBestCurrentOfferId()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us07_valid_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us07_valid_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us07_valid_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us07_valid_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us07_valid_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us07_valid_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us07_valid_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us07_valid_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -160,8 +160,8 @@ public class UserStory07Tests : IAsyncLifetime
     public async Task CreateOffer_AuctioneerAttemptingToBid_Returns400BadRequest()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us07_self_a_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us07_self_a_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us07_self_a_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us07_self_a_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
 
         var catalogStickers = await GetCatalogStickersAsync(1, 1);
@@ -186,10 +186,10 @@ public class UserStory07Tests : IAsyncLifetime
     public async Task CreateOffer_WithEmptyStickerList_Returns400BadRequest()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us07_empty_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us07_empty_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us07_empty_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us07_empty_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us07_empty_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us07_empty_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us07_empty_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us07_empty_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -214,10 +214,10 @@ public class UserStory07Tests : IAsyncLifetime
     public async Task CreateOffer_WithGhostStickerIds_Returns400BadRequest()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us07_ghost_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us07_ghost_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us07_ghost_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us07_ghost_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us07_ghost_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us07_ghost_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us07_ghost_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us07_ghost_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -242,10 +242,10 @@ public class UserStory07Tests : IAsyncLifetime
     public async Task CreateOffer_OnExpiredAuction_Returns400BadRequest()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us07_exp_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us07_exp_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us07_exp_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us07_exp_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us07_exp_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us07_exp_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us07_exp_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us07_exp_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -277,12 +277,12 @@ public class UserStory07Tests : IAsyncLifetime
     public async Task CreateOffer_StickerNotOwnedByBidder_Returns400BadRequest()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us07_own_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us07_own_b_{suffix}", "password123");
-        var userC = await RegisterUserAsync($"us07_own_c_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us07_own_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us07_own_b_{suffix}", "password123");
-        var tokenC = await LoginAsync($"us07_own_c_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us07_own_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us07_own_b_{suffix}", "Password123");
+        var userC = await RegisterUserAsync($"us07_own_c_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us07_own_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us07_own_b_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"us07_own_c_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);
@@ -314,10 +314,10 @@ public class UserStory07Tests : IAsyncLifetime
     public async Task CreateOffer_BelowMinimumCondition_Returns400BadRequest()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us07_min_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us07_min_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us07_min_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us07_min_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us07_min_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us07_min_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us07_min_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us07_min_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -374,8 +374,8 @@ public class UserStory07Tests : IAsyncLifetime
         var suffix = DateTime.UtcNow.Ticks.ToString();
 
         // US01: publish a user sticker
-        var user = await RegisterUserAsync($"us07_regr_{suffix}", "password123");
-        var token = await LoginAsync($"us07_regr_{suffix}", "password123");
+        var user = await RegisterUserAsync($"us07_regr_{suffix}", "Password123");
+        var token = await LoginAsync($"us07_regr_{suffix}", "Password123");
         var client = ClientWithToken(token);
 
         var catalogStickers = await GetCatalogStickersAsync(1, 2);
@@ -404,8 +404,8 @@ public class UserStory07Tests : IAsyncLifetime
         Assert.Null(fetchedAuction.BestCurrentOfferId);
 
         // US07 prerequisite: bidder creates offer and BestCurrentOfferId updates to int
-        var userB = await RegisterUserAsync($"us07_regr_b_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us07_regr_b_{suffix}", "password123");
+        var userB = await RegisterUserAsync($"us07_regr_b_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us07_regr_b_{suffix}", "Password123");
         var clientB = ClientWithToken(tokenB);
 
         var stickerB = await PublishUserStickerAsync(clientB, userB.Id,
@@ -437,10 +437,10 @@ public class UserStory07Tests : IAsyncLifetime
     public async Task CreateOffer_BidderStickerWithZeroQuantity_Returns400BadRequest()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us07_qty0_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us07_qty0_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us07_qty0_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us07_qty0_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us07_qty0_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us07_qty0_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us07_qty0_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us07_qty0_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 

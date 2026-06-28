@@ -39,7 +39,7 @@ public class UserStory09Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -156,10 +156,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_CreateProposal_DecrementsOfferedStickerQuantity()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09a1_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09a1_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09a1_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09a1_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09a1_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09a1_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09a1_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09a1_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -183,10 +183,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_CreateProposal_WhenLastUnit_SetsActiveFalse()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09a2_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09a2_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09a2_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09a2_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09a2_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09a2_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09a2_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09a2_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -218,10 +218,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_RejectProposal_ReturnsStockToProponent()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09b3_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09b3_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09b3_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09b3_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09b3_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09b3_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09b3_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09b3_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -253,10 +253,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_RejectProposal_WhenLastUnit_ReactivatesSticker()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09b4_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09b4_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09b4_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09b4_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09b4_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09b4_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09b4_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09b4_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -284,10 +284,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_CancelProposal_ReturnsStockToProponent()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09b5_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09b5_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09b5_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09b5_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09b5_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09b5_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09b5_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09b5_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -319,12 +319,12 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_RejectProposal_ByNonRecipient_Returns403()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09b6_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09b6_b_{suffix}", "password123");
-        var userC = await RegisterUserAsync($"us09b6_c_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09b6_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09b6_b_{suffix}", "password123");
-        var tokenC = await LoginAsync($"us09b6_c_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09b6_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09b6_b_{suffix}", "Password123");
+        var userC = await RegisterUserAsync($"us09b6_c_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09b6_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09b6_b_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"us09b6_c_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);
@@ -347,10 +347,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_RejectProposal_AlreadyRejected_Returns400()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09b7_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09b7_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09b7_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09b7_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09b7_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09b7_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09b7_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09b7_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -378,10 +378,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_AcceptProposal_TransfersRequestedStickerFromReceiverToProponent()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09c8_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09c8_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09c8_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09c8_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09c8_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09c8_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09c8_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09c8_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -417,10 +417,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_AcceptProposal_ReceiverGetsOfferedSticker_QuantityIncrement()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09c9_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09c9_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09c9_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09c9_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09c9_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09c9_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09c9_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09c9_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -465,10 +465,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_AcceptProposal_DoesNotDoubleDeductOfferedSticker()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09c10_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09c10_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09c10_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09c10_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09c10_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09c10_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09c10_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09c10_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -502,10 +502,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_AcceptProposal_DeactivatesMissingStickerForProponent()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09d11_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09d11_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09d11_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09d11_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09d11_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09d11_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09d11_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09d11_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -537,10 +537,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_AcceptProposal_DeactivatesMissingStickerForReceiver()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09d12_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09d12_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09d12_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09d12_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09d12_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09d12_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09d12_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09d12_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -572,10 +572,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_AcceptProposal_NoMissingStickerEntry_DoesNotFail()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09d13_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09d13_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09d13_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09d13_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09d13_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09d13_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09d13_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09d13_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -601,10 +601,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_AcceptAuctionOffer_DeactivatesMissingStickerForAuctioneer()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09e14_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09e14_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09e14_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09e14_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09e14_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09e14_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09e14_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09e14_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -638,10 +638,10 @@ public class UserStory09Tests : IAsyncLifetime
     public async Task US09_AcceptAuctionOffer_DeactivatesMissingStickerForWinner()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us09e15_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us09e15_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us09e15_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us09e15_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us09e15_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us09e15_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us09e15_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us09e15_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 

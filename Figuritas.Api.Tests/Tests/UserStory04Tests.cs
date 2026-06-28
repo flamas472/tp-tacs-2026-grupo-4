@@ -44,7 +44,7 @@ public class UserStory04Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private async Task<List<Sticker>> GetCatalogStickersAsync(int page, int pageSize)
@@ -107,8 +107,8 @@ public class UserStory04Tests : IAsyncLifetime
     public async Task US04_GetSuggestions_NoMissingStickers_ReturnsEmptyList()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us04_nomissing_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us04_nomissing_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us04_nomissing_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us04_nomissing_{uniqueSuffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
 
         var response = await clientA.GetAsync("/api/market/suggestions");
@@ -127,10 +127,10 @@ public class UserStory04Tests : IAsyncLifetime
     public async Task US04_GetSuggestions_SimpleMatch_ReturnsIsPerfectMatchFalse()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us04_simple_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us04_simple_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us04_simple_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us04_simple_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us04_simple_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us04_simple_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us04_simple_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us04_simple_b_{uniqueSuffix}", "Password123");
 
         // Obtener dos stickers del catálogo: X para que B publique y A tenga de faltante
         var stickers = await GetCatalogStickersAsync(1, 2);
@@ -166,10 +166,10 @@ public class UserStory04Tests : IAsyncLifetime
     public async Task US04_GetSuggestions_PerfectMatch_ReturnsIsPerfectMatchTrue()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us04_perfect_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us04_perfect_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us04_perfect_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us04_perfect_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us04_perfect_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us04_perfect_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us04_perfect_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us04_perfect_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 2);
         var stickerX = stickers[0];
@@ -209,10 +209,10 @@ public class UserStory04Tests : IAsyncLifetime
     public async Task US04_GetSuggestions_ExcludesZeroQuantityListings()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us04_qty_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us04_qty_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us04_qty_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us04_qty_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us04_qty_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us04_qty_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us04_qty_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us04_qty_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var stickerX = stickers[0];
@@ -245,10 +245,10 @@ public class UserStory04Tests : IAsyncLifetime
     public async Task US04_GetSuggestions_ExcludesNonDirectlyExchangeableListings()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us04_noex_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us04_noex_b_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us04_noex_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us04_noex_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us04_noex_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us04_noex_b_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us04_noex_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us04_noex_b_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 1);
         var stickerX = stickers[0];
@@ -278,8 +278,8 @@ public class UserStory04Tests : IAsyncLifetime
     public async Task US04_GetSuggestions_CallerIsNotSuggestedToHimself()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us04_self_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us04_self_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us04_self_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us04_self_{uniqueSuffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
 
         var stickers = await GetCatalogStickersAsync(1, 1);
@@ -314,12 +314,12 @@ public class UserStory04Tests : IAsyncLifetime
     public async Task US04_GetSuggestions_PerfectMatchAppearsFirst()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us04_order_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us04_order_b_{uniqueSuffix}", "password123");
-        var userC = await RegisterUserAsync($"us04_order_c_{uniqueSuffix}", "password123");
-        var tokenA = await LoginAsync($"us04_order_a_{uniqueSuffix}", "password123");
-        var tokenB = await LoginAsync($"us04_order_b_{uniqueSuffix}", "password123");
-        var tokenC = await LoginAsync($"us04_order_c_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us04_order_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us04_order_b_{uniqueSuffix}", "Password123");
+        var userC = await RegisterUserAsync($"us04_order_c_{uniqueSuffix}", "Password123");
+        var tokenA = await LoginAsync($"us04_order_a_{uniqueSuffix}", "Password123");
+        var tokenB = await LoginAsync($"us04_order_b_{uniqueSuffix}", "Password123");
+        var tokenC = await LoginAsync($"us04_order_c_{uniqueSuffix}", "Password123");
 
         var stickers = await GetCatalogStickersAsync(1, 3);
         var stickerX = stickers[0];

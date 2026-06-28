@@ -2,6 +2,7 @@ using Figuritas.Shared.Model;
 using Figuritas.Shared.Model.Intercambios;
 using Figuritas.Shared.Model.Notificaciones;
 using Figuritas.Shared.Model.Subastas;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 
@@ -49,6 +50,31 @@ public class MongoDbContext
         RegisterClassMap<MissingSticker>();
         RegisterClassMap<Notification>();
         RegisterClassMap<AuctionWatchlist>();
+        RegisterRefreshTokenClassMap();
+    }
+
+    private static void RegisterRefreshTokenClassMap()
+    {
+        if (BsonClassMap.IsClassMapRegistered(typeof(RefreshToken)))
+            return;
+
+        lock (_classMapLock)
+        {
+            if (BsonClassMap.IsClassMapRegistered(typeof(RefreshToken)))
+                return;
+
+            BsonClassMap.RegisterClassMap<RefreshToken>(cm =>
+            {
+                cm.AutoMap();
+                // RefreshToken.Id is a GUID string. AutoMap recognises "Id" as the document
+                // primary key by naming convention. Set the serializer explicitly so the driver
+                // stores it as a BSON string rather than trying to coerce it to ObjectId.
+                cm.IdMemberMap
+                  .SetSerializer(new MongoDB.Bson.Serialization.Serializers.StringSerializer(BsonType.String))
+                  .SetIdGenerator(MongoDB.Bson.Serialization.IdGenerators.StringObjectIdGenerator.Instance);
+                cm.SetIgnoreExtraElements(true);
+            });
+        }
     }
 
     private static readonly object _classMapLock = new();

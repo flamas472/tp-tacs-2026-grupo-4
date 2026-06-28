@@ -33,13 +33,17 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            // Override the database name and disable the exchange proposal rate-limit guard
-            // so integration tests can create back-to-back proposals without triggering the
-            // chronological anti-spam check that is only meaningful in production traffic.
+            // Override the database name, disable the exchange proposal rate-limit guard so
+            // integration tests can create back-to-back proposals without triggering the
+            // chronological anti-spam check that is only meaningful in production traffic,
+            // and disable the login rate limiter so tests can register/login freely.
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Mongo:DatabaseName"] = TestDatabaseName,
-                ["RateLimit:ExchangeProposalWindowSeconds"] = "0"
+                ["RateLimit:ExchangeProposalWindowSeconds"] = "0",
+                ["RateLimit:LoginEnabled"] = "false",
+                ["RateLimit:RegisterEnabled"] = "false",
+                ["RateLimit:RefreshEnabled"] = "false"
             });
         });
 
@@ -79,7 +83,8 @@ public sealed class IntegrationTestFactory : WebApplicationFactory<Program>
                 "AuctionOffers",
                 "AuctionWatchlists",
                 "Notifications",
-                "Rates"
+                "Rates",
+                "refresh_tokens"
             };
 
             foreach (var name in mutableCollections)

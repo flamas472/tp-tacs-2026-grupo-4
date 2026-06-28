@@ -1,10 +1,12 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Figuritas.Api.Hubs;
 using Figuritas.Api.Repositories;
 using Figuritas.Api.Services;
 using Figuritas.Api.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -47,6 +49,80 @@ builder.Services.AddAuthentication(options =>
             return Task.CompletedTask;
         }
     };
+});
+
+// Rate limiting — policies read configuration at request time so that integration
+// tests can set "RateLimit:*Enabled" = false via in-memory config overrides without
+// the startup-time configuration issue affecting AddRateLimiter.
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", httpContext =>
+    {
+        var config = httpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var enabled = config.GetValue<bool>("RateLimit:LoginEnabled", defaultValue: true);
+
+        if (!enabled)
+            return RateLimitPartition.GetNoLimiter("login-disabled");
+
+        var permitLimit = config.GetValue<int>("RateLimit:LoginPermitLimit", defaultValue: 5);
+        var windowSeconds = config.GetValue<int>("RateLimit:LoginWindowSeconds", defaultValue: 60);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromSeconds(windowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    options.AddPolicy("register", httpContext =>
+    {
+        var config = httpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var enabled = config.GetValue<bool>("RateLimit:RegisterEnabled", defaultValue: true);
+
+        if (!enabled)
+            return RateLimitPartition.GetNoLimiter("register-disabled");
+
+        var permitLimit = config.GetValue<int>("RateLimit:RegisterPermitLimit", defaultValue: 5);
+        var windowSeconds = config.GetValue<int>("RateLimit:RegisterWindowSeconds", defaultValue: 60);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromSeconds(windowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    options.AddPolicy("refresh", httpContext =>
+    {
+        var config = httpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var enabled = config.GetValue<bool>("RateLimit:RefreshEnabled", defaultValue: true);
+
+        if (!enabled)
+            return RateLimitPartition.GetNoLimiter("refresh-disabled");
+
+        var permitLimit = config.GetValue<int>("RateLimit:RefreshPermitLimit", defaultValue: 20);
+        var windowSeconds = config.GetValue<int>("RateLimit:RefreshWindowSeconds", defaultValue: 60);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromSeconds(windowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    options.RejectionStatusCode = 429;
 });
 
 builder.Services.AddControllers()
@@ -93,6 +169,7 @@ builder.Services.AddScoped<IMissingStickerRepository, MissingStickerRepository>(
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IAuctionWatchlistRepository, AuctionWatchlistRepository>();
 builder.Services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -163,6 +240,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("BlazorLocalPolicy");
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
