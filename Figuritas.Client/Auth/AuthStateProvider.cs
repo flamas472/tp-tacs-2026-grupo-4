@@ -37,12 +37,23 @@ public class AuthStateProvider : AuthenticationStateProvider
         return new AuthenticationState(new ClaimsPrincipal(identity));
     }
 
+    /// <summary>
+    /// Raised whenever the stored token is removed (expiry detected at startup or 401 from server).
+    /// Subscribers can use this to clear any in-memory state that was derived from the token.
+    /// </summary>
+    public event Action? OnTokenRemoved;
+
     public async Task SetTokenAsync(string? token)
     {
         if (token is null)
+        {
             await _js.InvokeVoidAsync("localStorage.removeItem", TokenKey);
+            OnTokenRemoved?.Invoke();
+        }
         else
+        {
             await _js.InvokeVoidAsync("localStorage.setItem", TokenKey, token);
+        }
 
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }

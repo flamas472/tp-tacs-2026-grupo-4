@@ -26,9 +26,23 @@ public class AuthStateService
 
     public async Task InitializeAsync()
     {
+        // When the token is removed (expired on load, or 401 from server), zero out cached claims.
+        _provider.OnTokenRemoved += ClearCachedState;
+
         var token = await _provider.GetTokenAsync();
-        if (!string.IsNullOrEmpty(token))
-            CacheClaimsFromToken(token);
+        if (string.IsNullOrEmpty(token))
+            return;
+
+        // Validate expiry client-side before caching — avoids a stale "zombie" session
+        // after the JWT has expired while the browser was closed.
+        if (IsTokenExpired(token))
+        {
+            await _provider.SetTokenAsync(null);
+            await _provider.SetRefreshTokenAsync(null);
+            return;
+        }
+
+        CacheClaimsFromToken(token);
     }
 
     // Retorna null si OK, o el mensaje de error.
@@ -97,6 +111,49 @@ public class AuthStateService
             "role");
         IsSuperAdmin = roleValue == "SuperAdmin";
         IsAdmin = roleValue == "Admin" || roleValue == "SuperAdmin";
+    }
+
+    /// <summary>Zeroes out every in-memory property derived from the JWT payload.</summary>
+    private void ClearCachedState()
+    {
+        UserId = 0;
+        Username = string.Empty;
+        IsAdmin = false;
+        IsSuperAdmin = false;
+    }
+
+    /// <summary>
+    /// Returns true when the JWT's <c>exp</c> claim is in the past.
+    /// Returns true as well if the token is malformed — treat it as invalid.
+    /// </summary>
+    private static bool IsTokenExpired(string token)
+    {
+        try
+        {
+            var payload = token.Split('.')[1].Replace('-', '+').Replace('_', '/');
+            switch (payload.Length % 4)
+            {
+                case 2: payload += "=="; break;
+                case 3: payload += "="; break;
+            }
+            var bytes = Convert.FromBase64String(payload);
+            var json = Encoding.UTF8.GetString(bytes);
+            using var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("exp", out var expProp))
+                return false; // No exp claim — assume valid (non-expiring token)
+
+            long exp = expProp.ValueKind == JsonValueKind.Number
+                ? expProp.GetInt64()
+                : long.TryParse(expProp.GetString(), out var parsed) ? parsed : 0;
+
+            return DateTimeOffset.UtcNow.ToUnixTimeSeconds() > exp;
+        }
+        catch
+        {
+            // Malformed token — treat as expired so it gets cleaned up
+            return true;
+        }
     }
 
     private static int TryGetInt(JsonElement root, params string[] keys)

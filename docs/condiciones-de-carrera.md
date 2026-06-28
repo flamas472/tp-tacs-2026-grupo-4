@@ -38,7 +38,7 @@ Antes de detallar cada caso, conviene entender los tres mecanismos atómicos sob
 
 ---
 
-### RC-05 (GAP-A): Aceptación concurrente de dos propuestas distintas sobre el mismo sticker (Qty = 1)
+### RC-05: Aceptación concurrente de dos propuestas distintas sobre el mismo sticker (Qty = 1)
 
 **Causa potencial:** El usuario B tiene la figurita Y con cantidad 1. Otros usuarios A y C crearon por separado las propuestas P1 y P2 solicitando esa figurita. El usuario B acepta P1 y P2 en requests que llegan casi al mismo tiempo.
 
