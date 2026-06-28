@@ -34,16 +34,24 @@ public class AuthService
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
+        // The JwtSecurityToken constructor used here does not auto-populate the standard
+        // "iat" (issued-at) claim, so we include it explicitly as a Unix timestamp.
+        // The OnTokenValidated handler in Program.cs reads this value to decide whether
+        // a token was issued before a security event (e.g. ban) and should be rejected.
+        var issuedAt = DateTimeOffset.UtcNow;
         var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, user.Role.ToString())
+            new Claim(ClaimTypes.Role, user.Role.ToString()),
+            new Claim("iat",
+                      issuedAt.ToUnixTimeSeconds().ToString(),
+                      ClaimValueTypes.Integer64)
         };
 
         var token = new JwtSecurityToken(
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(15),
+            expires: issuedAt.UtcDateTime.AddMinutes(15),
             signingCredentials: credentials);
 
         return new JwtSecurityTokenHandler().WriteToken(token);

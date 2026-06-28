@@ -338,4 +338,55 @@ public class SecurityTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // ─── SEC-004: Active JWT must be invalidated when the user is banned ─────
+
+    /// <summary>
+    /// SEC-004: A valid JWT held by a user must be rejected (401) as soon as the
+    /// user is banned, without waiting for the token to expire naturally.
+    ///
+    /// The mechanism:
+    ///   - AuthService.GenerateToken embeds an explicit "iat" claim (Unix timestamp).
+    ///   - BanUserAsync sets user.TokenValidFrom = DateTime.UtcNow and persists it.
+    ///   - OnTokenValidated in Program.cs compares iat vs TokenValidFrom and calls
+    ///     context.Fail() when the token predates the security event.
+    ///
+    /// This test simulates the ban via direct repository mutation to avoid the need
+    /// for a seeded SuperAdmin (which is wiped by CleanMutableCollectionsAsync).
+    /// </summary>
+    [Fact]
+    public async Task SEC004_BannedUser_ExistingJwtIsRejectedImmediately()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var username = $"sec004_{suffix}";
+        const string password = "Password123";
+
+        var registered = await RegisterUserAsync(username, password);
+        var token = await LoginAsync(username, password);
+        var authedClient = ClientWithToken(token);
+
+        // Verify the token is accepted on a protected endpoint before the ban.
+        // GET /api/users/{userId}/missing-stickers is [Authorize] at the controller level
+        // and does NOT carry [AllowAnonymous], so authentication failure returns 401.
+        var preban = await authedClient.GetAsync($"/api/users/{registered.Id}/missing-stickers");
+        Assert.Equal(HttpStatusCode.OK, preban.StatusCode);
+
+        // Apply the ban: mark the user as banned and advance TokenValidFrom past
+        // the issued-at time of the token already held by authedClient.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var userRepo = scope.ServiceProvider
+                .GetRequiredService<Figuritas.Api.Repositories.IUserRepository>();
+            var user = userRepo.GetById(registered.Id)!;
+            user.Banned = true;
+            user.TokenValidFrom = DateTime.UtcNow;
+            userRepo.Update(user);
+        }
+
+        // The previously valid JWT must now be rejected because OnTokenValidated
+        // detects user.Banned == true and calls context.Fail(), which the [Authorize]
+        // attribute converts into HTTP 401.
+        var postban = await authedClient.GetAsync($"/api/users/{registered.Id}/missing-stickers");
+        Assert.Equal(HttpStatusCode.Unauthorized, postban.StatusCode);
+    }
 }

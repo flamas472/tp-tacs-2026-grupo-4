@@ -61,7 +61,7 @@ namespace Figuritas.Client.Extensions
                 return "Ya existe un usuario con ese nombre. Por favor, elija otro.";
 
             if (body.Contains("banned") || body.Contains("baneado"))
-                return "Esta cuenta se encuentra baneada.";
+                return "Esta cuenta está baneada. Si cree que es un error, por favor, contacte al soporte.";
 
             // Fall back to status-code translation.
             return statusCode switch

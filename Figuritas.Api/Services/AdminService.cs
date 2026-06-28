@@ -126,6 +126,12 @@ public class AdminService
             throw new ArgumentException("Cannot ban an administrator account.");
 
         user.Banned = true;
+
+        // Set the token validity boundary to the current instant.
+        // The OnTokenValidated middleware rejects any JWT whose "iat" claim
+        // predates this value, immediately terminating active sessions.
+        user.TokenValidFrom = DateTime.UtcNow;
+
         _userRepo.Update(user);
 
         // Invalidate all active refresh tokens so a banned user cannot silently

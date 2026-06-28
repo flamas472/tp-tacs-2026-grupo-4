@@ -37,7 +37,7 @@ public class AuthController : ControllerBase
         }
         catch (UnauthorizedAccessException)
         {
-            return StatusCode(403, "Account is banned.");
+            return Unauthorized("Account is banned.");
         }
     }
 

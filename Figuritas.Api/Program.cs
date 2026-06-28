@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -47,6 +48,47 @@ builder.Services.AddAuthentication(options =>
                 context.Token = accessToken;
             }
             return Task.CompletedTask;
+        },
+
+        // After the JWT signature is verified, check that the bearer account is still
+        // active and that the token was not issued before a security event (e.g. ban).
+        //
+        // Flow:
+        //   1. Parse the "iat" (issued-at) claim — emitted explicitly by AuthService.GenerateToken.
+        //   2. Fetch the user from the database (one lightweight read per authenticated request).
+        //   3. Reject with Fail() if:
+        //        a. The user no longer exists.
+        //        b. The user is currently banned.
+        //        c. The token's iat predates user.TokenValidFrom (set at ban time).
+        //
+        // context.Fail() causes the authentication middleware to respond with HTTP 401
+        // without executing any controller action.
+        OnTokenValidated = async context =>
+        {
+            var userIdClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out var userId))
+                return;
+
+            var iatClaim = context.Principal?.FindFirst("iat")?.Value;
+            if (!long.TryParse(iatClaim, out var iatUnix))
+                return;
+
+            var tokenIssuedAt = DateTimeOffset.FromUnixTimeSeconds(iatUnix).UtcDateTime;
+
+            var userRepo = context.HttpContext.RequestServices
+                .GetRequiredService<IUserRepository>();
+            var user = userRepo.GetById(userId);
+
+            if (user == null || user.Banned)
+            {
+                context.Fail("User account is not accessible.");
+                return;
+            }
+
+            if (user.TokenValidFrom.HasValue && tokenIssuedAt < user.TokenValidFrom.Value)
+            {
+                context.Fail("Token was issued before the last account security event.");
+            }
         }
     };
 });
