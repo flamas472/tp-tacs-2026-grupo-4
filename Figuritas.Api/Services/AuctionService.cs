@@ -81,14 +81,33 @@ public class AuctionService
         var offers = await _offerRepo.GetAllByAuctionIdAsync(auctionId);
         var bidderIds = offers.Select(o => o.BidderId).Distinct().ToList();
         var bidders = _userRepo.GetByIds(bidderIds).ToDictionary(u => u.Id);
+
+        // Batch-load all offered stickers in a single query, including those that have been
+        // deactivated (Active=false) because their stock was fully reserved for this offer.
+        var allOfferedIds = offers.SelectMany(o => o.OfferedUserStickerIds).Distinct().ToList();
+        var stickerMap = _userStickerRepo
+            .GetMultipleByIdIncludingInactive(allOfferedIds)
+            .ToDictionary(us => us.Id);
+
         return offers.Select(o =>
         {
             bidders.TryGetValue(o.BidderId, out var bidder);
-            return MapOfferToDto(o, bidder?.Username ?? string.Empty);
+            var previews = o.OfferedUserStickerIds
+                .Where(id => stickerMap.ContainsKey(id))
+                .Select(id => stickerMap[id])
+                .Select(us => new StickerPreviewDTO
+                {
+                    UserStickerId = us.Id,
+                    Number        = us.Sticker.Number,
+                    ImageUrl      = us.Sticker.ImageUrl,
+                    Description   = us.Sticker.Description
+                })
+                .ToList();
+            return MapOfferToDto(o, bidder?.Username ?? string.Empty, previews);
         }).ToList();
     }
 
-    public AuctionResponseDTO CreateAuction(int callerUserId, PostAuctionRequestDTO dto)
+    public async Task<AuctionResponseDTO> CreateAuction(int callerUserId, PostAuctionRequestDTO dto)
     {
         var us = _userStickerRepo.GetById(dto.UserStickerId);
         if (us == null)
@@ -106,13 +125,13 @@ public class AuctionService
         if (dto.EndsAt <= DateTime.UtcNow)
             throw new InvalidOperationException("EndsAt must be a future date.");
 
-        // Reserve one unit from stock
-        us.Quantity -= 1;
-        if (us.Quantity == 0)
-        {
-            us.Active = false;
-        }
-        _userStickerRepo.Update(us);
+        // Atomically reserve one unit of stock. TryReserveOneUnitAsync guards Quantity > 0 && Active == true,
+        // so a concurrent auction creation or proposal for the same sticker cannot both succeed.
+        var reserved = await _userStickerRepo.TryReserveOneUnitAsync(dto.UserStickerId);
+        if (!reserved)
+            throw new InvalidOperationException("UserSticker has no available stock.");
+
+        await _userStickerRepo.DeactivateIfEmptyAsync(dto.UserStickerId);
 
         var auction = new Auction
         {
@@ -162,7 +181,6 @@ public class AuctionService
         if (offeredUserStickers.Count != dto.OfferedUserStickerIds.Count)
             throw new InvalidOperationException("One or more offered sticker IDs do not exist.");
 
-        // Validate ownership and stock for each offered sticker
         foreach (var offeredUs in offeredUserStickers)
         {
             if (offeredUs.UserId != bidderId)
@@ -198,30 +216,30 @@ public class AuctionService
         var previousOffer = await _offerRepo.GetActiveBidderOfferAsync(auctionId, bidderId);
         if (previousOffer != null)
         {
-            // Mark the previous offer as superseded
             previousOffer.Status = AuctionOfferStatus.Superseded;
             previousOffer.State = AuctionOfferState.Lost;
             _offerRepo.Update(previousOffer);
 
-            // Release the stock reserved by the previous offer to avoid duplicate blocking
             var previousStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(previousOffer.OfferedUserStickerIds);
             foreach (var prevSticker in previousStickers)
-            {
-                prevSticker.Quantity++;
-                prevSticker.Active = true;
-                _userStickerRepo.Update(prevSticker);
-            }
+                await _userStickerRepo.IncrementQuantityAndActivateAsync(prevSticker.Id);
         }
 
-        // Reserve stock: decrement quantity for each offered sticker
+        // Reserve stock atomically for each offered sticker. On any failure, rollback the
+        // already-reserved stickers before propagating the error.
+        var reservedIds = new List<int>();
         foreach (var offeredUs in offeredUserStickers)
         {
-            offeredUs.Quantity--;
-            if (offeredUs.Quantity <= 0)
+            var ok = await _userStickerRepo.TryReserveOneUnitAsync(offeredUs.Id);
+            if (!ok)
             {
-                offeredUs.Active = false;
+                foreach (var rid in reservedIds)
+                    await _userStickerRepo.IncrementQuantityAndActivateAsync(rid);
+                throw new InvalidOperationException(
+                    $"UserSticker {offeredUs.Id} has insufficient stock.");
             }
-            _userStickerRepo.Update(offeredUs);
+            reservedIds.Add(offeredUs.Id);
+            await _userStickerRepo.DeactivateIfEmptyAsync(offeredUs.Id);
         }
 
         var offer = new AuctionOffer
@@ -233,13 +251,32 @@ public class AuctionService
             State = AuctionOfferState.Pending
         };
 
-        _offerRepo.Add(offer);
+        // TAREA 6: Re-validate auction state after stock has been reserved to close the window
+        // between the initial Active check and the offer insertion.
+        var freshAuction = _auctionRepo.GetById(auctionId);
+        if (freshAuction == null || freshAuction.Status != AuctionStatus.Active || DateTime.UtcNow > freshAuction.EndsAt)
+        {
+            foreach (var rid in reservedIds)
+                await _userStickerRepo.IncrementQuantityAndActivateAsync(rid);
+            throw new InvalidOperationException("The auction has expired or is no longer active.");
+        }
 
-        // Recalculate the best offer using all three criteria (replaces the previous
-        // "last-offer-wins" assignment with a proper ranking computation).
+        // TAREA 5: The unique partial index on (AuctionId, BidderId) where Status == Active
+        // prevents two concurrent bids from the same bidder from both landing. If the insert
+        // fails with DuplicateKey the repository re-throws as InvalidOperationException.
+        try
+        {
+            _offerRepo.Add(offer);
+        }
+        catch (InvalidOperationException)
+        {
+            foreach (var rid in reservedIds)
+                await _userStickerRepo.IncrementQuantityAndActivateAsync(rid);
+            throw;
+        }
+
         await RecalculateBestOfferAsync(auction);
 
-        // Auto-add bidder to watchlist if not already watching
         await _watchlistService.EnsureWatchingAsync(bidderId, auctionId);
 
         return MapOfferToDto(offer);
@@ -256,39 +293,27 @@ public class AuctionService
         if (auction == null)
             throw new KeyNotFoundException("Auction not found.");
 
-        // Guard: only the auctioneer can accept offers.
         if (auction.AuctioneerId != callerUserId)
             throw new UnauthorizedAccessException("Only the auctioneer can accept offers on their auction.");
 
         if (auction.Status != AuctionStatus.Active)
             throw new InvalidOperationException("The auction is not active.");
 
-        // Guard: the offer must belong to this auction.
         var offer = _offerRepo.GetById(offerId);
         if (offer == null || offer.AuctionId != auctionId)
             throw new KeyNotFoundException("The specified offer does not belong to this auction.");
 
-        // Guard: only Pending offers can be accepted.
         if (offer.State != AuctionOfferState.Pending)
             throw new InvalidOperationException("The offer is no longer pending and cannot be accepted.");
 
-        // Persist the auctioneer's explicit choice using a partial $set update conditioned on
-        // Status == Active.  This avoids replacing the full document (which would reinstate
-        // Status = Active if a concurrent worker already moved it to Closed/Cancelled).
-        // ModifiedCount == 0 means the auction is already in a terminal state → abort.
         var selectionPersisted = await _auctionRepo.TrySetUserSelectedBestOfferAsync(auctionId, offerId);
         if (!selectionPersisted)
             throw new InvalidOperationException("Auction is no longer active and cannot be accepted.");
 
-        // Atomic close: Active → Closed in MongoDB.
-        // If ModifiedCount == 0, the worker closed the auction between our $set and this call.
-        // The worker will use UserSelectedBestOfferId (just persisted) as the winning offer,
-        // so we can abort gracefully — the correct winner is already guaranteed.
         var claimed = await _auctionRepo.TryCloseAuctionAtomicallyAsync(auctionId);
         if (!claimed)
             throw new InvalidOperationException("Auction is no longer active and cannot be accepted.");
 
-        // Finalize: transition offer states and transfer inventory.
         await FinalizeClosedAuctionAsync(auctionId, winningOfferId: offerId);
 
         return MapToDto(_auctionRepo.GetById(auctionId)!);
@@ -313,27 +338,18 @@ public class AuctionService
         if (auction.Status != AuctionStatus.Active)
             throw new InvalidOperationException("The auction is not active.");
 
-        // Determine winning offer using priority order.
         int? winningOfferId = auction.UserSelectedBestOfferId ?? auction.BestCurrentOfferId;
 
         if (winningOfferId == null)
         {
-            // Case C: no offers — cancel the auction and restore auctioneer's stock.
             var cancelled = await _auctionRepo.TryCancelAuctionAtomicallyAsync(auctionId);
             if (!cancelled)
                 throw new InvalidOperationException("Auction is no longer active.");
 
-            var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
-            if (auctionedSticker != null)
-            {
-                auctionedSticker.Quantity++;
-                auctionedSticker.Active = true;
-                _userStickerRepo.Update(auctionedSticker);
-            }
+            await _userStickerRepo.IncrementQuantityAndActivateAsync(auction.UserStickerId);
         }
         else
         {
-            // Cases A & B: close and finalize with a winner.
             var closed = await _auctionRepo.TryCloseAuctionAtomicallyAsync(auctionId);
             if (!closed)
                 throw new InvalidOperationException("Auction is no longer active.");
@@ -346,18 +362,6 @@ public class AuctionService
 
     /// <summary>
     /// Cancels a pending offer placed by the authenticated bidder on an active auction.
-    ///
-    /// Guards (in order):
-    ///   1. Auction must be Active.
-    ///   2. Caller must be the offer owner (BidderId) → UnauthorizedAccessException (→ 403).
-    ///   3. The offer must not be the current leading offer
-    ///      (UserSelectedBestOfferId ?? BestCurrentOfferId) → InvalidOperationException (→ 400).
-    ///
-    /// Atomicity (Escenario A):
-    ///   Uses <see cref="IAuctionOfferRepository.TryCancelOfferAtomicallyAsync"/> with a
-    ///   <c>State == Pending</c> filter.  If ModifiedCount == 0 the offer was already
-    ///   cancelled / won / lost and we abort without touching stock.
-    ///   Stock is released only after the atomic transition succeeds.
     /// </summary>
     public async Task<AuctionOfferResponseDTO> CancelOfferAsync(int auctionId, int offerId, int callerUserId)
     {
@@ -372,33 +376,22 @@ public class AuctionService
         if (offer == null || offer.AuctionId != auctionId)
             throw new KeyNotFoundException("Offer not found for this auction.");
 
-        // Guard 2: only the owner of the offer can cancel it.
         if (offer.BidderId != callerUserId)
             throw new UnauthorizedAccessException("Only the bidder who placed this offer can cancel it.");
 
-        // Guard 3: cannot cancel the current leading offer.
         var leadingOfferId = auction.UserSelectedBestOfferId ?? auction.BestCurrentOfferId;
         if (leadingOfferId.HasValue && leadingOfferId.Value == offerId)
             throw new InvalidOperationException(
                 "You cannot cancel the current leading offer. It is the best offer for this auction.");
 
-        // Atomic transition: Pending → Cancelled.
-        // If ModifiedCount == 0 the offer is no longer Pending — abort without releasing stock.
         var cancelled = await _offerRepo.TryCancelOfferAtomicallyAsync(offerId);
         if (!cancelled)
             throw new InvalidOperationException(
                 "The offer is no longer pending and cannot be cancelled.");
 
-        // Release the stock that was reserved when the offer was created.
-        var reservedStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(offer.OfferedUserStickerIds);
-        foreach (var sticker in reservedStickers)
-        {
-            sticker.Quantity++;
-            sticker.Active = true;
-            _userStickerRepo.Update(sticker);
-        }
+        foreach (var sid in offer.OfferedUserStickerIds)
+            await _userStickerRepo.IncrementQuantityAndActivateAsync(sid);
 
-        // Reload the offer (state is now Cancelled in DB) and recalculate the ranking.
         var updatedOffer = _offerRepo.GetById(offerId)!;
         await RecalculateBestOfferAsync(auction);
 
@@ -407,19 +400,6 @@ public class AuctionService
 
     /// <summary>
     /// Appends additional stickers to an existing pending offer (accumulative modification).
-    ///
-    /// Guards (in order):
-    ///   1. Auction must be Active.
-    ///   2. Caller must be the offer owner → UnauthorizedAccessException (→ 403).
-    ///   3. Offer must not be the current leading offer → InvalidOperationException (→ 400).
-    ///   4. AdditionalStickerIds must not contain duplicates within itself → InvalidOperationException (→ 400).
-    ///   5. New IDs must not overlap with already-committed IDs → InvalidOperationException (→ 400).
-    ///
-    /// Atomicity (Escenario B):
-    ///   Uses <see cref="IAuctionOfferRepository.AppendOfferedStickersAsync"/> which issues a
-    ///   MongoDB <c>$push/$each</c> update conditioned on <c>State == Pending</c>.
-    ///   Two concurrent PATCHes consolidate both arrays sequentially in MongoDB.
-    ///   If ModifiedCount == 0 the offer is no longer Pending → abort without reserving stock.
     /// </summary>
     public async Task<AuctionOfferResponseDTO> UpdateOfferAsync(
         int auctionId, int offerId, UpdateAuctionOfferRequestDTO dto, int callerUserId)
@@ -435,11 +415,9 @@ public class AuctionService
         if (offer == null || offer.AuctionId != auctionId)
             throw new KeyNotFoundException("Offer not found for this auction.");
 
-        // Guard 2: only the owner can modify the offer.
         if (offer.BidderId != callerUserId)
             throw new UnauthorizedAccessException("Only the bidder who placed this offer can modify it.");
 
-        // Guard 3: cannot modify the current leading offer.
         var leadingOfferId = auction.UserSelectedBestOfferId ?? auction.BestCurrentOfferId;
         if (leadingOfferId.HasValue && leadingOfferId.Value == offerId)
             throw new InvalidOperationException(
@@ -448,7 +426,6 @@ public class AuctionService
         if (dto.AdditionalStickerIds == null || dto.AdditionalStickerIds.Count == 0)
             throw new InvalidOperationException("AdditionalStickerIds cannot be empty.");
 
-        // Guard 4: no duplicates within the new list.
         var duplicateIds = dto.AdditionalStickerIds
             .GroupBy(id => id)
             .Where(g => g.Count() > 1)
@@ -459,14 +436,12 @@ public class AuctionService
             throw new InvalidOperationException(
                 $"Duplicate sticker IDs in AdditionalStickerIds: {string.Join(", ", duplicateIds)}");
 
-        // Guard 5: new IDs must not overlap with already-committed IDs.
         var existingSet = offer.OfferedUserStickerIds.ToHashSet();
         var overlapping = dto.AdditionalStickerIds.Where(id => existingSet.Contains(id)).ToList();
         if (overlapping.Any())
             throw new InvalidOperationException(
                 $"The following sticker IDs are already committed to this offer: {string.Join(", ", overlapping)}");
 
-        // Validate stock and ownership of the new stickers.
         var newStickers = _userStickerRepo.GetMultipleById(dto.AdditionalStickerIds);
         if (newStickers.Count != dto.AdditionalStickerIds.Count)
             throw new InvalidOperationException("One or more additional sticker IDs do not exist.");
@@ -481,34 +456,30 @@ public class AuctionService
                     $"UserSticker {sticker.Id} has no available stock.");
         }
 
-        // Reserve stock for the new stickers before persisting the append.
-        // If the atomic append fails (offer no longer Pending), we must roll back the stock.
+        // Reserve stock atomically for the additional stickers.
+        var reservedNewIds = new List<int>();
         foreach (var sticker in newStickers)
         {
-            sticker.Quantity--;
-            if (sticker.Quantity <= 0)
-                sticker.Active = false;
-            _userStickerRepo.Update(sticker);
+            var ok = await _userStickerRepo.TryReserveOneUnitAsync(sticker.Id);
+            if (!ok)
+            {
+                foreach (var rid in reservedNewIds)
+                    await _userStickerRepo.IncrementQuantityAndActivateAsync(rid);
+                throw new InvalidOperationException($"UserSticker {sticker.Id} has insufficient stock.");
+            }
+            reservedNewIds.Add(sticker.Id);
+            await _userStickerRepo.DeactivateIfEmptyAsync(sticker.Id);
         }
 
-        // Atomic append: $push/$each conditioned on State == Pending.
-        // Escenario B: two concurrent PATCHes both land without overwriting each other.
-        // Escenario D: if the auction closed concurrently, ModifiedCount == 0 → rollback stock.
         var appended = await _offerRepo.AppendOfferedStickersAsync(offerId, dto.AdditionalStickerIds);
         if (!appended)
         {
-            // Roll back reserved stock since the append did not persist.
-            foreach (var sticker in newStickers)
-            {
-                sticker.Quantity++;
-                sticker.Active = true;
-                _userStickerRepo.Update(sticker);
-            }
+            foreach (var rid in reservedNewIds)
+                await _userStickerRepo.IncrementQuantityAndActivateAsync(rid);
             throw new InvalidOperationException(
                 "The offer is no longer pending and cannot be modified.");
         }
 
-        // Reload the offer to get the updated OfferedUserStickerIds list, then recalculate.
         var updatedOffer = _offerRepo.GetById(offerId)!;
         await RecalculateBestOfferAsync(auction);
 
@@ -516,19 +487,29 @@ public class AuctionService
     }
 
     /// <summary>
+    /// Allows the auctioneer to clear a previously pre-selected offer without closing the auction.
+    /// </summary>
+    public async Task<AuctionResponseDTO> ClearBestOfferAsync(int auctionId, int callerUserId)
+    {
+        var auction = _auctionRepo.GetById(auctionId);
+        if (auction == null)
+            throw new KeyNotFoundException("Auction not found.");
+
+        if (auction.AuctioneerId != callerUserId)
+            throw new UnauthorizedAccessException("Only the auctioneer can clear the selected offer.");
+
+        if (auction.Status != AuctionStatus.Active)
+            throw new InvalidOperationException("The auction is not active.");
+
+        var cleared = await _auctionRepo.TryClearUserSelectedBestOfferAsync(auctionId);
+        if (!cleared)
+            throw new InvalidOperationException("Auction is no longer active and the selection could not be cleared.");
+
+        return MapToDto(_auctionRepo.GetById(auctionId)!);
+    }
+
+    /// <summary>
     /// Allows the auctioneer to pre-select a preferred offer without closing the auction.
-    /// The selection is persisted in <see cref="Auction.UserSelectedBestOfferId"/> and will be
-    /// used as the winning offer when the auction eventually closes (either manually or via the worker).
-    ///
-    /// Guards (in order):
-    ///   1. The auction must exist.
-    ///   2. The caller must be the auctioneer → <see cref="UnauthorizedAccessException"/> (→ 403).
-    ///   3. The auction must be Active.
-    ///   4. OfferId must be > 0 — deselection is not supported.
-    ///   5. The offer must belong to this auction and be in <see cref="AuctionOfferState.Pending"/>.
-    ///   6. Persists via <see cref="IAuctionRepository.TrySetUserSelectedBestOfferAsync"/> which
-    ///      uses a <c>Status == Active</c> guard. If <c>ModifiedCount == 0</c> the auction is no
-    ///      longer active and we abort gracefully.
     /// </summary>
     public async Task<AuctionResponseDTO> SelectBestOfferAsync(int auctionId, int offerId, int callerUserId)
     {
@@ -561,7 +542,6 @@ public class AuctionService
 
     /// <summary>
     /// Legacy endpoint: auctioneer closes their auction with an optional explicit winner.
-    /// Preserved for backward compatibility with the existing POST /api/auctions/{id}/close endpoint.
     /// </summary>
     public async Task<AuctionResponseDTO> CloseAuction(int auctionId, int? winningOfferId, int callerUserId)
     {
@@ -569,14 +549,9 @@ public class AuctionService
         if (auction == null)
             throw new KeyNotFoundException("Auction not found.");
 
-        // Ownership validation before any side-effects.
         if (auction.AuctioneerId != callerUserId)
             throw new InvalidOperationException("Only the auctioneer can close their own auction.");
 
-        // Atomic close: transition Active → Closed/Cancelled BEFORE executing any side-effects.
-        // This prevents a double-execution scenario where a concurrent worker closes the auction
-        // between our in-memory status check and the final Update, which would cause all
-        // inventory side-effects (stock transfers, offer state changes) to run twice.
         bool atomicallyClosed;
         if (winningOfferId == null)
         {
@@ -594,50 +569,31 @@ public class AuctionService
 
         if (winningOfferId == null || !allOffers.Any())
         {
-            // No winner: return reserved stock of auctioned sticker to seller.
-            var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
-            if (auctionedSticker != null)
-            {
-                auctionedSticker.Quantity++;
-                auctionedSticker.Active = true;
-                _userStickerRepo.Update(auctionedSticker);
-            }
+            await _userStickerRepo.IncrementQuantityAndActivateAsync(auction.UserStickerId);
 
-            // Return reserved stickers only for Active offers — Superseded offers had their stock
-            // released at the time they were superseded, so including them here would double-return.
             var activeOffers = allOffers.Where(o => o.Status == AuctionOfferStatus.Active).ToList();
             foreach (var offer in activeOffers)
             {
                 offer.State = AuctionOfferState.Lost;
                 _offerRepo.Update(offer);
 
-                var bidderStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(offer.OfferedUserStickerIds);
-                foreach (var bidderSticker in bidderStickers)
-                {
-                    bidderSticker.Quantity++;
-                    bidderSticker.Active = true;
-                    _userStickerRepo.Update(bidderSticker);
-                }
+                foreach (var sid in offer.OfferedUserStickerIds)
+                    await _userStickerRepo.IncrementQuantityAndActivateAsync(sid);
             }
         }
         else
         {
-            // There is a winner.
             var winningOffer = allOffers.FirstOrDefault(o => o.Id == winningOfferId)
                 ?? throw new InvalidOperationException("The specified winning offer was not found for this auction.");
 
-            // Transfer auctioned sticker (reserved/inactive) to winner's inventory.
             var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
             if (auctionedSticker != null)
             {
-                // Use inclusive lookup to avoid duplicates when the winner already has an inactive record.
                 var winnerExisting = await _userStickerRepo.GetByUserIdAndCatalogIdIncludingInactiveAsync(
                     winningOffer.BidderId, auctionedSticker.Sticker.Id);
                 if (winnerExisting != null)
                 {
-                    winnerExisting.Quantity++;
-                    winnerExisting.Active = true;
-                    _userStickerRepo.Update(winnerExisting);
+                    await _userStickerRepo.IncrementQuantityAndActivateAsync(winnerExisting.Id);
                 }
                 else
                 {
@@ -654,18 +610,14 @@ public class AuctionService
                 }
             }
 
-            // Transfer winning offer stickers (reserved/inactive) to auctioneer.
             var winningStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(winningOffer.OfferedUserStickerIds);
             foreach (var winningSticker in winningStickers)
             {
-                // Use inclusive lookup to avoid duplicates when the auctioneer already has an inactive record.
                 var auctioneerExisting = await _userStickerRepo.GetByUserIdAndCatalogIdIncludingInactiveAsync(
                     auction.AuctioneerId, winningSticker.Sticker.Id);
                 if (auctioneerExisting != null)
                 {
-                    auctioneerExisting.Quantity++;
-                    auctioneerExisting.Active = true;
-                    _userStickerRepo.Update(auctioneerExisting);
+                    await _userStickerRepo.IncrementQuantityAndActivateAsync(auctioneerExisting.Id);
                 }
                 else
                 {
@@ -682,22 +634,15 @@ public class AuctionService
                 }
             }
 
-            // Automation: clean up MissingSticker records for winner and auctioneer.
             if (auctionedSticker != null)
-            {
                 await _missingStickerRepo.DeleteAsync(winningOffer.BidderId, auctionedSticker.Sticker.Id);
-            }
-            foreach (var winningSticker in winningStickers)
-            {
-                await _missingStickerRepo.DeleteAsync(auction.AuctioneerId, winningSticker.Sticker.Id);
-            }
 
-            // Mark winning offer as Won.
+            foreach (var winningSticker in winningStickers)
+                await _missingStickerRepo.DeleteAsync(auction.AuctioneerId, winningSticker.Sticker.Id);
+
             winningOffer.State = AuctionOfferState.Won;
             _offerRepo.Update(winningOffer);
 
-            // Return losing bidders' reserved stickers.
-            // Skip Superseded offers: their stock was already released when they were superseded.
             var losingOffers = allOffers
                 .Where(o => o.Id != winningOfferId && o.Status == AuctionOfferStatus.Active)
                 .ToList();
@@ -706,24 +651,16 @@ public class AuctionService
                 losingOffer.State = AuctionOfferState.Lost;
                 _offerRepo.Update(losingOffer);
 
-                var loserStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(losingOffer.OfferedUserStickerIds);
-                foreach (var loserSticker in loserStickers)
-                {
-                    loserSticker.Quantity++;
-                    loserSticker.Active = true;
-                    _userStickerRepo.Update(loserSticker);
-                }
+                foreach (var sid in losingOffer.OfferedUserStickerIds)
+                    await _userStickerRepo.IncrementQuantityAndActivateAsync(sid);
             }
         }
 
-        // The atomic operation already persisted the terminal status; reload to return current state.
         return MapToDto(_auctionRepo.GetById(auctionId)!);
     }
 
     /// <summary>
-    /// Returns a paged list of all bids placed by the authenticated user on auctions created
-    /// by other users. Each item is enriched with the auction's sticker info and a flag
-    /// indicating whether the bid is currently the system-ranked or auctioneer-selected winner.
+    /// Returns a paged list of all bids placed by the authenticated user.
     /// </summary>
     public async Task<List<MyBidResponseDTO>> GetMyBidsAsync(int bidderId, int page, int pageSize)
     {
@@ -731,14 +668,12 @@ public class AuctionService
         if (offers.Count == 0)
             return new List<MyBidResponseDTO>();
 
-        // Batch-load all parent auctions to avoid N+1 queries.
         var auctionIds = offers.Select(o => o.AuctionId).Distinct().ToList();
         var auctionMap = auctionIds
             .Select(id => _auctionRepo.GetById(id))
             .Where(a => a != null)
             .ToDictionary(a => a!.Id);
 
-        // Batch-load all UserStickers referenced by the auctions.
         var userStickerIds = auctionMap.Values.Select(a => a!.UserStickerId).Distinct().ToList();
         var userStickerMap = _userStickerRepo.GetMultipleByIdIncludingInactive(userStickerIds)
             .ToDictionary(us => us.Id);
@@ -750,8 +685,6 @@ public class AuctionService
             if (auction != null)
                 userStickerMap.TryGetValue(auction.UserStickerId, out us);
 
-            // IsCurrentWinner: true if this offer is either the system-ranked best or the
-            // auctioneer-explicitly-selected winner.
             var isCurrentWinner = auction != null &&
                 (auction.BestCurrentOfferId == offer.Id || auction.UserSelectedBestOfferId == offer.Id);
 
@@ -772,20 +705,20 @@ public class AuctionService
     }
 
     /// <summary>
-    /// Core finalization logic shared by <see cref="AcceptOfferAsync"/> and
-    /// <see cref="CloseAuctionAutomatically"/>. Called after the auction status has
-    /// already been atomically transitioned to Closed.
-    ///
-    /// Responsibilities:
-    /// - Marks the winning offer as <see cref="AuctionOfferState.Won"/>.
-    /// - Marks all other Pending offers as <see cref="AuctionOfferState.Lost"/> and restores
-    ///   their bidders' reserved stock (Quantity++, Active = true).
-    /// - Transfers the auctioned sticker to the winner's inventory.
-    /// - Transfers the winning offer's stickers to the auctioneer's inventory.
-    /// - Cleans up MissingSticker records for both parties.
+    /// Core finalization logic shared by AcceptOfferAsync and CloseAuctionAutomatically.
+    /// Guarded by FinalizationCompleted to prevent duplicate execution (TAREA 9).
     /// </summary>
     private async Task FinalizeClosedAuctionAsync(int auctionId, int? winningOfferId)
     {
+        // RC-09 fix: claim the finalization slot atomically FIRST.
+        // TryMarkFinalizationCompletedAsync uses a filter { Id==auctionId, FinalizationCompleted==false }
+        // with $set { FinalizationCompleted: true }, so only one concurrent caller can win the race.
+        // Reading FinalizationCompleted from an in-memory object and checking it before doing work
+        // (the old pattern) was stale: two workers could both read false simultaneously and both proceed.
+        var claimed = await _auctionRepo.TryMarkFinalizationCompletedAsync(auctionId);
+        if (!claimed)
+            return;
+
         var auction = _auctionRepo.GetById(auctionId)
             ?? throw new KeyNotFoundException($"Auction {auctionId} not found during finalization.");
 
@@ -793,14 +726,7 @@ public class AuctionService
 
         if (winningOfferId == null || !allOffers.Any(o => o.State == AuctionOfferState.Pending))
         {
-            // Desert auction: restore auctioneer's stock and mark all pending offers as Lost.
-            var auctionedSticker = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
-            if (auctionedSticker != null)
-            {
-                auctionedSticker.Quantity++;
-                auctionedSticker.Active = true;
-                _userStickerRepo.Update(auctionedSticker);
-            }
+            await _userStickerRepo.IncrementQuantityAndActivateAsync(auction.UserStickerId);
 
             var pendingOffers = allOffers.Where(o => o.State == AuctionOfferState.Pending).ToList();
             foreach (var offer in pendingOffers)
@@ -808,32 +734,24 @@ public class AuctionService
                 offer.State = AuctionOfferState.Lost;
                 _offerRepo.Update(offer);
 
-                var bidderStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(offer.OfferedUserStickerIds);
-                foreach (var bidderSticker in bidderStickers)
-                {
-                    bidderSticker.Quantity++;
-                    bidderSticker.Active = true;
-                    _userStickerRepo.Update(bidderSticker);
-                }
+                foreach (var sid in offer.OfferedUserStickerIds)
+                    await _userStickerRepo.IncrementQuantityAndActivateAsync(sid);
             }
+
             return;
         }
 
         var winningOffer = allOffers.FirstOrDefault(o => o.Id == winningOfferId)
             ?? throw new InvalidOperationException($"Winning offer {winningOfferId} not found for auction {auctionId}.");
 
-        // Transfer auctioned sticker (reserved/inactive) to winner's inventory.
         var auctionedStickerForTransfer = _userStickerRepo.GetByIdIncludingInactive(auction.UserStickerId);
         if (auctionedStickerForTransfer != null)
         {
-            // Use inclusive lookup to avoid duplicates when the winner already has an inactive record.
             var winnerExisting = await _userStickerRepo.GetByUserIdAndCatalogIdIncludingInactiveAsync(
                 winningOffer.BidderId, auctionedStickerForTransfer.Sticker.Id);
             if (winnerExisting != null)
             {
-                winnerExisting.Quantity++;
-                winnerExisting.Active = true;
-                _userStickerRepo.Update(winnerExisting);
+                await _userStickerRepo.IncrementQuantityAndActivateAsync(winnerExisting.Id);
             }
             else
             {
@@ -850,18 +768,14 @@ public class AuctionService
             }
         }
 
-        // Transfer winning offer stickers (reserved/inactive) to auctioneer.
         var winningStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(winningOffer.OfferedUserStickerIds);
         foreach (var winningSticker in winningStickers)
         {
-            // Use inclusive lookup to avoid duplicates when the auctioneer already has an inactive record.
             var auctioneerExisting = await _userStickerRepo.GetByUserIdAndCatalogIdIncludingInactiveAsync(
                 auction.AuctioneerId, winningSticker.Sticker.Id);
             if (auctioneerExisting != null)
             {
-                auctioneerExisting.Quantity++;
-                auctioneerExisting.Active = true;
-                _userStickerRepo.Update(auctioneerExisting);
+                await _userStickerRepo.IncrementQuantityAndActivateAsync(auctioneerExisting.Id);
             }
             else
             {
@@ -878,22 +792,15 @@ public class AuctionService
             }
         }
 
-        // Clean up MissingSticker records for winner and auctioneer.
         if (auctionedStickerForTransfer != null)
-        {
             await _missingStickerRepo.DeleteAsync(winningOffer.BidderId, auctionedStickerForTransfer.Sticker.Id);
-        }
-        foreach (var winningSticker in winningStickers)
-        {
-            await _missingStickerRepo.DeleteAsync(auction.AuctioneerId, winningSticker.Sticker.Id);
-        }
 
-        // Mark winning offer as Won.
+        foreach (var winningSticker in winningStickers)
+            await _missingStickerRepo.DeleteAsync(auction.AuctioneerId, winningSticker.Sticker.Id);
+
         winningOffer.State = AuctionOfferState.Won;
         _offerRepo.Update(winningOffer);
 
-        // Mark all remaining Pending offers as Lost and restore their stock.
-        // Superseded offers already had their stock released at supersession time.
         var losingOffers = allOffers
             .Where(o => o.Id != winningOfferId && o.State == AuctionOfferState.Pending)
             .ToList();
@@ -902,48 +809,29 @@ public class AuctionService
             losingOffer.State = AuctionOfferState.Lost;
             _offerRepo.Update(losingOffer);
 
-            var loserStickers = _userStickerRepo.GetMultipleByIdIncludingInactive(losingOffer.OfferedUserStickerIds);
-            foreach (var loserSticker in loserStickers)
-            {
-                loserSticker.Quantity++;
-                loserSticker.Active = true;
-                _userStickerRepo.Update(loserSticker);
-            }
+            foreach (var sid in losingOffer.OfferedUserStickerIds)
+                await _userStickerRepo.IncrementQuantityAndActivateAsync(sid);
         }
     }
 
     /// <summary>
-    /// Recalculates <see cref="Auction.BestCurrentOfferId"/> for the given auction using
-    /// the canonical three-criteria ranking:
-    ///   1. Most missing stickers of the auctioneer covered (higher is better).
-    ///   2. Most total stickers offered (higher is better).
-    ///   3. Oldest offer (lower CreatedAt wins — FIFO).
-    ///
-    /// All data is fetched in batch to avoid N+1 queries:
-    ///   - One query for the auctioneer's missing sticker IDs.
-    ///   - One query for all active offers on this auction.
-    ///   - One batch query for all UserStickers referenced by those offers.
-    ///
-    /// The result is persisted immediately. If there are no active offers the field is set to null.
+    /// Recalculates BestCurrentOfferId using a partial $set to avoid overwriting
+    /// UserSelectedBestOfferId (RC-08 fix).
     /// </summary>
     private async Task RecalculateBestOfferAsync(Auction auction)
     {
-        // Batch 1: auctioneer's missing sticker catalog IDs (projected — no full documents loaded).
         var auctioneerMissingIds = (await _missingStickerRepo.GetStickerIdsByUserIdAsync(auction.AuctioneerId))
                                    .ToHashSet();
 
-        // Batch 2: all Pending offers for this auction (server-side filtered).
         var activeOffers = await _offerRepo.GetByAuctionIdAsync(auction.Id);
         var rankableOffers = activeOffers.Where(o => o.Status == AuctionOfferStatus.Active).ToList();
 
         if (rankableOffers.Count == 0)
         {
-            auction.BestCurrentOfferId = null;
-            _auctionRepo.Update(auction);
+            await _auctionRepo.SetBestCurrentOfferIdAsync(auction.Id, null);
             return;
         }
 
-        // Batch 3: all UserStickers referenced by active offers in a single query.
         var allOfferedIds = rankableOffers
             .SelectMany(o => o.OfferedUserStickerIds)
             .Distinct()
@@ -953,23 +841,20 @@ public class AuctionService
             .GetMultipleByIdIncludingInactive(allOfferedIds)
             .ToDictionary(us => us.Id);
 
-        // Rank each offer by the three criteria.
         var bestOffer = rankableOffers
             .OrderByDescending(o =>
             {
-                // Criterion 1: count of the auctioneer's missing stickers covered by this offer.
                 var offeredCatalogIds = o.OfferedUserStickerIds
                     .Where(usId => userStickerMap.ContainsKey(usId))
                     .Select(usId => userStickerMap[usId].Sticker.Id)
                     .ToHashSet();
                 return offeredCatalogIds.Count(sid => auctioneerMissingIds.Contains(sid));
             })
-            .ThenByDescending(o => o.OfferedUserStickerIds.Count) // Criterion 2: total stickers offered.
-            .ThenBy(o => o.CreatedAt)                              // Criterion 3: FIFO — oldest wins.
+            .ThenByDescending(o => o.OfferedUserStickerIds.Count)
+            .ThenBy(o => o.CreatedAt)
             .First();
 
-        auction.BestCurrentOfferId = bestOffer.Id;
-        _auctionRepo.Update(auction);
+        await _auctionRepo.SetBestCurrentOfferIdAsync(auction.Id, bestOffer.Id);
     }
 
     private static AuctionResponseDTO MapToDto(Auction auction, UserSticker? us = null, User? user = null, int offerCount = 0) => new()
@@ -992,7 +877,10 @@ public class AuctionService
         OfferCount = offerCount
     };
 
-    private static AuctionOfferResponseDTO MapOfferToDto(AuctionOffer offer, string bidderUsername = "") => new()
+    private static AuctionOfferResponseDTO MapOfferToDto(
+        AuctionOffer offer,
+        string bidderUsername = "",
+        List<StickerPreviewDTO>? offeredStickerPreviews = null) => new()
     {
         Id = offer.Id,
         AuctionId = offer.AuctionId,
@@ -1000,6 +888,7 @@ public class AuctionService
         OfferedUserStickerIds = offer.OfferedUserStickerIds,
         CreatedAt = offer.CreatedAt,
         State = offer.State.ToString(),
-        BidderUsername = bidderUsername
+        BidderUsername = bidderUsername,
+        OfferedStickerPreviews = offeredStickerPreviews ?? new()
     };
 }

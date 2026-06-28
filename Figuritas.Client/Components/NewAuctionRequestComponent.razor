@@ -183,7 +183,12 @@
         };
 
         var dialog = await DialogService.ShowAsync<UserStickerSelectionComponent>(
-            "Mis figuritas", new DialogParameters(), options);
+            "Mis figuritas",
+            new DialogParameters<UserStickerSelectionComponent>
+            {
+                { c => c.FilterByAuctionable, true }
+            },
+            options);
         var result = await dialog.Result;
 
         if (!result!.Canceled && result.Data is UserStickerVm picked)

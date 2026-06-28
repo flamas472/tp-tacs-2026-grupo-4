@@ -404,33 +404,53 @@
         // Exclude cancelled offers from the display
         offers = result.Data.Where(o => o.State != "Cancelled").ToList();
 
-        // Build preview maps: for each unique bidder, load their stickers once
-        var bidderIds = offers.Select(o => o.BidderId).Distinct().ToList();
-        var bidderStickers = new Dictionary<int, List<MarketStickerResponseDTO>>();
-
-        var fetchTasks = bidderIds.Select(async bidderId =>
-        {
-            var stickersResult = await UserHttp.GetUserStickersAsync(bidderId, page: 1, pageSize: 200);
-            if (stickersResult.Success && stickersResult.Data is not null)
-                bidderStickers[bidderId] = stickersResult.Data;
-        });
-        await Task.WhenAll(fetchTasks);
-
+        // Primary: use the sticker previews embedded in each offer by the server.
+        // These are fetched with GetMultipleByIdIncludingInactive, so they include stickers
+        // with Active=false whose stock was fully reserved for the offer.
+        var offersWithoutPreviews = new List<AuctionOfferResponseDTO>();
         foreach (var offer in offers)
         {
-            if (!bidderStickers.TryGetValue(offer.BidderId, out var bidderList)) continue;
+            if (offer.OfferedStickerPreviews.Any())
+            {
+                offerPreviewMap[offer.Id] = offer.OfferedStickerPreviews;
+            }
+            else
+            {
+                offersWithoutPreviews.Add(offer);
+            }
+        }
 
-            var idSet = offer.OfferedUserStickerIds.ToHashSet();
-            offerPreviewMap[offer.Id] = bidderList
-                .Where(s => idSet.Contains(s.UserStickerId))
-                .Select(s => new StickerPreviewDTO
-                {
-                    UserStickerId = s.UserStickerId,
-                    Number        = s.StickerNumber,
-                    ImageUrl      = s.StickerImageUrl,
-                    Description   = s.StickerDescription
-                })
-                .ToList();
+        // Fallback: for any offer that arrived without embedded previews (old data),
+        // fetch bidder stickers from the API — only active ones, but better than nothing.
+        if (offersWithoutPreviews.Any())
+        {
+            var bidderIds = offersWithoutPreviews.Select(o => o.BidderId).Distinct().ToList();
+            var bidderStickers = new Dictionary<int, List<MarketStickerResponseDTO>>();
+
+            var fetchTasks = bidderIds.Select(async bidderId =>
+            {
+                var stickersResult = await UserHttp.GetUserStickersAsync(bidderId, page: 1, pageSize: 200);
+                if (stickersResult.Success && stickersResult.Data is not null)
+                    bidderStickers[bidderId] = stickersResult.Data;
+            });
+            await Task.WhenAll(fetchTasks);
+
+            foreach (var offer in offersWithoutPreviews)
+            {
+                if (!bidderStickers.TryGetValue(offer.BidderId, out var bidderList)) continue;
+
+                var idSet = offer.OfferedUserStickerIds.ToHashSet();
+                offerPreviewMap[offer.Id] = bidderList
+                    .Where(s => idSet.Contains(s.UserStickerId))
+                    .Select(s => new StickerPreviewDTO
+                    {
+                        UserStickerId = s.UserStickerId,
+                        Number        = s.StickerNumber,
+                        ImageUrl      = s.StickerImageUrl,
+                        Description   = s.StickerDescription
+                    })
+                    .ToList();
+            }
         }
     }
 
@@ -449,27 +469,52 @@
 
     // ── Section 3 — Actions ──────────────────────────────────────────────────
 
-    /// <summary>Marks an offer as the owner's favorite (pre-selection without closing).</summary>
+    /// <summary>
+    /// Toggles the owner's favorite offer.
+    /// If the offer is already the favorite, clears the selection (DELETE).
+    /// Otherwise marks it as favorite (PATCH).
+    /// </summary>
     private async Task HandleSelectFavorite(AuctionOfferResponseDTO offer)
     {
         if (actionLoading) return;
 
         actionLoading = true;
         var token = await AuthState.GetTokenAsync() ?? string.Empty;
-        var result = await AuctionHttp.SelectBestOfferAsync(
-            Auction.Id,
-            new SelectBestOfferRequestDTO { OfferId = offer.Id },
-            token);
-        actionLoading = false;
 
-        if (result.Success)
+        if (IsFavorite(offer))
         {
-            userSelectedOfferId = offer.Id;
-            Snackbar.Add($"Oferta de {offer.BidderUsername} marcada como favorita.", Severity.Info);
+            // Offer is already the favorite — clear it
+            var result = await AuctionHttp.ClearBestOfferAsync(Auction.Id, token);
+            actionLoading = false;
+
+            if (result.Success)
+            {
+                userSelectedOfferId = null;
+                Snackbar.Add("Favorita eliminada.", Severity.Info);
+            }
+            else
+            {
+                Snackbar.Add(result.ErrorMessage ?? "No se pudo quitar la favorita.", Severity.Error);
+            }
         }
         else
         {
-            Snackbar.Add(result.ErrorMessage ?? "No se pudo actualizar la favorita.", Severity.Error);
+            // Offer is not the favorite — select it
+            var result = await AuctionHttp.SelectBestOfferAsync(
+                Auction.Id,
+                new SelectBestOfferRequestDTO { OfferId = offer.Id },
+                token);
+            actionLoading = false;
+
+            if (result.Success)
+            {
+                userSelectedOfferId = offer.Id;
+                Snackbar.Add($"Oferta de {offer.BidderUsername} marcada como favorita.", Severity.Info);
+            }
+            else
+            {
+                Snackbar.Add(result.ErrorMessage ?? "No se pudo actualizar la favorita.", Severity.Error);
+            }
         }
     }
 

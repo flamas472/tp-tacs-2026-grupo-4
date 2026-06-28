@@ -21,12 +21,12 @@ public class RatingsController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<RatingResponseDTO> PostRating(PostRatingRequestDTO dto)
+    public async Task<ActionResult<RatingResponseDTO>> PostRating(PostRatingRequestDTO dto)
     {
         try
         {
             var raterId = _authService.GetUserIdFromToken(User);
-            var rate = _userService.CreateUserRate(dto, raterId);
+            var rate = await _userService.CreateUserRate(dto, raterId);
 
             var response = new RatingResponseDTO
             {

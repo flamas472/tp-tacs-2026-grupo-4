@@ -102,4 +102,3 @@ ejecutar `dotnet watch run` para ejecutar con hot reload para ver cambios en tim
  - Para servir la aplicación frontend (client-side SPA) incluimos `nginx` que también hace de proxy reverso para las consultas HTTP REST que deben dirigirse a la API backend.
  - Separamos la lógica de modelo en el proyecto Shared que puede ser utilizado por los proyectos Figuritas.Api (backend) y Figuritas.Client (frontend).
  - Aprovechamos el motor de Inyección de Dependencias nativo de .NET para gestionar el ciclo de vida de los servicios y el estado de la aplicación. Esto desacopla la lógica de negocio y evita problemas comunes de otros frameworks como el prop drilling en React, eliminando la necesidad de hooks complejos para el manejo de servicios globales.
-

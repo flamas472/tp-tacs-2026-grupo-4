@@ -15,4 +15,6 @@ public class UserSticker
     public bool Active { get; set; } = true;
 
     public int Quantity { get; set; }
+
+    public int Version { get; set; } = 0;
 }
