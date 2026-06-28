@@ -89,7 +89,7 @@ public class UserService(
         if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.HashedPassword))
             return null;
         if (user.Banned)
-            return null;
+            throw new UnauthorizedAccessException("Account is banned.");
         return user;
     }
 

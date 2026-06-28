@@ -35,11 +35,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<RatingResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<RatingResponseDTO>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<RatingResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<RatingResponseDTO>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
     }

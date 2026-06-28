@@ -32,11 +32,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -56,11 +56,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<ExchangeProposalResponseDTO>>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -83,11 +83,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<ExchangeProposalResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<ExchangeProposalResponseDTO>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<ExchangeProposalResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<ExchangeProposalResponseDTO>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -104,11 +104,11 @@ namespace Figuritas.Client.Requests
                     return ApiResponse<bool>.Ok(true);
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<bool>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<bool>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<bool>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -125,11 +125,11 @@ namespace Figuritas.Client.Requests
                     return ApiResponse<bool>.Ok(true);
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<bool>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<bool>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<bool>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -146,11 +146,11 @@ namespace Figuritas.Client.Requests
                     return ApiResponse<bool>.Ok(true);
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<bool>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<bool>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<bool>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -169,11 +169,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<ExchangeProposalResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<ExchangeProposalResponseDTO>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<ExchangeProposalResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<ExchangeProposalResponseDTO>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -192,11 +192,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<ExchangeSummaryDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<ExchangeSummaryDTO>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<ExchangeSummaryDTO>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<ExchangeSummaryDTO>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
     }

@@ -26,12 +26,19 @@ public class AuthController : ControllerBase
     [EnableRateLimiting("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDTO loginDto)
     {
-        var user = _userService.ValidateCredentials(loginDto.Username, loginDto.Password);
-        if (user == null)
-            return Unauthorized("Invalid credentials.");
+        try
+        {
+            var user = _userService.ValidateCredentials(loginDto.Username, loginDto.Password);
+            if (user == null)
+                return Unauthorized("Invalid credentials.");
 
-        var response = await _authService.LoginAsync(user);
-        return Ok(response);
+            var response = await _authService.LoginAsync(user);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return StatusCode(403, "Account is banned.");
+        }
     }
 
     [HttpPost("register")]

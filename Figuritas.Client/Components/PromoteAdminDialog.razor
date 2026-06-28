@@ -39,11 +39,12 @@
                       OnAdornmentClick="@(() => showPassword = !showPassword)"
                       Required="true"
                       RequiredError="La contraseña es obligatoria."
+                      Validation="@((string val) => ValidatePassword(val))"
                       Disabled="loading"
                       Class="mb-2" />
 
         <MudText Typo="Typo.caption" Color="Color.Secondary">
-            La contraseña debe tener al menos 8 caracteres.
+            La contraseña debe tener al menos 8 caracteres, una letra mayúscula y un número.
         </MudText>
 
         @if (errorMessage is not null)
@@ -80,6 +81,21 @@
     private bool loading = false;
     private string? errorMessage;
 
+    /// <summary>
+    /// Validates the password against all required criteria and returns
+    /// one error message per unmet rule, for real-time inline feedback.
+    /// </summary>
+    private static IEnumerable<string> ValidatePassword(string value)
+    {
+        if (string.IsNullOrEmpty(value)) yield break;
+        if (value.Length < 8)
+            yield return "La contraseña debe tener al menos 8 caracteres.";
+        if (!value.Any(char.IsUpper))
+            yield return "La contraseña debe contener al menos una letra mayúscula.";
+        if (!value.Any(char.IsDigit))
+            yield return "La contraseña debe contener al menos un número.";
+    }
+
     private async Task HandlePromote()
     {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
@@ -88,9 +104,10 @@
             return;
         }
 
-        if (password.Length < 8)
+        var passwordErrors = ValidatePassword(password).ToList();
+        if (passwordErrors.Count > 0)
         {
-            errorMessage = "La contraseña debe tener al menos 8 caracteres.";
+            errorMessage = string.Join(" ", passwordErrors);
             return;
         }
 

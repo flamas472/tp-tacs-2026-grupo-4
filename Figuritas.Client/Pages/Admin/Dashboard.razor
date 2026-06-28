@@ -710,7 +710,7 @@
         else
         {
             summaryError = true;
-            summaryErrorMessage = result.ErrorMessage ?? "Error desconocido.";
+            summaryErrorMessage = result.ErrorMessage ?? "Ocurrió un problema inesperado. Por favor, intente nuevamente.";
         }
     }
 
@@ -729,7 +729,7 @@
         else
         {
             usersError = true;
-            usersErrorMessage = result.ErrorMessage ?? "Error desconocido.";
+            usersErrorMessage = result.ErrorMessage ?? "Ocurrió un problema inesperado. Por favor, intente nuevamente.";
             users = new();
         }
     }
@@ -749,7 +749,7 @@
         else
         {
             adminsError = true;
-            adminsErrorMessage = result.ErrorMessage ?? "Error desconocido.";
+            adminsErrorMessage = result.ErrorMessage ?? "Ocurrió un problema inesperado. Por favor, intente nuevamente.";
             admins = new();
         }
     }

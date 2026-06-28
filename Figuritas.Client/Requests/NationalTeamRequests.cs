@@ -26,11 +26,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<NationalTeam>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<NationalTeam>>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<List<NationalTeam>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<NationalTeam>>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
     }

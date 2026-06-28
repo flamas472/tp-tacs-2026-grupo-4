@@ -39,11 +39,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<MarketStickerResponseDTO>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<MarketStickerResponseDTO>>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<List<MarketStickerResponseDTO>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<MarketStickerResponseDTO>>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -64,12 +64,12 @@ namespace Figuritas.Client.Requests
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
                 return ApiResponse<List<ExchangeSuggestionResponseDTO>>.Fail(
-                    $"Error del servidor: {response.StatusCode}. {errorMsg}");
+                    HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return ApiResponse<List<ExchangeSuggestionResponseDTO>>.Fail(
-                    $"Error de conexión: {ex.Message}");
+                    HttpExtensions.GetFriendlyConnectionError());
             }
         }
     }

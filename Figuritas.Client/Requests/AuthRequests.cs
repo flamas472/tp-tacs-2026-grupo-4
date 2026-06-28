@@ -31,11 +31,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<LoginResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<LoginResponseDTO>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<LoginResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<LoginResponseDTO>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -54,11 +54,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<UserResponseDTO>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<UserResponseDTO>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<UserResponseDTO>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<UserResponseDTO>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -73,11 +73,11 @@ namespace Figuritas.Client.Requests
                     return ApiResponse<bool>.Ok(true);
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<bool>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<bool>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<bool>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<bool>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
     }

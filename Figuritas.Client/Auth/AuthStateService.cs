@@ -36,7 +36,7 @@ public class AuthStateService
     {
         var result = await _authHttp.LoginAsync(new LoginRequestDTO { Username = username, Password = password });
         if (!result.Success || result.Data?.AccessToken == null)
-            return result.ErrorMessage ?? "Credenciales inválidas.";
+            return result.ErrorMessage ?? "Las credenciales son incorrectas, o puede que el usuario no exista.";
 
         CacheClaimsFromToken(result.Data.AccessToken);
         await _provider.SetTokenAsync(result.Data.AccessToken);
@@ -49,7 +49,7 @@ public class AuthStateService
     {
         var result = await _authHttp.RegisterAsync(new PostUserDTO { Username = username, Password = password });
         if (!result.Success)
-            return result.ErrorMessage ?? "Error al registrarse.";
+            return result.ErrorMessage ?? "No fue posible completar el registro. Intente nuevamente.";
 
         return await LoginAsync(username, password);
     }

@@ -161,7 +161,7 @@
         var result = await ProposalHttp.AcceptProposalAsync(Proposal.Id, token);
         loading = false;
         feedbackSuccess = result.Success;
-        feedbackMsg = result.Success ? "¡Intercambio aceptado!" : result.ErrorMessage ?? "Error al aceptar.";
+        feedbackMsg = result.Success ? "¡Intercambio aceptado!" : result.ErrorMessage ?? "No se pudo aceptar la propuesta. Intente nuevamente.";
         if (feedbackSuccess) { await Task.Delay(1200); MudDialog.Close(DialogResult.Ok(true)); }
     }
 
@@ -172,7 +172,7 @@
         var result = await ProposalHttp.RejectProposalAsync(Proposal.Id, token);
         loading = false;
         feedbackSuccess = result.Success;
-        feedbackMsg = result.Success ? "Propuesta rechazada." : result.ErrorMessage ?? "Error al rechazar.";
+        feedbackMsg = result.Success ? "Propuesta rechazada." : result.ErrorMessage ?? "No se pudo rechazar la propuesta. Intente nuevamente.";
         if (feedbackSuccess) { await Task.Delay(1200); MudDialog.Close(DialogResult.Ok(true)); }
     }
 
@@ -183,7 +183,7 @@
         var result = await ProposalHttp.CancelProposalAsync(Proposal.Id, token);
         loading = false;
         feedbackSuccess = result.Success;
-        feedbackMsg = result.Success ? "Propuesta cancelada." : result.ErrorMessage ?? "Error al cancelar.";
+        feedbackMsg = result.Success ? "Propuesta cancelada." : result.ErrorMessage ?? "No se pudo cancelar la propuesta. Intente nuevamente.";
         if (feedbackSuccess) { await Task.Delay(1200); MudDialog.Close(DialogResult.Ok(true)); }
     }
 }
