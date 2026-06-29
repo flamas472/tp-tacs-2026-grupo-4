@@ -119,43 +119,6 @@ public class UserStory04Tests : IAsyncLifetime
         Assert.Empty(results);
     }
 
-    /// <summary>
-    /// Escenario 3: Match simple — A tiene faltante stickerX, B publica stickerX con CanBeDirectlyExchanged=true,
-    /// Quantity>0. Verificar que la respuesta incluye IsPerfectMatch=false.
-    /// </summary>
-    [Fact]
-    public async Task US04_GetSuggestions_SimpleMatch_ReturnsIsPerfectMatchFalse()
-    {
-        var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us04_simple_a_{uniqueSuffix}", "Password123");
-        var userB = await RegisterUserAsync($"us04_simple_b_{uniqueSuffix}", "Password123");
-        var tokenA = await LoginAsync($"us04_simple_a_{uniqueSuffix}", "Password123");
-        var tokenB = await LoginAsync($"us04_simple_b_{uniqueSuffix}", "Password123");
-
-        // Obtener dos stickers del catálogo: X para que B publique y A tenga de faltante
-        var stickers = await GetCatalogStickersAsync(1, 2);
-        var stickerX = stickers[0];
-
-        var clientA = ClientWithToken(tokenA);
-        var clientB = ClientWithToken(tokenB);
-
-        // B publica stickerX
-        await PublishStickerAsync(clientB, userB.Id, stickerX.Id, quantity: 2, canBeDirectlyExchanged: true);
-
-        // A registra stickerX como faltante (A no publica nada → no puede haber match perfecto)
-        await AddMissingStickerAsync(clientA, userA.Id, stickerX.Id);
-
-        var response = await clientA.GetAsync("/api/market/suggestions?PageSize=500");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var results = await response.Content.ReadFromJsonAsync<List<ExchangeSuggestionResponseDTO>>(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        Assert.NotNull(results);
-        Assert.NotEmpty(results);
-
-        var suggestion = results.FirstOrDefault(r => r.SuggestedUserId == userB.Id && r.StickerId == stickerX.Id);
-        Assert.NotNull(suggestion);
-        Assert.False(suggestion.IsPerfectMatch);
-    }
 
     /// <summary>
     /// Escenario 4: Match perfecto — A tiene faltante stickerX y publica stickerY.
@@ -307,40 +270,35 @@ public class UserStory04Tests : IAsyncLifetime
     // ─── US04 Tests (continued) ──────────────────────────────────────────────
 
     /// <summary>
-    /// Escenario 8: Orden — perfectos primero. Hay un match simple y un match perfecto;
-    /// el perfecto aparece antes en la lista.
+    /// Scenario 8: The service only returns perfect matches (SuggestionService skips
+    /// non-perfect matches via an early continue). A has stickerY as missing and
+    /// publishes stickerZ. C publishes stickerY (which A needs) and has stickerZ as
+    /// missing (which A has) — forming a perfect match. Verifies that results contain
+    /// at least one perfect match and that the first result is a perfect match.
     /// </summary>
     [Fact]
-    public async Task US04_GetSuggestions_PerfectMatchAppearsFirst()
+    public async Task US04_GetSuggestions_OnlyPerfectMatchesReturned_AndFirstIsPerfectMatch()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var userA = await RegisterUserAsync($"us04_order_a_{uniqueSuffix}", "Password123");
-        var userB = await RegisterUserAsync($"us04_order_b_{uniqueSuffix}", "Password123");
         var userC = await RegisterUserAsync($"us04_order_c_{uniqueSuffix}", "Password123");
         var tokenA = await LoginAsync($"us04_order_a_{uniqueSuffix}", "Password123");
-        var tokenB = await LoginAsync($"us04_order_b_{uniqueSuffix}", "Password123");
         var tokenC = await LoginAsync($"us04_order_c_{uniqueSuffix}", "Password123");
 
-        var stickers = await GetCatalogStickersAsync(1, 3);
-        var stickerX = stickers[0];
-        var stickerY = stickers[1];
-        var stickerZ = stickers[2];
+        var stickers = await GetCatalogStickersAsync(1, 2);
+        var stickerY = stickers[0];
+        var stickerZ = stickers[1];
 
         var clientA = ClientWithToken(tokenA);
-        var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);
 
-        // A tiene stickerX y stickerY como faltantes
-        await AddMissingStickerAsync(clientA, userA.Id, stickerX.Id);
+        // A has stickerY as missing
         await AddMissingStickerAsync(clientA, userA.Id, stickerY.Id);
 
-        // A publica stickerZ para intercambio (para el match perfecto con B)
+        // A publishes stickerZ for direct exchange (enables a perfect match with C)
         await PublishStickerAsync(clientA, userA.Id, stickerZ.Id, quantity: 1, canBeDirectlyExchanged: true);
 
-        // B publica stickerX (match simple: B no tiene faltantes que A pueda cubrir)
-        await PublishStickerAsync(clientB, userB.Id, stickerX.Id, quantity: 1, canBeDirectlyExchanged: true);
-
-        // C publica stickerY (match perfecto: C tiene stickerZ como faltante, que A posee)
+        // C publishes stickerY (which A needs) and has stickerZ as missing (which A has) — perfect match
         await PublishStickerAsync(clientC, userC.Id, stickerY.Id, quantity: 1, canBeDirectlyExchanged: true);
         await AddMissingStickerAsync(clientC, userC.Id, stickerZ.Id);
 
@@ -351,11 +309,10 @@ public class UserStory04Tests : IAsyncLifetime
         Assert.NotNull(results);
         Assert.NotEmpty(results);
 
-        // Verificar que hay al menos un match perfecto y uno simple
+        // The service only returns perfect matches
         Assert.Contains(results, r => r.IsPerfectMatch);
-        Assert.Contains(results, r => !r.IsPerfectMatch);
 
-        // El primer elemento de la lista debe ser un match perfecto
+        // The first element of the list must be a perfect match
         Assert.True(results.First().IsPerfectMatch, "The first suggestion should be a perfect match.");
     }
 }

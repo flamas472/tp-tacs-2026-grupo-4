@@ -1,11 +1,16 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
 namespace Figuritas.Api.Tests;
@@ -340,6 +345,65 @@ public class SecurityTests : IAsyncLifetime
     }
 
     // ─── SEC-004: Active JWT must be invalidated when the user is banned ─────
+
+    // ─── SEC-005: Expired JWT must be rejected ───────────────────────────────
+
+    /// <summary>
+    /// SEC-005: A JWT whose expiration time is in the past must be rejected with 401,
+    /// even when the token signature is valid and the user account is active.
+    ///
+    /// The mechanism:
+    ///   - TokenValidationParameters does not set ValidateLifetime explicitly,
+    ///     so it defaults to true. The JWT Bearer middleware rejects expired tokens
+    ///     before OnTokenValidated is ever invoked.
+    ///   - The expired token is built with the same signing key used by the backend
+    ///     (read from IConfiguration["Jwt:Key"]) so that the rejection comes from
+    ///     lifetime validation, not from a malformed or unsigned token.
+    /// </summary>
+    [Fact]
+    public async Task SEC005_ExpiredToken_Returns401()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var username = $"sec005_{suffix}";
+        const string password = "Password123";
+
+        var registered = await RegisterUserAsync(username, password);
+
+        // Read the JWT signing key from the same IConfiguration the backend uses,
+        // so the token is structurally valid — only its lifetime is in the past.
+        string jwtKey;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            jwtKey = config["Jwt:Key"]
+                ?? throw new InvalidOperationException("Jwt:Key is not configured in the test environment.");
+        }
+
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+        // Build a token that expired one hour ago with a valid signature.
+        var issuedAt = DateTimeOffset.UtcNow.AddHours(-2);
+        var expiredToken = new JwtSecurityToken(
+            claims: new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, registered.Id.ToString()),
+                new Claim(ClaimTypes.Name, username),
+                new Claim("iat", issuedAt.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+            },
+            notBefore: issuedAt.UtcDateTime,
+            expires: issuedAt.UtcDateTime.AddMinutes(15), // Expired ~45 minutes ago
+            signingCredentials: credentials
+        );
+
+        var expiredTokenString = new JwtSecurityTokenHandler().WriteToken(expiredToken);
+        var clientWithExpiredToken = ClientWithToken(expiredTokenString);
+
+        // Any [Authorize] endpoint must reject the expired token with 401.
+        var response = await clientWithExpiredToken.GetAsync($"/api/users/{registered.Id}/missing-stickers");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 
     /// <summary>
     /// SEC-004: A valid JWT held by a user must be rejected (401) as soon as the

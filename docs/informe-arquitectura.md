@@ -1,7 +1,5 @@
 # Informe de Arquitectura — FiguriTACS
 
-> Snapshot del estado actual de la solución. Destinado a comparar con la planificación inicial y mostrar el alcance implementado.
-
 ---
 
 ## Estructura general

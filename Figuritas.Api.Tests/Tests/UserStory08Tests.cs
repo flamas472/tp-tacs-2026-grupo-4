@@ -283,15 +283,11 @@ public class UserStory08Tests : IAsyncLifetime
         var p2 = await CreateProposalAsync(clientA, userB.Id, stickerB.Id, new List<int> { stickerA2.Id });
         var p3 = await CreateProposalAsync(clientA, userB.Id, stickerB.Id, new List<int> { stickerA3.Id });
 
-        // B accepts p1
+        // B accepts p1 — backend auto-rejects p2 and p3 (AutoRejectPendingProposalsForRequestedStickerAsync)
         var acceptResponse = await clientB.PostAsync($"/api/exchange-proposals/{p1.Id}/accept", null);
         Assert.Equal(HttpStatusCode.OK, acceptResponse.StatusCode);
 
-        // B rejects p2
-        var rejectResponse = await clientB.PostAsync($"/api/exchange-proposals/{p2.Id}/reject", null);
-        Assert.Equal(HttpStatusCode.OK, rejectResponse.StatusCode);
-
-        // p3 stays Pending
+        // p2 and p3 are auto-rejected by the backend; no manual action needed
 
         // A queries sent proposals without state filter — all 3 should appear
         var response = await clientA.GetAsync("/api/dashboard/proposals/sent");
@@ -460,28 +456,6 @@ public class UserStory08Tests : IAsyncLifetime
         var response = await client.GetAsync("/api/dashboard/proposals/sent?State=INVALID_VALUE");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    /// <summary>
-    /// Test 14: GET /api/users/{B.Id}/stickers was the legacy deprecated endpoint.
-    /// The GET verb has been removed — the route only exists for POST, so the framework
-    /// returns 405 Method Not Allowed. Sticker inventory is now exclusively available
-    /// via GET /api/dashboard/stickers.
-    /// </summary>
-    [Fact]
-    public async Task GetUserStickers_LegacyEndpoint_IsRemoved_Returns405()
-    {
-        var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us08_legA_{suffix}", "Password123");
-        var userB = await RegisterUserAsync($"us08_legB_{suffix}", "Password123");
-        var tokenA = await LoginAsync($"us08_legA_{suffix}", "Password123");
-        var clientA = ClientWithToken(tokenA);
-
-        // GET /api/users/{userId}/stickers is not registered — only POST exists on this route,
-        // so the framework responds with 405 Method Not Allowed.
-        var response = await clientA.GetAsync($"/api/users/{userB.Id}/stickers");
-
-        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────

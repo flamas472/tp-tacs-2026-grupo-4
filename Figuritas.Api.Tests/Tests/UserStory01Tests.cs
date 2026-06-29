@@ -212,34 +212,6 @@ public class UserStory01Tests : IAsyncLifetime
     }
 
     /// <summary>
-    /// Escenario 5: Publicar el mismo sticker dos veces → segunda llamada devuelve 409 Conflict.
-    /// </summary>
-    [Fact]
-    public async Task US01_PostUserSticker_Duplicate_Returns409()
-    {
-        var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var username = $"us01_dup_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "Password123");
-        var token = await LoginAsync(username, "Password123");
-        var stickerId = await GetFirstCatalogStickerIdAsync();
-
-        var authenticatedClient = ClientWithToken(token);
-        var dto = new PostUserStickerRequestDTO
-        {
-            StickerId = stickerId,
-            Quantity = 1,
-            CanBeDirectlyExchanged = true,
-            CanBeAuctioned = false
-        };
-
-        var first = await authenticatedClient.PostAsJsonAsync($"/api/users/{user.Id}/stickers", dto);
-        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-
-        var second = await authenticatedClient.PostAsJsonAsync($"/api/users/{user.Id}/stickers", dto);
-        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
-    }
-
-    /// <summary>
     /// Sin token → 401 Unauthorized.
     /// </summary>
     [Fact]

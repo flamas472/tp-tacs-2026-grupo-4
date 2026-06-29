@@ -45,7 +45,7 @@ public class ConcurrencyTests : IAsyncLifetime
     private async Task<UserResponseDTO> RegisterUserAsync(string username)
     {
         var response = await _client.PostAsJsonAsync("/api/auth/register",
-            new { Username = username, Password = "password123" });
+            new { Username = username, Password = "Password123" });
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
     }
@@ -53,10 +53,10 @@ public class ConcurrencyTests : IAsyncLifetime
     private async Task<string> LoginAsync(string username)
     {
         var response = await _client.PostAsJsonAsync("/api/auth/login",
-            new { Username = username, Password = "password123" });
+            new { Username = username, Password = "Password123" });
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient AuthClient(string token)

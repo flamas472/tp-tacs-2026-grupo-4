@@ -579,6 +579,37 @@ public class UserStory05Tests : IAsyncLifetime
     }
 
     /// <summary>
+    /// SA-07: Creating an exchange proposal with duplicate offered sticker IDs returns 400 BadRequest.
+    /// </summary>
+    [Fact]
+    public async Task CreateExchangeProposal_WithDuplicateOfferedStickerIds_Returns400BadRequest()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var userA = await RegisterUserAsync($"sa07_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"sa07_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"sa07_a_{suffix}", "Password123");
+        var clientA = ClientWithToken(tokenA);
+        var clientB = ClientWithToken(await LoginAsync($"sa07_b_{suffix}", "Password123"));
+
+        var catalogStickers = await GetCatalogStickersAsync(1, 2);
+        var stickerA = await PublishStickerAsync(clientA, userA.Id, catalogStickers[0].Id);
+        var stickerB = await PublishStickerAsync(clientB, userB.Id,
+            catalogStickers[1 % catalogStickers.Count].Id);
+
+        // Offering stickerA.Id twice should be rejected.
+        var proposalDto = new PostExchangeProposalRequestDTO
+        {
+            OfferedUserStickerIds = new List<int> { stickerA.Id, stickerA.Id },
+            RequestedUserStickerId = stickerB.Id,
+            ProposedUserId = userB.Id
+        };
+
+        var response = await clientA.PostAsJsonAsync("/api/exchange-proposals", proposalDto);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    /// <summary>
     /// GAP-06 — Concurrency: double simultaneous accept of the same ExchangeProposal.
     ///
     /// Two requests fire POST /api/exchange-proposals/{id}/accept at the same time.
