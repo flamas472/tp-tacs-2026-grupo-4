@@ -26,4 +26,25 @@ public interface IUserStickerRepository
     List<UserSticker> GetByUserId(int userId, IClientSessionHandle session);
     Task<UserSticker?> GetByUserIdAndCatalogIdIncludingInactiveAsync(int userId, int catalogStickerId);
     List<UserSticker> GetByUserIdPaginated(int userId, int page, int pageSize);
+
+    /// <summary>
+    /// Atomically decrements Quantity by 1 only when Quantity > 0 and Active == true.
+    /// Returns true if the decrement succeeded (stock was available and reserved).
+    /// Returns false if there was no available stock (Quantity == 0 or Active == false),
+    /// meaning the caller should abort and not proceed with the operation.
+    /// </summary>
+    Task<bool> TryReserveOneUnitAsync(int userStickerId);
+
+    /// <summary>
+    /// Atomically increments Quantity by 1 and sets Active = true.
+    /// Used to release previously-reserved stock when a proposal or offer is cancelled.
+    /// </summary>
+    Task IncrementQuantityAndActivateAsync(int userStickerId);
+
+    /// <summary>
+    /// Sets Active = false if Quantity is 0 or below.
+    /// Called after <see cref="TryReserveOneUnitAsync"/> to reflect exhausted stock.
+    /// No-op if the sticker still has remaining stock.
+    /// </summary>
+    Task DeactivateIfEmptyAsync(int userStickerId);
 }

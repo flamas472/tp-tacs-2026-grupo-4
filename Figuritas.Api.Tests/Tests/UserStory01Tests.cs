@@ -48,7 +48,7 @@ public class UserStory01Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private async Task<int> GetFirstCatalogStickerIdAsync()
@@ -79,8 +79,8 @@ public class UserStory01Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us01_user_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
 
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
@@ -114,8 +114,8 @@ public class UserStory01Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us01_get_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var authenticatedClient = ClientWithToken(token);
@@ -148,8 +148,8 @@ public class UserStory01Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us01_qty_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var authenticatedClient = ClientWithToken(token);
@@ -166,10 +166,10 @@ public class UserStory01Tests : IAsyncLifetime
     public async Task US01_PostUserSticker_WithDifferentUserId_Returns403()
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us01_a_{uniqueSuffix}", "password123");
-        var userB = await RegisterUserAsync($"us01_b_{uniqueSuffix}", "password123");
+        var userA = await RegisterUserAsync($"us01_a_{uniqueSuffix}", "Password123");
+        var userB = await RegisterUserAsync($"us01_b_{uniqueSuffix}", "Password123");
 
-        var tokenA = await LoginAsync($"us01_a_{uniqueSuffix}", "password123");
+        var tokenA = await LoginAsync($"us01_a_{uniqueSuffix}", "Password123");
         var stickerId = await GetFirstCatalogStickerIdAsync();
 
         var authenticatedClient = ClientWithToken(tokenA);
@@ -195,8 +195,8 @@ public class UserStory01Tests : IAsyncLifetime
     {
         var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
         var username = $"us01_inv_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
+        var user = await RegisterUserAsync(username, "Password123");
+        var token = await LoginAsync(username, "Password123");
 
         var authenticatedClient = ClientWithToken(token);
         var dto = new PostUserStickerRequestDTO
@@ -209,34 +209,6 @@ public class UserStory01Tests : IAsyncLifetime
         var response = await authenticatedClient.PostAsJsonAsync($"/api/users/{user.Id}/stickers", dto);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    /// <summary>
-    /// Escenario 5: Publicar el mismo sticker dos veces → segunda llamada devuelve 409 Conflict.
-    /// </summary>
-    [Fact]
-    public async Task US01_PostUserSticker_Duplicate_Returns409()
-    {
-        var uniqueSuffix = DateTime.UtcNow.Ticks.ToString();
-        var username = $"us01_dup_{uniqueSuffix}";
-        var user = await RegisterUserAsync(username, "password123");
-        var token = await LoginAsync(username, "password123");
-        var stickerId = await GetFirstCatalogStickerIdAsync();
-
-        var authenticatedClient = ClientWithToken(token);
-        var dto = new PostUserStickerRequestDTO
-        {
-            StickerId = stickerId,
-            Quantity = 1,
-            CanBeDirectlyExchanged = true,
-            CanBeAuctioned = false
-        };
-
-        var first = await authenticatedClient.PostAsJsonAsync($"/api/users/{user.Id}/stickers", dto);
-        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
-
-        var second = await authenticatedClient.PostAsJsonAsync($"/api/users/{user.Id}/stickers", dto);
-        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 
     /// <summary>

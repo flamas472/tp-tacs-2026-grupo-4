@@ -196,7 +196,7 @@
             feedbackSuccess = patchResult.Success;
             feedbackMsg = patchResult.Success
                 ? $"Repetida actualizada correctamente (+{cantidad})."
-                : patchResult.ErrorMessage ?? "Error al actualizar la figurita.";
+                : patchResult.ErrorMessage ?? "No se pudo actualizar la figurita. Intente nuevamente.";
         }
         else
         {
@@ -212,7 +212,7 @@
             feedbackSuccess = postResult.Success;
             feedbackMsg = postResult.Success
                 ? $"Figurita agregada a tus repetidas (x{cantidad})."
-                : postResult.ErrorMessage ?? "Error al agregar la figurita.";
+                : postResult.ErrorMessage ?? "No se pudo agregar la figurita. Intente nuevamente.";
         }
     }
 
@@ -238,6 +238,6 @@
         feedbackSuccess = postResult.Success;
         feedbackMsg = postResult.Success
             ? "Figurita agregada a tus faltantes."
-            : postResult.ErrorMessage ?? "Error al agregar la figurita.";
+            : postResult.ErrorMessage ?? "No se pudo agregar la figurita. Intente nuevamente.";
     }
 }

@@ -104,7 +104,7 @@
         feedbackSuccess = result.Success;
         feedbackMsg = result.Success
             ? "¡Propuesta enviada correctamente!"
-            : result.ErrorMessage ?? "Error al enviar la propuesta.";
+            : result.ErrorMessage ?? "No se pudo enviar la propuesta. Intente nuevamente.";
 
         if (feedbackSuccess)
         {

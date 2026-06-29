@@ -39,7 +39,7 @@ public class UserStory10Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -123,10 +123,10 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_PostRating_ValidData_Returns201()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10a1_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us10a1_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10a1_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us10a1_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10a1_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us10a1_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10a1_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us10a1_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -168,10 +168,10 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_PostRating_NoComment_Returns201()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10a2_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us10a2_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10a2_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us10a2_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10a2_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us10a2_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10a2_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us10a2_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -207,8 +207,8 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_PostRating_StarsBelowRange_Returns400()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10b1_a_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10b1_a_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10b1_a_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10b1_a_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
 
         var ratingDto = new { ExchangeId = 1, TargetUserId = 99, Stars = 0, Comment = "test" };
@@ -223,8 +223,8 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_PostRating_StarsAboveRange_Returns400()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10b2_a_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10b2_a_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10b2_a_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10b2_a_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
 
         var ratingDto = new { ExchangeId = 1, TargetUserId = 99, Stars = 6, Comment = "test" };
@@ -253,8 +253,8 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_PostRating_SelfRating_Returns400()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10c2_a_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10c2_a_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10c2_a_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10c2_a_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
 
         var ratingDto = new PostRatingRequestDTO
@@ -276,12 +276,12 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_PostRating_NonParticipant_Returns403()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10c3_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us10c3_b_{suffix}", "password123");
-        var userC = await RegisterUserAsync($"us10c3_c_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10c3_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us10c3_b_{suffix}", "password123");
-        var tokenC = await LoginAsync($"us10c3_c_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10c3_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us10c3_b_{suffix}", "Password123");
+        var userC = await RegisterUserAsync($"us10c3_c_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10c3_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us10c3_b_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"us10c3_c_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);
@@ -318,10 +318,10 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_PostRating_DuplicateRating_Returns409()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10d1_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us10d1_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10d1_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us10d1_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10d1_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us10d1_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10d1_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us10d1_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -362,12 +362,12 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_GetReputation_AverageScore_IsCorrect()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10e1_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us10e1_b_{suffix}", "password123");
-        var userC = await RegisterUserAsync($"us10e1_c_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10e1_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us10e1_b_{suffix}", "password123");
-        var tokenC = await LoginAsync($"us10e1_c_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10e1_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us10e1_b_{suffix}", "Password123");
+        var userC = await RegisterUserAsync($"us10e1_c_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10e1_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us10e1_b_{suffix}", "Password123");
+        var tokenC = await LoginAsync($"us10e1_c_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
         var clientC = ClientWithToken(tokenC);
@@ -433,10 +433,10 @@ public class UserStory10Tests : IAsyncLifetime
     public async Task US10_GetMyStickers_AfterProposal_DoesNotReturnReservedSticker()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us10f1_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us10f1_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us10f1_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us10f1_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us10f1_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us10f1_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us10f1_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us10f1_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 

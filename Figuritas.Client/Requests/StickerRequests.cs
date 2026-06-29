@@ -46,11 +46,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<List<Sticker>>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<List<Sticker>>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<List<Sticker>>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<List<Sticker>>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
 
@@ -69,11 +69,11 @@ namespace Figuritas.Client.Requests
                 }
 
                 var errorMsg = await response.Content.ReadAsStringAsync();
-                return ApiResponse<Sticker>.Fail($"Error del servidor: {response.StatusCode}. {errorMsg}");
+                return ApiResponse<Sticker>.Fail(HttpExtensions.GetFriendlyErrorMessage(response.StatusCode, errorMsg));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                return ApiResponse<Sticker>.Fail($"Error de conexión: {ex.Message}");
+                return ApiResponse<Sticker>.Fail(HttpExtensions.GetFriendlyConnectionError());
             }
         }
     }

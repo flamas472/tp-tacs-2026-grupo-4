@@ -100,4 +100,47 @@ public class ExchangeProposalRepository : IExchangeProposalRepository
         );
         return _proposals.CountDocuments(filter) > 0;
     }
+
+    /// <inheritdoc/>
+    public async Task<ExchangeProposal?> TryTransitionFromPendingAsync(int proposalId, ExchangeProposalState targetState)
+    {
+        var filter = Builders<ExchangeProposal>.Filter.And(
+            Builders<ExchangeProposal>.Filter.Eq(p => p.Id, proposalId),
+            Builders<ExchangeProposal>.Filter.Eq(p => p.State, ExchangeProposalState.Pending)
+        );
+        var update = Builders<ExchangeProposal>.Update.Set(p => p.State, targetState);
+        var options = new FindOneAndUpdateOptions<ExchangeProposal> { ReturnDocument = ReturnDocument.After };
+        return await _proposals.FindOneAndUpdateAsync(filter, update, options);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> HasActivePendingProposalForOfferedStickerAsync(int userStickerId)
+    {
+        var filter = Builders<ExchangeProposal>.Filter.And(
+            Builders<ExchangeProposal>.Filter.Eq(p => p.State, ExchangeProposalState.Pending),
+            Builders<ExchangeProposal>.Filter.AnyEq(p => p.OfferedUserStickerIds, userStickerId)
+        );
+        return await _proposals.Find(filter).AnyAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task RevertToRejectedAsync(int proposalId)
+    {
+        var filter = Builders<ExchangeProposal>.Filter.And(
+            Builders<ExchangeProposal>.Filter.Eq(p => p.Id, proposalId),
+            Builders<ExchangeProposal>.Filter.Eq(p => p.State, ExchangeProposalState.Accepted)
+        );
+        var update = Builders<ExchangeProposal>.Update.Set(p => p.State, ExchangeProposalState.Rejected);
+        await _proposals.UpdateOneAsync(filter, update);
+    }
+
+    /// <inheritdoc/>
+    public async Task<List<ExchangeProposal>> GetAllPendingForRequestedStickerAsync(int requestedUserStickerId)
+    {
+        var filter = Builders<ExchangeProposal>.Filter.And(
+            Builders<ExchangeProposal>.Filter.Eq(p => p.State, ExchangeProposalState.Pending),
+            Builders<ExchangeProposal>.Filter.Eq(p => p.RequestedUserStickerId, requestedUserStickerId)
+        );
+        return await _proposals.Find(filter).ToListAsync();
+    }
 }

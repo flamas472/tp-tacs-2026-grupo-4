@@ -9,4 +9,5 @@ public class RatingResponseDTO
     public int Stars { get; set; }
     public string? Comment { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string EvaluatorUsername { get; set; } = string.Empty;
 }

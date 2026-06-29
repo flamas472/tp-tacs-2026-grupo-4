@@ -15,10 +15,12 @@ namespace Figuritas.Api.Services;
 public class AdminService
 {
     private readonly IUserRepository _userRepo;
+    private readonly IRefreshTokenRepository _refreshTokenRepo;
 
-    public AdminService(IUserRepository userRepo)
+    public AdminService(IUserRepository userRepo, IRefreshTokenRepository refreshTokenRepo)
     {
         _userRepo = userRepo;
+        _refreshTokenRepo = refreshTokenRepo;
     }
 
     public User CreateAdmin(CreateAdminRequestDTO dto)
@@ -106,12 +108,13 @@ public class AdminService
                 Id = u.Id,
                 Username = u.Username,
                 Reputation = u.Reputation,
-                Banned = u.Banned
+                Banned = u.Banned,
+                Role = u.Role
             })
             .ToList();
     }
 
-    public void BanUser(int userId, int callerAdminId)
+    public async Task BanUserAsync(int userId, int callerAdminId)
     {
         if (userId == callerAdminId)
             throw new ArgumentException("Administrators cannot ban themselves.");
@@ -123,7 +126,17 @@ public class AdminService
             throw new ArgumentException("Cannot ban an administrator account.");
 
         user.Banned = true;
+
+        // Set the token validity boundary to the current instant.
+        // The OnTokenValidated middleware rejects any JWT whose "iat" claim
+        // predates this value, immediately terminating active sessions.
+        user.TokenValidFrom = DateTime.UtcNow;
+
         _userRepo.Update(user);
+
+        // Invalidate all active refresh tokens so a banned user cannot silently
+        // keep re-authenticating using a previously issued refresh token.
+        await _refreshTokenRepo.RevokeAllForUserAsync(userId.ToString());
     }
 
     public void UnbanUser(int userId)

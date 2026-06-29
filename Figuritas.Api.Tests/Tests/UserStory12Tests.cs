@@ -43,7 +43,7 @@ public class UserStory12Tests : IAsyncLifetime
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "pass123")
+    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "Pass1234")
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
@@ -51,13 +51,13 @@ public class UserStory12Tests : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
     }
 
-    private async Task<string> LoginAsync(string username, string password = "pass123")
+    private async Task<string> LoginAsync(string username, string password = "Pass1234")
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -299,7 +299,7 @@ public class UserStory12Tests : IAsyncLifetime
         var (_, adminToken) = await RegisterAdminAsync("us12_b5_admin");
         var auth = ClientWithToken(adminToken);
 
-        var dto = new CreateAdminRequestDTO { Username = "us12_b5_new_admin", Password = "pass123" };
+        var dto = new CreateAdminRequestDTO { Username = "us12_b5_new_admin", Password = "Admin1234" };
         var response = await auth.PostAsJsonAsync("/api/admin/admins", dto);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
@@ -311,7 +311,7 @@ public class UserStory12Tests : IAsyncLifetime
         var (_, superAdminToken) = await RegisterAdminAsync("us12_b6_superadmin", UserRole.SuperAdmin);
         var auth = ClientWithToken(superAdminToken);
 
-        var dto = new CreateAdminRequestDTO { Username = "us12_b6_new_admin", Password = "pass123" };
+        var dto = new CreateAdminRequestDTO { Username = "us12_b6_new_admin", Password = "Admin1234" };
         var response = await auth.PostAsJsonAsync("/api/admin/admins", dto);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
@@ -327,7 +327,7 @@ public class UserStory12Tests : IAsyncLifetime
         var superAuth = ClientWithToken(superAdminToken);
 
         // Create a regular admin
-        var createDto = new CreateAdminRequestDTO { Username = "us12_b7_admin", Password = "pass123" };
+        var createDto = new CreateAdminRequestDTO { Username = "us12_b7_admin", Password = "Admin1234" };
         var createResp = await superAuth.PostAsJsonAsync("/api/admin/admins", createDto);
         createResp.EnsureSuccessStatusCode();
         var adminUser = (await createResp.Content.ReadFromJsonAsync<AdminUserResponseDTO>(JsonOpts))!;

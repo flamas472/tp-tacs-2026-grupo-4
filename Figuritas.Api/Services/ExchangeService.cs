@@ -101,12 +101,16 @@ public class ExchangeService
 
             if (receiverExisting != null)
             {
-                receiverExisting.Quantity++;
-                receiverExisting.Active = true;
                 if (session != null)
+                {
+                    receiverExisting.Quantity++;
+                    receiverExisting.Active = true;
                     _inventoryRepo.Update(receiverExisting, session);
+                }
                 else
-                    _inventoryRepo.Update(receiverExisting);
+                {
+                    await _inventoryRepo.IncrementQuantityAndActivateAsync(receiverExisting.Id);
+                }
             }
             else
             {
@@ -133,15 +137,30 @@ public class ExchangeService
 
         if (requestedSticker != null)
         {
-            requestedSticker.Quantity--;
-            if (requestedSticker.Quantity <= 0)
-            {
-                requestedSticker.Active = false;
-            }
             if (session != null)
+            {
+                // Consistency guard: even inside a transaction, verify the sticker still has stock.
+                if (requestedSticker.Quantity <= 0)
+                    throw new InvalidOperationException(
+                        "Sticker no longer available: stock depleted by concurrent operation");
+
+                requestedSticker.Quantity--;
+                if (requestedSticker.Quantity <= 0)
+                    requestedSticker.Active = false;
                 _inventoryRepo.Update(requestedSticker, session);
+            }
             else
-                _inventoryRepo.Update(requestedSticker);
+            {
+                // RC-05 fix: TryReserveOneUnitAsync returns false when Qty=0 or Active=false.
+                // Ignoring this return value allowed a concurrent acceptance to credit the
+                // proponent with a sticker that the acceptor no longer owned.
+                var requestedReserved = await _inventoryRepo.TryReserveOneUnitAsync(requestedSticker.Id);
+                if (!requestedReserved)
+                    throw new InvalidOperationException(
+                        "Sticker no longer available: stock depleted by concurrent operation");
+
+                await _inventoryRepo.DeactivateIfEmptyAsync(requestedSticker.Id);
+            }
 
             // Credit the proponent with the requested sticker type.
             // Use inclusive lookup to avoid creating duplicates when the proponent already has
@@ -151,12 +170,16 @@ public class ExchangeService
 
             if (proponentExistingSticker != null)
             {
-                proponentExistingSticker.Quantity++;
-                proponentExistingSticker.Active = true;
                 if (session != null)
+                {
+                    proponentExistingSticker.Quantity++;
+                    proponentExistingSticker.Active = true;
                     _inventoryRepo.Update(proponentExistingSticker, session);
+                }
                 else
-                    _inventoryRepo.Update(proponentExistingSticker);
+                {
+                    await _inventoryRepo.IncrementQuantityAndActivateAsync(proponentExistingSticker.Id);
+                }
             }
             else
             {

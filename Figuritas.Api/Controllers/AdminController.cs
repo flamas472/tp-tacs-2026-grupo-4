@@ -151,12 +151,12 @@ public class AdminController : ControllerBase
     /// </summary>
     [HttpPost("users/{userId}/ban")]
     [Authorize(Roles = "Admin,SuperAdmin")]
-    public ActionResult BanUser(int userId)
+    public async Task<ActionResult> BanUser(int userId)
     {
         try
         {
             var callerAdminId = _authService.GetUserIdFromToken(User);
-            _adminService.BanUser(userId, callerAdminId);
+            await _adminService.BanUserAsync(userId, callerAdminId);
             return Ok();
         }
         catch (KeyNotFoundException ex)

@@ -10,6 +10,7 @@ public class AuthStateProvider : AuthenticationStateProvider
 {
     private readonly IJSRuntime _js;
     private const string TokenKey = "auth_token";
+    private const string RefreshTokenKey = "auth_refresh_token";
 
     private static readonly AuthenticationState Anonymous =
         new(new ClaimsPrincipal(new ClaimsIdentity()));
@@ -36,18 +37,40 @@ public class AuthStateProvider : AuthenticationStateProvider
         return new AuthenticationState(new ClaimsPrincipal(identity));
     }
 
+    /// <summary>
+    /// Raised whenever the stored token is removed (expiry detected at startup or 401 from server).
+    /// Subscribers can use this to clear any in-memory state that was derived from the token.
+    /// </summary>
+    public event Action? OnTokenRemoved;
+
     public async Task SetTokenAsync(string? token)
     {
         if (token is null)
+        {
             await _js.InvokeVoidAsync("localStorage.removeItem", TokenKey);
+            OnTokenRemoved?.Invoke();
+        }
         else
+        {
             await _js.InvokeVoidAsync("localStorage.setItem", TokenKey, token);
+        }
 
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
     }
 
     public async Task<string?> GetTokenAsync() =>
         await _js.InvokeAsync<string?>("localStorage.getItem", TokenKey);
+
+    public async Task SetRefreshTokenAsync(string? refreshToken)
+    {
+        if (refreshToken is null)
+            await _js.InvokeVoidAsync("localStorage.removeItem", RefreshTokenKey);
+        else
+            await _js.InvokeVoidAsync("localStorage.setItem", RefreshTokenKey, refreshToken);
+    }
+
+    public async Task<string?> GetRefreshTokenAsync() =>
+        await _js.InvokeAsync<string?>("localStorage.getItem", RefreshTokenKey);
 
     private static List<Claim> ParseClaimsFromJwt(string jwt)
     {

@@ -43,6 +43,22 @@ public class AuctionOfferRepository : IAuctionOfferRepository
         _offers.Indexes.CreateOne(new CreateIndexModel<AuctionOffer>(
             Builders<AuctionOffer>.IndexKeys.Ascending(o => o.BidderId),
             new CreateIndexOptions { Name = "idx_auctionoffer_bidder_id" }));
+
+        // Unique partial index: (AuctionId, BidderId) where Status == Active.
+        // Prevents a bidder from having two simultaneous active bids on the same auction
+        // even under concurrent requests that both slip past the application-level duplicate check.
+        // Status is serialised as an integer (Active == 0); the partial filter must match
+        // MongoDB's stored representation.
+        _offers.Indexes.CreateOne(new CreateIndexModel<AuctionOffer>(
+            Builders<AuctionOffer>.IndexKeys
+                .Ascending(o => o.AuctionId)
+                .Ascending(o => o.BidderId),
+            new CreateIndexOptions<AuctionOffer>
+            {
+                Name = "idx_auctionoffer_unique_active_per_bidder",
+                Unique = true,
+                PartialFilterExpression = Builders<AuctionOffer>.Filter.Eq(o => o.Status, AuctionOfferStatus.Active)
+            }));
     }
 
     public List<AuctionOffer> GetAll() => _offers.Find(_ => true).ToList();
@@ -50,7 +66,15 @@ public class AuctionOfferRepository : IAuctionOfferRepository
     public void Add(AuctionOffer offer)
     {
         offer.Id = _idGenerator.GetNextId<AuctionOffer>();
-        _offers.InsertOne(offer);
+        try
+        {
+            _offers.InsertOne(offer);
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            throw new InvalidOperationException(
+                "A bid from this bidder on this auction is already active.", ex);
+        }
     }
 
     public AuctionOffer? GetById(int id) => _offers.Find(o => o.Id == id).FirstOrDefault();

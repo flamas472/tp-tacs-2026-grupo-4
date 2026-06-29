@@ -43,6 +43,18 @@
                       ValueChanged="OnDescChanged"
                       Immediate="true" Class="filter-select"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
+
+        <MudSelect T="int" Label="Reputación mínima" Value="@filtroReputation"
+                   ValueChanged="OnReputationChanged"
+                   Class="filter-select"
+                   Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Star">
+            <MudSelectItem Value="0">Sin filtro</MudSelectItem>
+            <MudSelectItem Value="1">⭐ 1 o más</MudSelectItem>
+            <MudSelectItem Value="2">⭐⭐ 2 o más</MudSelectItem>
+            <MudSelectItem Value="3">⭐⭐⭐ 3 o más</MudSelectItem>
+            <MudSelectItem Value="4">⭐⭐⭐⭐ 4 o más</MudSelectItem>
+            <MudSelectItem Value="5">⭐⭐⭐⭐⭐ 5 exactas</MudSelectItem>
+        </MudSelect>
     </div>
 </MudPaper>
 
@@ -69,6 +81,7 @@ else
                               Sticker="@AsSticker(dto)"
                               Quantity="@dto.Quantity"
                               OwnerUsername="@dto.OwnerUsername"
+                              OwnerReputation="@dto.OwnerReputation"
                               OnStickerClick="@(_ => OnStickerClick(dto))" />
         }
     </div>
@@ -105,6 +118,7 @@ else
     private string filtrocat_field = string.Empty;
     private string filtroNum = string.Empty;
     private string filtroDesc = string.Empty;
+    private int filtroReputation = 0;
     private string filtroCat
     {
         get => filtrocat_field;
@@ -149,11 +163,17 @@ else
     {
         var result = allStickers.AsEnumerable();
 
+        // Solo mostrar figuritas disponibles para intercambio directo
+        result = result.Where(s => s.CanBeDirectlyExchanged);
+
         if (!string.IsNullOrWhiteSpace(filtroNum) && int.TryParse(filtroNum, out var num))
             result = result.Where(s => s.StickerNumber == num);
 
         if (!string.IsNullOrWhiteSpace(filtroDesc))
             result = result.Where(s => s.StickerDescription.Contains(filtroDesc, StringComparison.OrdinalIgnoreCase));
+
+        if (filtroReputation > 0)
+            result = result.Where(s => s.OwnerReputation >= filtroReputation);
 
         var filtered = result.OrderBy(s => s.StickerNumber).ToList();
         var skip = (currentPage - 1) * PageSize;
@@ -176,6 +196,7 @@ else
 
     private void OnNumChanged(string value) { filtroNum = value; currentPage = 1; ApplyLocalFilter(); }
     private void OnDescChanged(string value) { filtroDesc = value; currentPage = 1; ApplyLocalFilter(); }
+    private void OnReputationChanged(int value) { filtroReputation = value; currentPage = 1; ApplyLocalFilter(); }
 
     private void HandleNextPage() { currentPage++; ApplyLocalFilter(); }
     private void HandlePrevPage() { if (currentPage > 1) { currentPage--; ApplyLocalFilter(); } }

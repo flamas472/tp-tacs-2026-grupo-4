@@ -36,4 +36,11 @@ public class Auction
     /// Null means no worker has claimed it yet. Used to prevent double-closure across worker instances.
     /// </summary>
     public DateTime? AutoClosureClaimedAt { get; set; } = null;
+
+    /// <summary>
+    /// Set to true atomically by <c>TryMarkFinalizationCompletedAsync</c> after
+    /// <c>FinalizeClosedAuctionAsync</c> successfully completes all inventory transfers.
+    /// Guards against duplicate finalization if the method is invoked more than once.
+    /// </summary>
+    public bool FinalizationCompleted { get; set; } = false;
 }

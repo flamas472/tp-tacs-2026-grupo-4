@@ -56,7 +56,8 @@ public static class DevSeedData
         var flamas = new User
         {
             Username = "flamas",
-            HashedPassword = BCrypt.Net.BCrypt.HashPassword("figuritacs")
+            HashedPassword = BCrypt.Net.BCrypt.HashPassword("figuritacs"),
+            CreatedAt = DateTime.UtcNow
         };
         userRepo.Add(flamas);
 

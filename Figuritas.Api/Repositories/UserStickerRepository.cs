@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Figuritas.Api.Exceptions;
 using Figuritas.Shared.Model;
 using MongoDB.Driver;
 
@@ -81,10 +82,18 @@ public class UserStickerRepository : IUserStickerRepository
 
     public void Update(UserSticker userSticker)
     {
-        var result = _userStickers.ReplaceOne(us => us.Id == userSticker.Id, userSticker);
+        var expectedVersion = userSticker.Version;
+        userSticker.Version++;
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.Id, userSticker.Id),
+            Builders<UserSticker>.Filter.Eq(us => us.Version, expectedVersion)
+        );
+        var result = _userStickers.ReplaceOne(filter, userSticker);
         if (!result.IsAcknowledged || result.MatchedCount == 0)
         {
-            throw new ArgumentException("UserSticker not found");
+            userSticker.Version = expectedVersion;
+            throw new OptimisticConcurrencyException(
+                $"UserSticker {userSticker.Id} was modified concurrently. Retry with a fresh read.");
         }
     }
 
@@ -148,5 +157,39 @@ public class UserStickerRepository : IUserStickerRepository
             .Skip((page - 1) * pageSize)
             .Limit(pageSize)
             .ToList();
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> TryReserveOneUnitAsync(int userStickerId)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.Id, userStickerId),
+            Builders<UserSticker>.Filter.Gt(us => us.Quantity, 0),
+            Builders<UserSticker>.Filter.Eq(us => us.Active, true)
+        );
+        var update = Builders<UserSticker>.Update.Inc(us => us.Quantity, -1);
+        var result = await _userStickers.UpdateOneAsync(filter, update);
+        return result.ModifiedCount == 1;
+    }
+
+    /// <inheritdoc/>
+    public async Task IncrementQuantityAndActivateAsync(int userStickerId)
+    {
+        var filter = Builders<UserSticker>.Filter.Eq(us => us.Id, userStickerId);
+        var update = Builders<UserSticker>.Update
+            .Inc(us => us.Quantity, 1)
+            .Set(us => us.Active, true);
+        await _userStickers.UpdateOneAsync(filter, update);
+    }
+
+    /// <inheritdoc/>
+    public async Task DeactivateIfEmptyAsync(int userStickerId)
+    {
+        var filter = Builders<UserSticker>.Filter.And(
+            Builders<UserSticker>.Filter.Eq(us => us.Id, userStickerId),
+            Builders<UserSticker>.Filter.Lte(us => us.Quantity, 0)
+        );
+        var update = Builders<UserSticker>.Update.Set(us => us.Active, false);
+        await _userStickers.UpdateOneAsync(filter, update);
     }
 }

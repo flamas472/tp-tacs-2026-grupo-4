@@ -1,10 +1,13 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Figuritas.Api.Hubs;
 using Figuritas.Api.Repositories;
 using Figuritas.Api.Services;
 using Figuritas.Api.Workers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -30,6 +33,138 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
     };
+
+    // SignalR WebSocket connections cannot send HTTP headers, so the JWT token
+    // is passed as the 'access_token' query parameter during the upgrade handshake.
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) &&
+                path.StartsWithSegments("/api/notification-hub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        },
+
+        // After the JWT signature is verified, check that the bearer account is still
+        // active and that the token was not issued before a security event (e.g. ban).
+        //
+        // Flow:
+        //   1. Parse the "iat" (issued-at) claim — emitted explicitly by AuthService.GenerateToken.
+        //   2. Fetch the user from the database (one lightweight read per authenticated request).
+        //   3. Reject with Fail() if:
+        //        a. The user no longer exists.
+        //        b. The user is currently banned.
+        //        c. The token's iat predates user.TokenValidFrom (set at ban time).
+        //
+        // context.Fail() causes the authentication middleware to respond with HTTP 401
+        // without executing any controller action.
+        OnTokenValidated = async context =>
+        {
+            var userIdClaim = context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out var userId))
+                return;
+
+            var iatClaim = context.Principal?.FindFirst("iat")?.Value;
+            if (!long.TryParse(iatClaim, out var iatUnix))
+                return;
+
+            var tokenIssuedAt = DateTimeOffset.FromUnixTimeSeconds(iatUnix).UtcDateTime;
+
+            var userRepo = context.HttpContext.RequestServices
+                .GetRequiredService<IUserRepository>();
+            var user = userRepo.GetById(userId);
+
+            if (user == null || user.Banned)
+            {
+                context.Fail("User account is not accessible.");
+                return;
+            }
+
+            if (user.TokenValidFrom.HasValue && tokenIssuedAt < user.TokenValidFrom.Value)
+            {
+                context.Fail("Token was issued before the last account security event.");
+            }
+        }
+    };
+});
+
+// Rate limiting — policies read configuration at request time so that integration
+// tests can set "RateLimit:*Enabled" = false via in-memory config overrides without
+// the startup-time configuration issue affecting AddRateLimiter.
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("login", httpContext =>
+    {
+        var config = httpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var enabled = config.GetValue<bool>("RateLimit:LoginEnabled", defaultValue: true);
+
+        if (!enabled)
+            return RateLimitPartition.GetNoLimiter("login-disabled");
+
+        var permitLimit = config.GetValue<int>("RateLimit:LoginPermitLimit", defaultValue: 5);
+        var windowSeconds = config.GetValue<int>("RateLimit:LoginWindowSeconds", defaultValue: 60);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromSeconds(windowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    options.AddPolicy("register", httpContext =>
+    {
+        var config = httpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var enabled = config.GetValue<bool>("RateLimit:RegisterEnabled", defaultValue: true);
+
+        if (!enabled)
+            return RateLimitPartition.GetNoLimiter("register-disabled");
+
+        var permitLimit = config.GetValue<int>("RateLimit:RegisterPermitLimit", defaultValue: 5);
+        var windowSeconds = config.GetValue<int>("RateLimit:RegisterWindowSeconds", defaultValue: 60);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromSeconds(windowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    options.AddPolicy("refresh", httpContext =>
+    {
+        var config = httpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var enabled = config.GetValue<bool>("RateLimit:RefreshEnabled", defaultValue: true);
+
+        if (!enabled)
+            return RateLimitPartition.GetNoLimiter("refresh-disabled");
+
+        var permitLimit = config.GetValue<int>("RateLimit:RefreshPermitLimit", defaultValue: 20);
+        var windowSeconds = config.GetValue<int>("RateLimit:RefreshWindowSeconds", defaultValue: 60);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permitLimit,
+                Window = TimeSpan.FromSeconds(windowSeconds),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            });
+    });
+
+    options.RejectionStatusCode = 429;
 });
 
 builder.Services.AddControllers()
@@ -76,6 +211,7 @@ builder.Services.AddScoped<IMissingStickerRepository, MissingStickerRepository>(
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IAuctionWatchlistRepository, AuctionWatchlistRepository>();
 builder.Services.AddScoped<IAnalyticsRepository, AnalyticsRepository>();
+builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
@@ -145,10 +281,12 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseCors("BlazorLocalPolicy");
+
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.UseCors("BlazorLocalPolicy");
 
 app.MapControllers();
 app.MapHub<NotificationHub>("/api/notification-hub");

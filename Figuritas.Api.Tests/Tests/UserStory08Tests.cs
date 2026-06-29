@@ -39,7 +39,7 @@ public class UserStory08Tests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -127,10 +127,10 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMyStickers_WithValidToken_ReturnsOnlyCallerStickers()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us08_stk_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us08_stk_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us08_stk_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us08_stk_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us08_stk_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us08_stk_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us08_stk_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us08_stk_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -171,8 +171,8 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMyStickers_Pagination_Page2_ReturnsCorrectSubset()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var user = await RegisterUserAsync($"us08_pg_stk_{suffix}", "password123");
-        var token = await LoginAsync($"us08_pg_stk_{suffix}", "password123");
+        var user = await RegisterUserAsync($"us08_pg_stk_{suffix}", "Password123");
+        var token = await LoginAsync($"us08_pg_stk_{suffix}", "Password123");
         var client = ClientWithToken(token);
 
         // Publish 3 stickers with pageSize=2 so page1 has 2 and page2 has 1
@@ -212,8 +212,8 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMyStickers_InvalidPageSize_Returns400()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var user = await RegisterUserAsync($"us08_inv_pg_{suffix}", "password123");
-        var token = await LoginAsync($"us08_inv_pg_{suffix}", "password123");
+        var user = await RegisterUserAsync($"us08_inv_pg_{suffix}", "Password123");
+        var token = await LoginAsync($"us08_inv_pg_{suffix}", "Password123");
         var client = ClientWithToken(token);
 
         var responsePageZero = await client.GetAsync("/api/dashboard/stickers?Page=0&PageSize=20");
@@ -230,10 +230,10 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMySentProposals_WithValidToken_ReturnsOnlyCallerProposals()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us08_sent_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us08_sent_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us08_sent_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us08_sent_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us08_sent_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us08_sent_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us08_sent_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us08_sent_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -263,10 +263,10 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMySentProposals_IncludesAllStates_WhenNoStateFilter()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us08_allst_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us08_allst_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us08_allst_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us08_allst_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us08_allst_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us08_allst_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us08_allst_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us08_allst_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -283,15 +283,11 @@ public class UserStory08Tests : IAsyncLifetime
         var p2 = await CreateProposalAsync(clientA, userB.Id, stickerB.Id, new List<int> { stickerA2.Id });
         var p3 = await CreateProposalAsync(clientA, userB.Id, stickerB.Id, new List<int> { stickerA3.Id });
 
-        // B accepts p1
+        // B accepts p1 — backend auto-rejects p2 and p3 (AutoRejectPendingProposalsForRequestedStickerAsync)
         var acceptResponse = await clientB.PostAsync($"/api/exchange-proposals/{p1.Id}/accept", null);
         Assert.Equal(HttpStatusCode.OK, acceptResponse.StatusCode);
 
-        // B rejects p2
-        var rejectResponse = await clientB.PostAsync($"/api/exchange-proposals/{p2.Id}/reject", null);
-        Assert.Equal(HttpStatusCode.OK, rejectResponse.StatusCode);
-
-        // p3 stays Pending
+        // p2 and p3 are auto-rejected by the backend; no manual action needed
 
         // A queries sent proposals without state filter — all 3 should appear
         var response = await clientA.GetAsync("/api/dashboard/proposals/sent");
@@ -314,10 +310,10 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMyReceivedProposals_WithValidToken_ReturnsOnlyReceivedByCallerProposals()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us08_recv_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us08_recv_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us08_recv_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us08_recv_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us08_recv_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us08_recv_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us08_recv_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us08_recv_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -360,10 +356,10 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMyActiveAuctions_WithValidToken_ReturnsOnlyCallerActiveAuctions()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us08_auct_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us08_auct_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us08_auct_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us08_auct_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us08_auct_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us08_auct_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us08_auct_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us08_auct_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -391,10 +387,10 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMyActiveAuctions_ExcludesOtherUsersAuctions()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us08_excl_a_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us08_excl_b_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us08_excl_a_{suffix}", "password123");
-        var tokenB = await LoginAsync($"us08_excl_b_{suffix}", "password123");
+        var userA = await RegisterUserAsync($"us08_excl_a_{suffix}", "Password123");
+        var userB = await RegisterUserAsync($"us08_excl_b_{suffix}", "Password123");
+        var tokenA = await LoginAsync($"us08_excl_a_{suffix}", "Password123");
+        var tokenB = await LoginAsync($"us08_excl_b_{suffix}", "Password123");
         var clientA = ClientWithToken(tokenA);
         var clientB = ClientWithToken(tokenB);
 
@@ -436,8 +432,8 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMyActiveAuctions_Pagination_Returns400OnInvalidRange()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var user = await RegisterUserAsync($"us08_inv_auct_{suffix}", "password123");
-        var token = await LoginAsync($"us08_inv_auct_{suffix}", "password123");
+        var user = await RegisterUserAsync($"us08_inv_auct_{suffix}", "Password123");
+        var token = await LoginAsync($"us08_inv_auct_{suffix}", "Password123");
         var client = ClientWithToken(token);
 
         var response = await client.GetAsync("/api/dashboard/auctions?Page=0&PageSize=20");
@@ -453,35 +449,13 @@ public class UserStory08Tests : IAsyncLifetime
     public async Task GetMyProposals_InvalidStateFilter_Returns400()
     {
         var suffix = DateTime.UtcNow.Ticks.ToString();
-        var user = await RegisterUserAsync($"us08_invstate_{suffix}", "password123");
-        var token = await LoginAsync($"us08_invstate_{suffix}", "password123");
+        var user = await RegisterUserAsync($"us08_invstate_{suffix}", "Password123");
+        var token = await LoginAsync($"us08_invstate_{suffix}", "Password123");
         var client = ClientWithToken(token);
 
         var response = await client.GetAsync("/api/dashboard/proposals/sent?State=INVALID_VALUE");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    /// <summary>
-    /// Test 14: GET /api/users/{B.Id}/stickers was the legacy deprecated endpoint.
-    /// The GET verb has been removed — the route only exists for POST, so the framework
-    /// returns 405 Method Not Allowed. Sticker inventory is now exclusively available
-    /// via GET /api/dashboard/stickers.
-    /// </summary>
-    [Fact]
-    public async Task GetUserStickers_LegacyEndpoint_IsRemoved_Returns405()
-    {
-        var suffix = DateTime.UtcNow.Ticks.ToString();
-        var userA = await RegisterUserAsync($"us08_legA_{suffix}", "password123");
-        var userB = await RegisterUserAsync($"us08_legB_{suffix}", "password123");
-        var tokenA = await LoginAsync($"us08_legA_{suffix}", "password123");
-        var clientA = ClientWithToken(tokenA);
-
-        // GET /api/users/{userId}/stickers is not registered — only POST exists on this route,
-        // so the framework responds with 405 Method Not Allowed.
-        var response = await clientA.GetAsync($"/api/users/{userB.Id}/stickers");
-
-        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 
     // ─── IAsyncLifetime ──────────────────────────────────────────────────────

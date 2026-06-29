@@ -67,6 +67,7 @@ public class ExchangeProposalsController : ControllerBase
     [HttpPost("{id}/accept")]
     public async Task<ActionResult> AcceptProposal(int id)
     {
+        ExchangeProposal? accepted = null;
         try
         {
             if (id <= 0)
@@ -84,24 +85,34 @@ public class ExchangeProposalsController : ControllerBase
             if (proposal.State != ExchangeProposalState.Pending)
                 return BadRequest("Only pending proposals can be accepted.");
 
-            var accepted = _proposalService.AcceptProposalAtomically(id);
+            accepted = _proposalService.AcceptProposalAtomically(id);
 
             await _exchangeService.CreateExchange(accepted);
+
+            await _proposalService.AutoRejectPendingProposalsForRequestedStickerAsync(accepted.RequestedUserStickerId);
 
             return Ok();
         }
         catch (InvalidOperationException ex)
         {
+            if (accepted != null)
+                await _proposalService.RollbackAcceptedProposalAsync(accepted);
             return Conflict(ex.Message);
         }
         catch (ArgumentException ex)
         {
             return NotFound(ex.Message);
         }
+        catch (Exception)
+        {
+            if (accepted != null)
+                await _proposalService.RollbackAcceptedProposalAsync(accepted);
+            throw;
+        }
     }
 
     [HttpPost("{id}/reject")]
-    public ActionResult RejectProposal(int id)
+    public async Task<ActionResult> RejectProposal(int id)
     {
         try
         {
@@ -119,9 +130,13 @@ public class ExchangeProposalsController : ControllerBase
             if (proposal.State != ExchangeProposalState.Pending)
                 return BadRequest("Only pending proposals can be rejected.");
 
-            _proposalService.ChangeProposalStatus(id, ExchangeProposalState.Rejected);
+            await _proposalService.ChangeProposalStatus(id, ExchangeProposalState.Rejected);
 
             return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
         }
         catch (ArgumentException ex)
         {
@@ -148,7 +163,7 @@ public class ExchangeProposalsController : ControllerBase
     }
 
     [HttpPost("{id}/cancel")]
-    public ActionResult CancelProposal(int id)
+    public async Task<ActionResult> CancelProposal(int id)
     {
         try
         {
@@ -166,9 +181,13 @@ public class ExchangeProposalsController : ControllerBase
             if (proposal.State != ExchangeProposalState.Pending)
                 return BadRequest("Only pending proposals can be cancelled.");
 
-            _proposalService.ChangeProposalStatus(id, ExchangeProposalState.Cancelled);
+            await _proposalService.ChangeProposalStatus(id, ExchangeProposalState.Cancelled);
 
             return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ex.Message);
         }
         catch (ArgumentException ex)
         {

@@ -105,7 +105,7 @@
         feedbackSuccess = result.Success;
         feedbackMsg = result.Success
             ? "Configuración actualizada."
-            : result.ErrorMessage ?? "Error al guardar los cambios.";
+            : result.ErrorMessage ?? "No se pudieron guardar los cambios. Intente nuevamente.";
 
         if (feedbackSuccess)
         {

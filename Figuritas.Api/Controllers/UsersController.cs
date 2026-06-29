@@ -1,3 +1,4 @@
+using Figuritas.Api.Exceptions;
 using Figuritas.Shared.Model;
 using Figuritas.Shared.DTO;
 using Figuritas.Shared.DTO.request;
@@ -46,7 +47,6 @@ public class UsersController : ControllerBase
         catch (ArgumentException ex)
         {
             if (ex.Message.Equals("User not found")) return NotFound(ex.Message);
-            if (ex.Message.Equals("Inventory already registered")) return Conflict(ex.Message);
             if (ex.Message.Equals("Sticker not found in catalog")) return NotFound(ex.Message);
             return StatusCode(500);
         }
@@ -127,7 +127,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPatch("{userId}/stickers/{stickerId}")]
-    public ActionResult<UserSticker> PatchUserSticker(int userId, int stickerId, PatchUserStickerDTO patchDto)
+    public async Task<ActionResult<UserSticker>> PatchUserSticker(int userId, int stickerId, PatchUserStickerDTO patchDto)
     {
         var authenticatedUserId = _authService.GetUserIdFromToken(User);
         if (authenticatedUserId != userId)
@@ -141,8 +141,16 @@ public class UsersController : ControllerBase
             if (patchDto.CanBeDirectlyExchanged == null && patchDto.CanBeAuctioned == null && patchDto.Quantity == null)
                 return BadRequest("At least one field must be provided for update.");
 
-            var userSticker = _userService.UpdateUserSticker(stickerId, patchDto.CanBeDirectlyExchanged, patchDto.CanBeAuctioned, patchDto.Quantity, authenticatedUserId);
+            var userSticker = await _userService.UpdateUserSticker(stickerId, patchDto.CanBeDirectlyExchanged, patchDto.CanBeAuctioned, patchDto.Quantity, authenticatedUserId);
             return Ok(userSticker);
+        }
+        catch (OptimisticConcurrencyException ex)
+        {
+            return Conflict(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (UnauthorizedAccessException)
         {
@@ -155,13 +163,17 @@ public class UsersController : ControllerBase
     }
 
     [HttpDelete("{userId}/stickers/{stickerId}")]
-    public ActionResult<UserSticker> DeleteUserSticker(int userId, int stickerId)
+    public async Task<ActionResult<UserSticker>> DeleteUserSticker(int userId, int stickerId)
     {
         try
         {
             var authenticatedUserId = _authService.GetUserIdFromToken(User);
-            _userService.DeleteUserSticker(stickerId, authenticatedUserId);
+            await _userService.DeleteUserSticker(stickerId, authenticatedUserId);
             return Ok();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
         catch (UnauthorizedAccessException)
         {
@@ -221,8 +233,24 @@ public class UsersController : ControllerBase
             Id = user.Id,
             Username = user.Username,
             Reputation = user.Reputation,
-            Banned = user.Banned
+            Banned = user.Banned,
+            CreatedAt = user.CreatedAt
         });
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id}/completed-exchanges")]
+    public ActionResult<CompletedExchangesResponseDTO> GetCompletedExchanges(int id)
+    {
+        try
+        {
+            var count = _userService.GetCompletedExchangesCount(id);
+            return Ok(new CompletedExchangesResponseDTO { CompletedExchanges = count });
+        }
+        catch (ArgumentException ex)
+        {
+            return NotFound(ex.Message);
+        }
     }
 
     [AllowAnonymous]
@@ -236,7 +264,8 @@ public class UsersController : ControllerBase
             Id = user.Id,
             Username = user.Username,
             Reputation = user.Reputation,
-            Banned = user.Banned
+            Banned = user.Banned,
+            CreatedAt = user.CreatedAt
         });
     }
 
@@ -258,7 +287,8 @@ public class UsersController : ControllerBase
                 Id = user.Id,
                 Username = user.Username,
                 Reputation = user.Reputation,
-                Banned = user.Banned
+                Banned = user.Banned,
+                CreatedAt = user.CreatedAt
             };
             return Ok(response);
         }

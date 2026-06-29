@@ -43,6 +43,13 @@
     </div>
 </MudPaper>
 
+@if (errorMessage != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        No se pudo cargar el catálogo: @errorMessage
+    </MudAlert>
+}
+
 <StickerListComponent Stickers="@stickers"
                       OnStickerClick="OnStickerClick"
                       OnNextPage="HandleNextPage"
@@ -60,6 +67,7 @@
 
     private string filtroNationalTeam = string.Empty;
     private string filtroCategory = string.Empty;
+    private string? errorMessage;
 
     private int currentPage = 1;
     private bool hasNextPage;
@@ -127,6 +135,7 @@
 
         if (response.Success)
         {
+            errorMessage = null;
             stickers = response.Data?.OrderBy(s => s.Number).ToList() ?? new List<Sticker>();
             hasNextPage = stickers.Count == PageSize;
         }
@@ -134,7 +143,7 @@
         {
             stickers = new List<Sticker>();
             hasNextPage = false;
-            Console.WriteLine($"Error al cargar figuritas: {response.ErrorMessage}");
+            errorMessage = response.ErrorMessage;
         }
     }
 

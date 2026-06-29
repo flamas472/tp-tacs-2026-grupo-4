@@ -43,12 +43,13 @@ public static class DtoExtensions
             && (dto.CanBeAuctioned == null || us.CanBeAuctioned == dto.CanBeAuctioned);
     }
 
-    public static Expression<Func<UserSticker, bool>> ToPredicate(this GetMarketStickersDTO dto, int callerUserId)
+    public static Expression<Func<UserSticker, bool>> ToPredicate(this GetMarketStickersDTO dto, int callerUserId, List<int>? allowedOwnerIds = null)
     {
         return us =>
             us.UserId != callerUserId
             && us.Quantity > 0
             && (us.CanBeDirectlyExchanged == true || us.CanBeAuctioned == true)
+            && (allowedOwnerIds == null || allowedOwnerIds.Contains(us.UserId))
             && (dto.Number == null || us.Sticker.Number == dto.Number)
             && (string.IsNullOrEmpty(dto.Team) || us.Sticker.Team.Contains(dto.Team))
             && (string.IsNullOrEmpty(dto.NationalTeam) || us.Sticker.NationalTeam.Contains(dto.NationalTeam))

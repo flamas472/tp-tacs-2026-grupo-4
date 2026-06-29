@@ -88,6 +88,8 @@
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
 
+    [Parameter] public bool FilterByAuctionable { get; set; } = false;
+
     private const int PageSize = 6;
     private int page = 1;
 
@@ -107,7 +109,9 @@
     {
         var ntTask = NationalTeamHttp.GetNationalTeamsAsync();
         var catTask = CategoryHttp.GetCategoriesAsync();
-        var stickersTask = UserHttp.GetUserStickersAsync(AuthState.UserId, page: 1, pageSize: 100, canBeDirectlyExchanged: true);
+        var stickersTask = FilterByAuctionable
+            ? UserHttp.GetUserStickersAsync(AuthState.UserId, page: 1, pageSize: 100, canBeAuctioned: true)
+            : UserHttp.GetUserStickersAsync(AuthState.UserId, page: 1, pageSize: 100, canBeDirectlyExchanged: true);
 
         await Task.WhenAll(ntTask, catTask, stickersTask);
 

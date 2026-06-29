@@ -231,6 +231,22 @@ code {
     text-overflow: ellipsis;
 }
 
+/* Apariencia de botón/chip interactivo para el link al perfil del publicador */
+.sticker-owner-link {
+    cursor: pointer;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 2px 6px 2px 4px;
+    transition: background 0.15s, border-color 0.15s;
+    user-select: none;
+}
+
+.sticker-owner-link:hover {
+    background: rgba(126, 111, 255, 0.12);
+    border-color: var(--mud-palette-primary);
+}
+
 
 /* ─── StickerListComponent ──────────────────────────────────────────────── */
 .sticker-list {
@@ -418,60 +434,189 @@ code {
 }
 
 
-/* ─── Home page ─────────────────────────────────────────────────────────── */
-.home-section-header {
+/* ─── Home page — Landing ────────────────────────────────────────────────── */
+
+/* Hero */
+.home-hero {
+    position: relative;
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 2.5rem 0 2rem;
+    overflow: hidden;
 }
 
-.home-stories {
+.home-hero-content {
+    flex: 1;
+    min-width: 0;
+    max-width: 680px;
+}
+
+.home-hero-title {
+    font-weight: 700 !important;
+    line-height: 1.15 !important;
+}
+
+.home-hero-subtitle {
+    font-weight: 400 !important;
+}
+
+.home-hero-desc {
+    max-width: 540px;
+    line-height: 1.65 !important;
+}
+
+.home-welcome-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.home-btn-group {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Decorative large icon — hidden on small screens */
+.home-hero-visual {
+    display: none;
+    flex-shrink: 0;
+}
+
+.home-hero-icon-bg {
+    font-size: 10rem !important;
+    opacity: 0.08;
+    color: var(--mud-palette-primary) !important;
+}
+
+@media (min-width: 960px) {
+    .home-hero-visual {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .home-hero-icon-bg {
+        font-size: 14rem !important;
+    }
+}
+
+/* Quick access bar (authenticated only) */
+.home-quick-access {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.home-qa-card {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    max-width: 720px;
-}
-
-.home-story-row {
-    display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 0.85rem;
-    border-radius: 8px;
-    background: rgba(126, 111, 255, 0.04);
-    border-left: 3px solid var(--mud-palette-primary);
-    transition: background 0.15s;
+    gap: 0.15rem;
+    padding: 0.5rem 0.75rem 0.6rem !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    min-width: 68px;
+    transition: background 0.15s, border-color 0.15s;
 }
 
-.home-story-row:hover {
-    background: rgba(126, 111, 255, 0.09);
+.home-qa-card:hover {
+    background: rgba(126, 111, 255, 0.08);
+    border-color: var(--mud-palette-primary) !important;
 }
 
-.home-story-num {
-    flex-shrink: 0;
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 50%;
-    background: var(--mud-palette-primary);
-    color: #fff;
-    font-size: 0.68rem;
-    font-weight: 700;
-    display: flex;
+.home-qa-label {
+    text-align: center;
+    font-size: 0.65rem !important;
+    white-space: nowrap;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Section header */
+.home-features-header {
+    text-align: center;
+}
+
+/* Features grid — responsive: 1 col xs, 2 col sm, 3 col lg */
+.home-features-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+@media (min-width: 600px) {
+    .home-features-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .home-features-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* Feature card */
+.home-feature-card {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 1.25rem 1.25rem 1rem !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    transition: border-color 0.15s, transform 0.15s;
+    height: 100%;
+}
+
+.home-feature-card:hover {
+    border-color: var(--mud-palette-primary) !important;
+    transform: translateY(-2px);
+}
+
+.home-feature-top {
+    flex: 1;
+}
+
+.home-feature-icon-wrap {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-}
-
-.home-story-text {
-    flex: 1;
-    line-height: 1.4;
-}
-
-.home-story-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     flex-shrink: 0;
 }
 
-.home-story-action {
-    flex-shrink: 0;
-    margin: -6px -4px;
+.home-feature-title {
+    display: block;
+}
+
+.home-feature-desc {
+    line-height: 1.55 !important;
+}
+
+.home-feature-footer {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Footer CTA (non-authenticated) */
+.home-cta-section {
+    display: flex;
+    justify-content: center;
+    padding: 1rem 0 3rem;
+}
+
+.home-cta-paper {
+    text-align: center;
+    padding: 2.5rem 3rem !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(126, 111, 255, 0.4) !important;
+    background: rgba(126, 111, 255, 0.05) !important;
+    max-width: 480px;
+    width: 100%;
 }
 
 
@@ -1256,4 +1401,422 @@ code {
 .admin-users-table {
     border-radius: 10px;
     overflow: hidden;
+}
+
+
+/* ─── NotificationDropdownComponent — campana + dropdown ────────────────── */
+
+/* Overlay transparente para cerrar el dropdown al hacer click fuera */
+.notif-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1200;
+    background: transparent;
+    cursor: default;
+}
+
+/* Contenedor relativo para anclar el dropdown */
+.notif-bell-container {
+    position: relative;
+    display: inline-block;
+    z-index: 1201;
+}
+
+/* Panel flotante del dropdown */
+.notif-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: -8px;
+    width: 340px;
+    max-height: 460px;
+    overflow-y: auto;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    background: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-lines-default);
+    z-index: 1201;
+    scrollbar-width: thin;
+}
+
+/* Encabezado del dropdown */
+.notif-dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem 0.5rem;
+    position: sticky;
+    top: 0;
+    background: var(--mud-palette-surface);
+    z-index: 1;
+}
+
+.notif-mark-all-btn {
+    font-size: 0.7rem !important;
+    padding: 0 6px !important;
+    min-width: 0 !important;
+    height: 24px !important;
+}
+
+/* Lista de ítems en el dropdown */
+.notif-list {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Ítem individual del dropdown */
+.notif-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+    transition: background 0.12s;
+    position: relative;
+}
+
+.notif-item:hover {
+    background: rgba(126, 111, 255, 0.06);
+}
+
+.notif-item--unread {
+    background: rgba(74, 134, 255, 0.05);
+}
+
+.notif-item--unread:hover {
+    background: rgba(74, 134, 255, 0.1);
+}
+
+/* Ícono del tipo en el dropdown */
+.notif-item-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Cuerpo de texto del ítem */
+.notif-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Punto azul de no leída */
+.notif-unread-dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mud-palette-info);
+    margin-top: 5px;
+    align-self: flex-start;
+}
+
+/* Estado vacío del dropdown */
+.notif-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    gap: 0.25rem;
+}
+
+/* Pie del dropdown con link a /notificaciones */
+.notif-dropdown-footer {
+    padding: 0.4rem 0.5rem;
+    position: sticky;
+    bottom: 0;
+    background: var(--mud-palette-surface);
+    border-top: 1px solid var(--mud-palette-lines-default);
+}
+
+/* Responsive: en xs el dropdown ocupa todo el ancho menos margen */
+@media (max-width: 599px) {
+    .notif-dropdown {
+        width: calc(100vw - 1.5rem);
+        right: -4px;
+    }
+}
+
+
+/* ─── Notificaciones.razor — página completa ─────────────────────────────── */
+
+/* Cabecera de la página */
+.notif-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.notif-page-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+/* Fila de filtros */
+.notif-filter-chipset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+/* Contenedor de la lista */
+.notif-page-list {
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+/* Ítem de notificación en la página completa */
+.notif-page-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    cursor: pointer;
+    transition: background 0.12s;
+    position: relative;
+}
+
+.notif-page-item:hover {
+    background: rgba(126, 111, 255, 0.05);
+}
+
+.notif-page-item--unread {
+    background: rgba(74, 134, 255, 0.05);
+}
+
+.notif-page-item--unread:hover {
+    background: rgba(74, 134, 255, 0.09);
+}
+
+/* Barra de no leída a la izquierda del ítem */
+.notif-page-unread-bar {
+    width: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 6px;
+}
+
+.notif-page-unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--mud-palette-info);
+}
+
+/* Círculo de ícono */
+.notif-page-icon-wrap {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.notif-page-icon-bg {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Cuerpo del ítem */
+.notif-page-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.notif-page-top-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+/* Fila de chips/etiquetas */
+.notif-page-tag-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+/* Flecha de navegación */
+.notif-page-chevron {
+    flex-shrink: 0;
+    align-self: center;
+    opacity: 0.4;
+    transition: opacity 0.12s;
+}
+
+.notif-page-item:hover .notif-page-chevron {
+    opacity: 0.75;
+}
+
+/* Estado vacío de la página */
+.notif-page-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 5rem 1rem;
+    text-align: center;
+}
+
+/* Responsive: ocultar tiempo en xs para no saturar */
+@media (max-width: 599px) {
+    .notif-page-time {
+        display: none;
+    }
+
+    .notif-page-icon-bg {
+        width: 32px;
+        height: 32px;
+    }
+}
+
+
+/* ─── Perfil de Usuario (/perfil/{username}) ─────────────────────────────── */
+
+/* Tamaño responsivo del avatar en el encabezado */
+:root {
+    --profile-avatar-size: 64px;
+}
+
+@media (min-width: 600px)  { :root { --profile-avatar-size: 80px; } }
+@media (min-width: 960px)  { :root { --profile-avatar-size: 96px; } }
+
+/* Encabezado: avatar + bloque de info */
+.user-profile-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    border-radius: 12px;
+}
+
+.user-profile-info {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Fila de reputación: estrellas + número + cantidad de reseñas */
+.user-profile-rep-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+/* ─── Distribución de estrellas (columna izquierda) ─────────────────────── */
+.star-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.55rem;
+}
+
+.star-bar-label {
+    width: 2.25rem;
+    text-align: right;
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--mud-palette-text-secondary);
+}
+
+.star-bar-progress {
+    flex: 1;
+}
+
+.star-bar-count {
+    width: 1.5rem;
+    text-align: right;
+    flex-shrink: 0;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.75rem;
+}
+
+/* ─── Filtro de reseñas ──────────────────────────────────────────────────── */
+.review-filter-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.review-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+/* ─── Tarjeta de reseña individual ──────────────────────────────────────── */
+.review-card {
+    border-radius: 10px !important;
+    transition: box-shadow 0.15s;
+}
+
+.review-card:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18) !important;
+}
+
+/* Header de cada reseña: avatar + nombre/estrellas + fecha */
+.review-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.review-avatar {
+    flex-shrink: 0;
+}
+
+.review-header-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.review-date {
+    flex-shrink: 0;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+/* Comentario: sangría para alinearse con el texto del nombre */
+.review-comment {
+    padding-left: calc(32px + 0.75rem);
+    line-height: 1.55;
+}
+
+/* ─── Reputación en tarjeta de sticker (Mercado) ────────────────────────── */
+
+/* Texto de reputación junto al nombre del dueño */
+.sticker-owner-rep {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--mud-palette-warning);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Estilo de link: muestra cursor y atenúa al hover */
+.sticker-owner-link {
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.sticker-owner-link:hover {
+    opacity: 0.7;
 }

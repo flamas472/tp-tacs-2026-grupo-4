@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Figuritas.Client;
 using Figuritas.Client.Auth;
 using Figuritas.Client.Requests;
+using Figuritas.Client.Services;
 using MudBlazor.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -46,6 +47,10 @@ builder.Services.AddScoped<AdminHttpClient>();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider>(p => p.GetRequiredService<AuthStateProvider>());
 builder.Services.AddScoped<AuthStateService>();
+// Scoped para poder inyectar DashboardHttpClient (en WASM, Scoped es equivalente a Singleton)
+builder.Services.AddScoped<NotificationHubService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<UserProfileService>();
 builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();

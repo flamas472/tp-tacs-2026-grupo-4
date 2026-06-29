@@ -65,4 +65,33 @@ public interface IAuctionRepository
     /// in a terminal state, meaning the caller should abort without proceeding to close.
     /// </summary>
     Task<bool> TrySetUserSelectedBestOfferAsync(int auctionId, int offerId);
+
+    /// <summary>
+    /// Atomically sets <c>BestCurrentOfferId</c> to <paramref name="bestOfferId"/> using a
+    /// MongoDB <c>$set</c> partial update. Never touches <c>UserSelectedBestOfferId</c>,
+    /// preventing <c>RecalculateBestOfferAsync</c> from overwriting the auctioneer's explicit selection.
+    /// </summary>
+    Task SetBestCurrentOfferIdAsync(int auctionId, int? bestOfferId);
+
+    /// <summary>
+    /// Returns true if there is at least one Active auction for the given <paramref name="userStickerId"/>.
+    /// Used as a guard before allowing the owner to modify or delete a sticker that is currently
+    /// reserved for an active auction.
+    /// </summary>
+    Task<bool> HasActiveAuctionForUserStickerAsync(int userStickerId);
+
+    /// <summary>
+    /// Atomically sets <c>FinalizationCompleted = true</c> only if it is currently false.
+    /// Returns true if the flag was flipped (finalization can proceed).
+    /// Returns false if the flag was already true (finalization already ran — caller should abort).
+    /// </summary>
+    Task<bool> TryMarkFinalizationCompletedAsync(int auctionId);
+
+    /// <summary>
+    /// Atomically clears <c>UserSelectedBestOfferId</c> (via <c>$unset</c>) only if the auction
+    /// is still <see cref="AuctionStatus.Active"/>.
+    /// Returns true if the field was cleared (auction was Active and matched).
+    /// Returns false if the auction is already in a terminal state or was not found.
+    /// </summary>
+    Task<bool> TryClearUserSelectedBestOfferAsync(int auctionId);
 }

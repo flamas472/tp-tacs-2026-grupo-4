@@ -1,90 +1,236 @@
 @page "/"
-@attribute [Authorize]
 @inject AuthStateService AuthState
-@inject NavigationManager Nav
 
-<PageTitle>Inicio — Figuritas</PageTitle>
+<PageTitle>Inicio — FiguriTACS</PageTitle>
 
-<MudText Typo="Typo.h5" GutterBottom="true">
-    Hola, <b>@AuthState.Username</b>
-</MudText>
-<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Tu colección digital de figuritas</MudText>
+@* ═══ HERO ═════════════════════════════════════════════════════════════════ *@
+<div class="home-hero">
+    <div class="home-hero-content">
+        <MudText Typo="Typo.h3" Class="home-hero-title">
+            Figuri<span style="color:var(--mud-palette-primary);font-weight:900">TACS</span>
+        </MudText>
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="home-hero-subtitle mt-1">
+            La plataforma de intercambio de figuritas del mundial
+        </MudText>
+        <MudText Typo="Typo.body1" Class="home-hero-desc mt-3">
+            Publicá tus figuritas repetidas, registrá tus faltantes y preparate para intercambiarlas.
+            Recibí sugerencias automáticas para intercambios y crea subastas para tus figuritas, o participá en las de otros usuarios.
+            Todo en un solo lugar, de la manera más simple y rápida posible.
+        </MudText>
 
-<MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-5" Icon="@Icons.Material.Filled.Construction">
-    El panel de inicio está en construcción. Próximamente verás aquí un resumen de tu actividad.
-</MudAlert>
+        <AuthorizeView>
+            <Authorized>
+                <div class="home-welcome-row mt-4 mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.WavingHand" Color="Color.Warning" Size="Size.Small" />
+                    <MudText Typo="Typo.body1">
+                        Bienvenido/a de nuevo, <b>@AuthState.Username</b>
+                    </MudText>
+                </div>
+                <div class="home-btn-group">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.CollectionsBookmark"
+                               Href="/repetidas">
+                        Mi colección
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.Storefront"
+                               Href="/mercado">
+                        Ir al mercado
+                    </MudButton>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="home-btn-group mt-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.PersonAdd"
+                               Href="/ingresar">
+                        Registrarse
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.Login"
+                               Href="/ingresar">
+                        Iniciar sesión
+                    </MudButton>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
 
-<div class="home-section-header mb-3">
-    <MudIcon Icon="@Icons.Material.Outlined.Assignment" Color="Color.Primary" Size="Size.Small" Class="mr-1" />
-    <MudText Typo="Typo.subtitle1"><b>Funcionalidades de la plataforma</b></MudText>
+    <div class="home-hero-visual" aria-hidden="true">
+        <MudIcon Icon="@Icons.Material.Filled.Style" Class="home-hero-icon-bg" />
+    </div>
 </div>
 
-<div class="home-stories">
-    @foreach (var item in Stories().Where(s => s.AdminOnly ? AuthState.IsAdmin : true))
-    {
-        <div class="home-story-row">
-            <span class="home-story-num">@item.Number</span>
-            <MudText Typo="Typo.body2" Class="home-story-text">@item.Text</MudText>
-            @if (item.IsCurrentPage)
+@* ═══ ACCESOS RÁPIDOS (solo autenticados) ════════════════════════════════ *@
+<AuthorizeView>
+    <Authorized>
+        <MudDivider Class="my-5" />
+        <MudText Typo="Typo.subtitle1" Class="mb-3"><b>Accesos rápidos</b></MudText>
+        <div class="home-quick-access">
+            @foreach (var qa in QuickAccess)
             {
-                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined" Class="home-story-badge">Esta página</MudChip>
-            }
-            else if (item.Href != null)
-            {
-                <MudIconButton Icon="@Icons.Material.Filled.ArrowForward"
-                               Size="Size.Small"
-                               Color="Color.Primary"
-                               Href="@item.Href"
-                               Class="home-story-action" />
-            }
-            else
-            {
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="home-story-badge">Próximamente</MudChip>
+                <MudTooltip Text="@qa.Label" Placement="Placement.Top">
+                    <MudPaper Class="home-qa-card" Elevation="1">
+                        <MudIconButton Icon="@qa.Icon" Color="@qa.Color"
+                                       Href="@qa.Href" Size="Size.Large" />
+                        <MudText Typo="Typo.caption" Class="home-qa-label">@qa.Label</MudText>
+                    </MudPaper>
+                </MudTooltip>
             }
         </div>
+    </Authorized>
+</AuthorizeView>
+
+<MudDivider Class="my-6" />
+
+@* ═══ GRILLA DE FUNCIONALIDADES ══════════════════════════════════════════ *@
+<div class="home-features-header mb-5">
+    <MudText Typo="Typo.h5">¿Qué podés hacer en FiguriTACS?</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+        Todas las herramientas que necesitás para completar tu álbum del mundial
+    </MudText>
+</div>
+
+<div class="home-features-grid">
+    @foreach (var feature in Features)
+    {
+        <MudPaper Class="home-feature-card" Elevation="2">
+            <div class="home-feature-top">
+                <div class="home-feature-icon-wrap" style="background: @feature.BgColor;">
+                    <MudIcon Icon="@feature.Icon" Color="@feature.Color" Size="Size.Medium" />
+                </div>
+                <MudText Typo="Typo.subtitle2" Class="home-feature-title mt-2">
+                    <b>@feature.Title</b>
+                </MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="home-feature-desc mt-1">
+                    @feature.Description
+                </MudText>
+            </div>
+            <div class="home-feature-footer">
+                @if (feature.Href != null)
+                {
+                    <AuthorizeView>
+                        <Authorized>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary"
+                                       Size="Size.Small"
+                                       Href="@feature.Href"
+                                       EndIcon="@Icons.Material.Filled.ArrowForward">
+                                @feature.ActionLabel
+                            </MudButton>
+                        </Authorized>
+                        <NotAuthorized>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Icon="@Icons.Material.Filled.Lock">
+                                Requiere cuenta
+                            </MudChip>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                             Icon="@Icons.Material.Outlined.Schedule">
+                        Próximamente
+                    </MudChip>
+                }
+            </div>
+        </MudPaper>
     }
 </div>
 
-@code {
-    private record StoryItem(int Number, string Text, string? Href, bool IsCurrentPage = false, bool AdminOnly = false);
+@* ═══ CTA FINAL (solo no autenticados) ═══════════════════════════════════ *@
+<AuthorizeView>
+    <NotAuthorized>
+        <div class="home-cta-section mt-8">
+            <MudPaper Class="home-cta-paper" Elevation="0">
+                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents"
+                         Color="Color.Warning" Size="Size.Large" Class="mb-2" />
+                <MudText Typo="Typo.h6" Class="mb-2">¿Listo para empezar?</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Creá tu cuenta gratis y comenzá a intercambiar figuritas del mundial hoy mismo.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.PersonAdd"
+                           Href="/ingresar">
+                    Crear cuenta gratis
+                </MudButton>
+            </MudPaper>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
 
-    private IEnumerable<StoryItem> Stories() => new[]
-    {
-        new StoryItem(1,
-            "Publicar una figurita que quiero intercambiar, especificando número, selección, jugador, cantidad y condiciones.",
-            "/catalogo"),
-        new StoryItem(2,
-            "Registrar las figuritas que me faltan para completar mi colección.",
-            "/faltantes"),
-        new StoryItem(3,
-            "Buscar figuritas disponibles aplicando filtros por número, selección, jugador, etc.",
-            "/mercado"),
-        new StoryItem(4,
-            "Recibir sugerencias automáticas de intercambio en función de mis faltantes y las repetidas de otros usuarios.",
-            "/sugerencias"),
-        new StoryItem(5,
-            "Hacer una propuesta por una figurita, ofreciendo una o más figuritas de mi colección.",
-            "/propuestas"),
-        new StoryItem(6,
-            "Publicar una figurita en subasta, definiendo duración y condiciones mínimas para adjudicarla.",
-            "/mis-subastas"),
-        new StoryItem(7,
-            "Ofertar por una subasta activa utilizando figuritas de mi colección.",
-            "/subastas"),
-        new StoryItem(8,
-            "Ver mis figuritas publicadas, propuestas enviadas y recibidas, subastas activas y el estado de cada operación.",
-            null, IsCurrentPage: true),
-        new StoryItem(9,
-            "Aceptar o rechazar propuestas recibidas.",
-            "/propuestas"),
-        new StoryItem(10,
-            "Calificar a otro usuario luego de concretar un intercambio para construir un sistema de reputación.",
-            "/intercambios"),
-        new StoryItem(11,
-            "Recibir alertas cuando aparezca una figurita que me falta, cuando una subasta esté por finalizar o cuando reciba una nueva propuesta.",
-            null),
-        new StoryItem(12,
-            "Como administrador: ver estadísticas de uso y actividad de la plataforma.",
-            "/admin/estadisticas", AdminOnly: true),
-    };
+@code {
+    private record QuickAccessItem(string Icon, Color Color, string Label, string Href);
+    private record FeatureItem(string Icon, Color Color, string BgColor,
+                               string Title, string Description, string ActionLabel, string? Href);
+
+    private static readonly QuickAccessItem[] QuickAccess =
+    [
+        new(Icons.Material.Filled.ContentCopy,   Color.Primary,   "Repetidas",    "/repetidas"),
+        new(Icons.Material.Filled.Bookmark,      Color.Secondary, "Faltantes",    "/faltantes"),
+        new(Icons.Material.Filled.Storefront,    Color.Default,   "Mercado",      "/mercado"),
+        new(Icons.Material.Filled.Lightbulb,     Color.Success,   "Sugerencias",  "/sugerencias"),
+        new(Icons.Material.Filled.CompareArrows, Color.Primary,   "Propuestas",   "/propuestas"),
+        new(Icons.Material.Filled.Gavel,         Color.Warning,   "Subastas",     "/subastas"),
+        new(Icons.Material.Filled.Handshake,     Color.Success,   "Intercambios", "/intercambios"),
+        new(Icons.Material.Filled.PriceChange,   Color.Warning,   "Mis pujas",    "/mis-pujas"),
+    ];
+
+    private static readonly FeatureItem[] Features =
+    [
+        new(Icons.Material.Filled.ContentCopy,
+            Color.Primary,   "rgba(126,111,255,0.12)",
+            "Figuritas Repetidas",
+            "Publicá tus repetidas especificando número, selección, jugador, cantidad y si aceptás intercambios o subastas.",
+            "Ir a Repetidas", "/repetidas"),
+
+        new(Icons.Material.Filled.Bookmark,
+            Color.Secondary, "rgba(100,181,246,0.12)",
+            "Figuritas Faltantes",
+            "Registrá las figuritas que te faltan. La plataforma las usará para generarte sugerencias de intercambio automáticas.",
+            "Ir a Faltantes", "/faltantes"),
+
+        new(Icons.Material.Filled.Search,
+            Color.Default,   "rgba(180,180,200,0.1)",
+            "Búsqueda en el Mercado",
+            "Explorá figuritas disponibles de todos los usuarios con filtros por número, selección, equipo y jugador.",
+            "Ir al Mercado", "/mercado"),
+
+        new(Icons.Material.Filled.Lightbulb,
+            Color.Success,   "rgba(61,203,108,0.1)",
+            "Sugerencias Automáticas",
+            "Recibí sugerencias de intercambio personalizadas basadas en tus faltantes y las repetidas de otros usuarios.",
+            "Ver Sugerencias", "/sugerencias"),
+
+        new(Icons.Material.Filled.CompareArrows,
+            Color.Primary,   "rgba(126,111,255,0.12)",
+            "Propuestas de Intercambio",
+            "Realizá propuestas directas ofreciendo una o más de tus figuritas repetidas a cambio de las que necesitás.",
+            "Ver Propuestas", "/propuestas"),
+
+        new(Icons.Material.Filled.Gavel,
+            Color.Warning,   "rgba(255,181,69,0.1)",
+            "Subastas de Figuritas",
+            "Publicá figuritas en subasta definiendo duración y condiciones. Otros usuarios podrán ofertar con sus repetidas.",
+            "Ver Subastas", "/subastas"),
+
+        new(Icons.Material.Filled.Handshake,
+            Color.Success,   "rgba(61,203,108,0.1)",
+            "Historial de Intercambios",
+            "Revisá todos los intercambios realizados y su estado. También podés calificar a otros usuarios post-intercambio.",
+            "Ver Intercambios", "/intercambios"),
+
+        new(Icons.Material.Filled.Star,
+            Color.Warning,   "rgba(255,181,69,0.1)",
+            "Sistema de Reputación",
+            "Calificá a los usuarios luego de cada intercambio exitoso. Las valoraciones construyen la confianza en la comunidad.",
+            "Ver Intercambios", "/intercambios"),
+
+        new(Icons.Material.Filled.Notifications,
+            Color.Secondary, "rgba(100,181,246,0.12)",
+            "Alertas y Notificaciones",
+            "Recibí alertas cuando aparezca una figurita que te falta, cuando una subasta esté por cerrar o llegue una propuesta.",
+            "Ver Notificaciones", "/notificaciones"),
+    ];
 }

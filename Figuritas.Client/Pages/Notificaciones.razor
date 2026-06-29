@@ -1,0 +1,280 @@
+@page "/notificaciones"
+@attribute [Authorize]
+@using Figuritas.Client.Models
+@using Figuritas.Client.Services
+@inject NotificationService NotifService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Notificaciones — FiguriTACS</PageTitle>
+
+<div class="notif-page-header mb-4">
+    <div class="notif-page-title-row">
+        <MudIcon Icon="@Icons.Material.Filled.Notifications"
+                 Color="Color.Primary"
+                 Size="Size.Large"
+                 Class="mr-2" />
+        <MudText Typo="Typo.h5" Style="font-weight:700;">Notificaciones</MudText>
+        @if (NotifService.UnreadCount > 0)
+        {
+            <MudChip T="string"
+                     Color="Color.Primary"
+                     Size="Size.Small"
+                     Class="ml-2">
+                @NotifService.UnreadCount sin leer
+            </MudChip>
+        }
+    </div>
+    @if (NotifService.UnreadCount > 0)
+    {
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Primary"
+                   Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.DoneAll"
+                   OnClick="MarkAllRead">
+            Marcar todas como leídas
+        </MudButton>
+    }
+</div>
+
+@* Filtro por estado de lectura *@
+<div class="notif-page-filter mb-3">
+    <MudChipSet T="string"
+                SelectionMode="SelectionMode.SingleSelection"
+                SelectedValue="@_activeFilter"
+                SelectedValueChanged="OnFilterChanged"
+                Class="notif-filter-chipset">
+        <MudChip T="string" Value="@FilterAll"
+                 Color="@(_activeFilter == FilterAll ? Color.Primary : Color.Default)"
+                 Variant="@(_activeFilter == FilterAll ? Variant.Filled : Variant.Outlined)">
+            Todas
+        </MudChip>
+        <MudBadge Content="@NotifService.UnreadCount"
+                  Color="Color.Error"
+                  Overlap="true"
+                  Origin="Origin.TopRight"
+                  Visible="@(NotifService.UnreadCount > 0)"
+                  Max="99">
+            <MudChip T="string" Value="@FilterUnread"
+                     Color="@(_activeFilter == FilterUnread ? Color.Error : Color.Default)"
+                     Variant="@(_activeFilter == FilterUnread ? Variant.Filled : Variant.Outlined)">
+                No leídas
+            </MudChip>
+        </MudBadge>
+        <MudChip T="string" Value="@FilterRead"
+                 Color="@(_activeFilter == FilterRead ? Color.Secondary : Color.Default)"
+                 Variant="@(_activeFilter == FilterRead ? Variant.Filled : Variant.Outlined)">
+            Leídas
+        </MudChip>
+    </MudChipSet>
+</div>
+
+@{
+    var filtered = GetFilteredNotifications();
+}
+
+@if (!filtered.Any())
+{
+    <div class="notif-page-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.NotificationsNone"
+                 Size="Size.Large"
+                 Color="Color.Secondary"
+                 Style="font-size:4rem;" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-3">
+            @(_activeFilter == FilterUnread ? "No tenés notificaciones sin leer" : "No hay notificaciones")
+        </MudText>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+            Cuando recibas propuestas, pujas u otras actualizaciones, aparecerán aquí.
+        </MudText>
+    </div>
+}
+else
+{
+    <MudPaper Elevation="1" Class="notif-page-list">
+        @foreach (var notif in filtered)
+        {
+            <div class="notif-page-item @(notif.IsRead ? "" : "notif-page-item--unread")"
+                 @key="notif.Id"
+                 @onclick="() => HandleNotifClick(notif)">
+
+                @* Indicador de no leída a la izquierda *@
+                <div class="notif-page-unread-bar">
+                    @if (!notif.IsRead)
+                    {
+                        <div class="notif-page-unread-dot"></div>
+                    }
+                </div>
+
+                @* Ícono del tipo de notificación *@
+                <div class="notif-page-icon-wrap">
+                    <div class="notif-page-icon-bg" style="@($"background:{GetIconBg(notif.Type)}")">
+                        <MudIcon Icon="@GetIcon(notif.Type)"
+                                 Size="Size.Small"
+                                 Style="@($"color:{GetIconColor(notif.Type)}")" />
+                    </div>
+                </div>
+
+                @* Contenido de la notificación *@
+                <div class="notif-page-body">
+                    <div class="notif-page-top-row">
+                        <MudText Typo="Typo.body2"
+                                 Style="@($"font-weight:{(notif.IsRead ? "400" : "600")}; line-height:1.35;")">
+                            @notif.Title
+                        </MudText>
+                        <MudText Typo="Typo.caption"
+                                 Color="Color.Secondary"
+                                 Class="notif-page-time"
+                                 Style="white-space:nowrap; flex-shrink:0; margin-left:0.75rem;">
+                            @GetRelativeTime(notif.CreatedAt)
+                        </MudText>
+                    </div>
+                    <MudText Typo="Typo.body2"
+                             Color="Color.Secondary"
+                             Style="line-height:1.45; margin-top:2px;">
+                        @notif.Message
+                    </MudText>
+                    <div class="notif-page-tag-row mt-1">
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Text"
+                                 Style="@($"color:{GetIconColor(notif.Type)}; font-size:0.65rem; height:18px; padding:0 6px;")">
+                            @GetTypeLabel(notif.Type)
+                        </MudChip>
+                        @if (!notif.IsRead)
+                        {
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="Color.Primary"
+                                     Variant="Variant.Filled"
+                                     Style="font-size:0.65rem; height:18px; padding:0 6px;">
+                                Nueva
+                            </MudChip>
+                        }
+                    </div>
+                </div>
+
+                @* Flecha de navegación *@
+                @if (!string.IsNullOrEmpty(notif.NavigationUrl))
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight"
+                             Color="Color.Secondary"
+                             Size="Size.Small"
+                             Class="notif-page-chevron" />
+                }
+            </div>
+            <MudDivider />
+        }
+    </MudPaper>
+}
+
+@code {
+    private const string FilterAll    = "all";
+    private const string FilterUnread = "unread";
+    private const string FilterRead   = "read";
+
+    private string _activeFilter = FilterAll;
+
+    protected override async Task OnInitializedAsync()
+    {
+        NotifService.OnChange += HandleChange;
+        await NotifService.LoadAsync();
+    }
+
+    private void HandleChange() => InvokeAsync(StateHasChanged);
+
+    private void OnFilterChanged(string filter)
+    {
+        _activeFilter = filter ?? FilterAll;
+    }
+
+    private IReadOnlyList<AppNotification> GetFilteredNotifications()
+    {
+        var source = NotifService.Notifications
+            .OrderByDescending(n => n.CreatedAt);
+
+        return _activeFilter switch
+        {
+            FilterUnread => source.Where(n => !n.IsRead).ToList(),
+            FilterRead   => source.Where(n =>  n.IsRead).ToList(),
+            _            => source.ToList()
+        };
+    }
+
+    private void HandleNotifClick(AppNotification notif)
+    {
+        NotifService.MarkAsRead(notif.Id);
+        if (!string.IsNullOrEmpty(notif.NavigationUrl))
+            Nav.NavigateTo(notif.NavigationUrl);
+    }
+
+    private void MarkAllRead()
+    {
+        NotifService.MarkAllAsRead();
+    }
+
+    // ─── Helpers de presentación ────────────────────────────────────────────
+
+    private static string GetIcon(NotificationType type) => type switch
+    {
+        NotificationType.NewProposal      => Icons.Material.Filled.CompareArrows,
+        NotificationType.ProposalAccepted => Icons.Material.Filled.CheckCircle,
+        NotificationType.ProposalRejected => Icons.Material.Filled.Cancel,
+        NotificationType.StickerAvailable => Icons.Material.Filled.Style,
+        NotificationType.AuctionEnding    => Icons.Material.Filled.Timer,
+        NotificationType.NewBid           => Icons.Material.Filled.Gavel,
+        NotificationType.RatingReceived   => Icons.Material.Filled.Star,
+        _                                 => Icons.Material.Filled.Notifications
+    };
+
+    private static string GetIconColor(NotificationType type) => type switch
+    {
+        NotificationType.NewProposal      => "var(--mud-palette-info)",
+        NotificationType.ProposalAccepted => "var(--mud-palette-success)",
+        NotificationType.ProposalRejected => "var(--mud-palette-error)",
+        NotificationType.StickerAvailable => "var(--mud-palette-primary)",
+        NotificationType.AuctionEnding    => "var(--mud-palette-warning)",
+        NotificationType.NewBid           => "var(--mud-palette-warning)",
+        NotificationType.RatingReceived   => "#f4c430",
+        _                                 => "var(--mud-palette-text-secondary)"
+    };
+
+    private static string GetIconBg(NotificationType type) => type switch
+    {
+        NotificationType.NewProposal      => "rgba(74, 134, 255, 0.12)",
+        NotificationType.ProposalAccepted => "rgba(61, 203, 108, 0.12)",
+        NotificationType.ProposalRejected => "rgba(255, 63, 95, 0.12)",
+        NotificationType.StickerAvailable => "rgba(126, 111, 255, 0.12)",
+        NotificationType.AuctionEnding    => "rgba(255, 181, 69, 0.12)",
+        NotificationType.NewBid           => "rgba(255, 181, 69, 0.12)",
+        NotificationType.RatingReceived   => "rgba(244, 196, 48, 0.12)",
+        _                                 => "rgba(128, 128, 128, 0.12)"
+    };
+
+    private static string GetTypeLabel(NotificationType type) => type switch
+    {
+        NotificationType.NewProposal      => "Propuesta recibida",
+        NotificationType.ProposalAccepted => "Propuesta aceptada",
+        NotificationType.ProposalRejected => "Propuesta rechazada",
+        NotificationType.StickerAvailable => "Figurita disponible",
+        NotificationType.AuctionEnding    => "Subasta por finalizar",
+        NotificationType.NewBid           => "Nueva puja",
+        NotificationType.RatingReceived   => "Calificación recibida",
+        _                                 => "Notificación"
+    };
+
+    private static string GetRelativeTime(DateTime dateTime)
+    {
+        var diff = DateTime.Now - dateTime;
+        if (diff.TotalSeconds < 60) return "ahora mismo";
+        if (diff.TotalMinutes < 60) return $"hace {(int)diff.TotalMinutes} min";
+        if (diff.TotalHours  < 24) return $"hace {(int)diff.TotalHours} h";
+        if (diff.TotalDays   < 2)  return "ayer";
+        if (diff.TotalDays   < 7)  return $"hace {(int)diff.TotalDays} días";
+        return dateTime.ToString("dd/MM/yyyy");
+    }
+
+    public void Dispose()
+    {
+        NotifService.OnChange -= HandleChange;
+    }
+}

@@ -81,6 +81,25 @@ public class UserRepository : IUserRepository
         }
     }
 
+    /// <inheritdoc/>
+    public async Task<bool> TryAddRatingAsync(int targetUserId, Rate rate, int raterUserId, int exchangeId)
+    {
+        var filter = Builders<User>.Filter.And(
+            Builders<User>.Filter.Eq(u => u.Id, targetUserId),
+            Builders<User>.Filter.Not(
+                Builders<User>.Filter.ElemMatch(u => u.Ratings,
+                    Builders<Rate>.Filter.And(
+                        Builders<Rate>.Filter.Eq(r => r.EvaluatorUserId, raterUserId),
+                        Builders<Rate>.Filter.Eq(r => r.ExchangeId, exchangeId)
+                    )
+                )
+            )
+        );
+        var update = Builders<User>.Update.Push(u => u.Ratings, rate);
+        var result = await _users.UpdateOneAsync(filter, update);
+        return result.ModifiedCount == 1;
+    }
+
     /// <summary>
     /// Creates a unique index on the Username field if it does not already exist.
     /// Called once at construction time to prevent concurrent duplicate username inserts

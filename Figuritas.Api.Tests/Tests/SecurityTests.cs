@@ -1,10 +1,16 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using Figuritas.Shared.DTO.request;
 using Figuritas.Shared.DTO.response;
 using Figuritas.Shared.Model;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
 namespace Figuritas.Api.Tests;
@@ -35,7 +41,7 @@ public class SecurityTests : IAsyncLifetime
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "password123")
+    private async Task<UserResponseDTO> RegisterUserAsync(string username, string password = "Password123")
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/auth/register", dto);
@@ -43,13 +49,13 @@ public class SecurityTests : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<UserResponseDTO>(JsonOpts))!;
     }
 
-    private async Task<string> LoginAsync(string username, string password = "password123")
+    private async Task<string> LoginAsync(string username, string password = "Password123")
     {
         var dto = new { Username = username, Password = password };
         var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("token").GetString()!;
+        return body.GetProperty("accessToken").GetString()!;
     }
 
     private HttpClient ClientWithToken(string token)
@@ -194,7 +200,7 @@ public class SecurityTests : IAsyncLifetime
         var tokenA = await LoginAsync($"sec002b_a_{suffix}");
         var clientA = ClientWithToken(tokenA);
 
-        var patchDto = new { Password = "hacked_password" };
+        var patchDto = new { Password = "Hacked_P4ssword" };
 
         var patchResponse = await clientA.PatchAsJsonAsync($"/api/users/{userB.Id}", patchDto);
 
@@ -272,5 +278,179 @@ public class SecurityTests : IAsyncLifetime
         var response = await _client.GetAsync("/api/users?username=");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // ─── AUTH-001: Login failure must return 401, never 200 ─────────────────
+
+    /// <summary>
+    /// AUTH-001-A: Login with a valid username but wrong password returns 401.
+    /// Regression guard: the old endpoint used PostUserDTO as the request body,
+    /// which applied password-complexity model validation. A mismatch between
+    /// registration-time and login-time validation could cause a 400 to be
+    /// returned instead of the expected 401.
+    /// </summary>
+    [Fact]
+    public async Task Login_WithWrongPassword_Returns401()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var username = $"auth001a_{suffix}";
+        await RegisterUserAsync(username);
+
+        var dto = new { Username = username, Password = "WrongPassword999" };
+        var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// AUTH-001-B: Login with a username that does not exist returns 401.
+    /// </summary>
+    [Fact]
+    public async Task Login_WithNonExistentUser_Returns401()
+    {
+        var dto = new { Username = "user_that_does_not_exist_xyz", Password = "AnyPassword123" };
+        var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// AUTH-001-C: A banned user with correct credentials must not receive a token.
+    /// Regression guard: the old ValidateCredentials did not check user.Banned, so
+    /// banned users could still obtain a valid JWT.
+    /// The ban is applied via direct repository access because CleanMutableCollectionsAsync
+    /// clears the Users collection (including the seeded SuperAdmin) before every test.
+    /// </summary>
+    [Fact]
+    public async Task Login_WithBannedUser_Returns401()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var username = $"auth001c_{suffix}";
+        const string password = "Password123";
+        var registered = await RegisterUserAsync(username, password);
+
+        // Set the Banned flag directly on the persisted user.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var userRepo = scope.ServiceProvider.GetRequiredService<Figuritas.Api.Repositories.IUserRepository>();
+            var user = userRepo.GetById(registered.Id)!;
+            user.Banned = true;
+            userRepo.Update(user);
+        }
+
+        var dto = new { Username = username, Password = password };
+        var response = await _client.PostAsJsonAsync("/api/auth/login", dto);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    // ─── SEC-004: Active JWT must be invalidated when the user is banned ─────
+
+    // ─── SEC-005: Expired JWT must be rejected ───────────────────────────────
+
+    /// <summary>
+    /// SEC-005: A JWT whose expiration time is in the past must be rejected with 401,
+    /// even when the token signature is valid and the user account is active.
+    ///
+    /// The mechanism:
+    ///   - TokenValidationParameters does not set ValidateLifetime explicitly,
+    ///     so it defaults to true. The JWT Bearer middleware rejects expired tokens
+    ///     before OnTokenValidated is ever invoked.
+    ///   - The expired token is built with the same signing key used by the backend
+    ///     (read from IConfiguration["Jwt:Key"]) so that the rejection comes from
+    ///     lifetime validation, not from a malformed or unsigned token.
+    /// </summary>
+    [Fact]
+    public async Task SEC005_ExpiredToken_Returns401()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var username = $"sec005_{suffix}";
+        const string password = "Password123";
+
+        var registered = await RegisterUserAsync(username, password);
+
+        // Read the JWT signing key from the same IConfiguration the backend uses,
+        // so the token is structurally valid — only its lifetime is in the past.
+        string jwtKey;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            jwtKey = config["Jwt:Key"]
+                ?? throw new InvalidOperationException("Jwt:Key is not configured in the test environment.");
+        }
+
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+        // Build a token that expired one hour ago with a valid signature.
+        var issuedAt = DateTimeOffset.UtcNow.AddHours(-2);
+        var expiredToken = new JwtSecurityToken(
+            claims: new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, registered.Id.ToString()),
+                new Claim(ClaimTypes.Name, username),
+                new Claim("iat", issuedAt.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+            },
+            notBefore: issuedAt.UtcDateTime,
+            expires: issuedAt.UtcDateTime.AddMinutes(15), // Expired ~45 minutes ago
+            signingCredentials: credentials
+        );
+
+        var expiredTokenString = new JwtSecurityTokenHandler().WriteToken(expiredToken);
+        var clientWithExpiredToken = ClientWithToken(expiredTokenString);
+
+        // Any [Authorize] endpoint must reject the expired token with 401.
+        var response = await clientWithExpiredToken.GetAsync($"/api/users/{registered.Id}/missing-stickers");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// SEC-004: A valid JWT held by a user must be rejected (401) as soon as the
+    /// user is banned, without waiting for the token to expire naturally.
+    ///
+    /// The mechanism:
+    ///   - AuthService.GenerateToken embeds an explicit "iat" claim (Unix timestamp).
+    ///   - BanUserAsync sets user.TokenValidFrom = DateTime.UtcNow and persists it.
+    ///   - OnTokenValidated in Program.cs compares iat vs TokenValidFrom and calls
+    ///     context.Fail() when the token predates the security event.
+    ///
+    /// This test simulates the ban via direct repository mutation to avoid the need
+    /// for a seeded SuperAdmin (which is wiped by CleanMutableCollectionsAsync).
+    /// </summary>
+    [Fact]
+    public async Task SEC004_BannedUser_ExistingJwtIsRejectedImmediately()
+    {
+        var suffix = DateTime.UtcNow.Ticks.ToString();
+        var username = $"sec004_{suffix}";
+        const string password = "Password123";
+
+        var registered = await RegisterUserAsync(username, password);
+        var token = await LoginAsync(username, password);
+        var authedClient = ClientWithToken(token);
+
+        // Verify the token is accepted on a protected endpoint before the ban.
+        // GET /api/users/{userId}/missing-stickers is [Authorize] at the controller level
+        // and does NOT carry [AllowAnonymous], so authentication failure returns 401.
+        var preban = await authedClient.GetAsync($"/api/users/{registered.Id}/missing-stickers");
+        Assert.Equal(HttpStatusCode.OK, preban.StatusCode);
+
+        // Apply the ban: mark the user as banned and advance TokenValidFrom past
+        // the issued-at time of the token already held by authedClient.
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var userRepo = scope.ServiceProvider
+                .GetRequiredService<Figuritas.Api.Repositories.IUserRepository>();
+            var user = userRepo.GetById(registered.Id)!;
+            user.Banned = true;
+            user.TokenValidFrom = DateTime.UtcNow;
+            userRepo.Update(user);
+        }
+
+        // The previously valid JWT must now be rejected because OnTokenValidated
+        // detects user.Banned == true and calls context.Fail(), which the [Authorize]
+        // attribute converts into HTTP 401.
+        var postban = await authedClient.GetAsync($"/api/users/{registered.Id}/missing-stickers");
+        Assert.Equal(HttpStatusCode.Unauthorized, postban.StatusCode);
     }
 }

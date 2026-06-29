@@ -22,6 +22,16 @@ public class User
     /// </summary>
     public bool Banned { get; set; } = false;
 
+    /// <summary>
+    /// When set, any JWT whose <c>iat</c> (issued-at) timestamp is strictly before
+    /// this value is considered invalid, even if the signature is correct and the
+    /// token has not yet expired.  Updated to <c>DateTime.UtcNow</c> at ban time so
+    /// that active sessions are terminated immediately.
+    /// </summary>
+    public DateTime? TokenValidFrom { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
     public List<Rate> Ratings { get; set; } = [];
 
     [Range(0, 5)]

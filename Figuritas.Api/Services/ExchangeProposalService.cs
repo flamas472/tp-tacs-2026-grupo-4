@@ -86,6 +86,23 @@ public class ExchangeProposalService
         if (_rateLimitWindowSeconds > 0 && _exchangePropRepo.HasRecentProposal(callerUserId, _rateLimitWindowSeconds))
             throw new InvalidOperationException("Please wait a few seconds before submitting another exchange proposal.");
 
+        // Reserve stock atomically BEFORE inserting the proposal. If any reservation fails,
+        // rollback previously reserved stickers so no stock is left locked without a proposal.
+        var reservedIds = new List<int>();
+        foreach (var sticker in offeredStickers)
+        {
+            var ok = await _inventoryRepo.TryReserveOneUnitAsync(sticker.Id);
+            if (!ok)
+            {
+                foreach (var rid in reservedIds)
+                    await _inventoryRepo.IncrementQuantityAndActivateAsync(rid);
+                throw new InvalidOperationException(
+                    $"UserSticker {sticker.Id} has insufficient stock.");
+            }
+            reservedIds.Add(sticker.Id);
+            await _inventoryRepo.DeactivateIfEmptyAsync(sticker.Id);
+        }
+
         var proposal = new ExchangeProposal
         {
             ProponentID = callerUserId,
@@ -97,23 +114,14 @@ public class ExchangeProposalService
 
         _exchangePropRepo.Add(proposal);
 
-        // Reserve stock: decrement quantity for each offered sticker
-        foreach (var userSticker in offeredStickers)
-        {
-            userSticker.Quantity--;
-            if (userSticker.Quantity <= 0)
-            {
-                userSticker.Active = false;
-            }
-            _inventoryRepo.Update(userSticker);
-        }
-
         // Notify the recipient about the new proposal
+        var callerUser = _userRepo.GetById(callerUserId);
+        var callerUsername = callerUser?.Username ?? $"Usuario {callerUserId}";
         await _notificationService.SendNotificationAsync(
             dto.ProposedUserId,
             NotificationType.NewProposal,
-            "New Exchange Proposal",
-            $"User {callerUserId} sent you a new exchange proposal.");
+            "Nueva propuesta de intercambio",
+            $"{callerUsername} te envió una nueva propuesta de intercambio.");
 
         return MapToResponseDto(proposal);
     }
@@ -208,27 +216,20 @@ public class ExchangeProposalService
         return MapToResponseDto(proposal);
     }
 
-    public void ChangeProposalStatus(int proposalID, ExchangeProposalState newState)
+    public async Task ChangeProposalStatus(int proposalID, ExchangeProposalState newState)
     {
-        var proposal = _exchangePropRepo.GetById(proposalID);
-        if (proposal == null)
-            throw new ArgumentException("Proposal not found.");
+        // Atomically transition from Pending → newState. Returns null if the proposal was not
+        // found or was no longer Pending (e.g., a concurrent cancel/reject beat us).
+        var transitioned = await _exchangePropRepo.TryTransitionFromPendingAsync(proposalID, newState);
+        if (transitioned == null)
+            throw new InvalidOperationException("Proposal not found or is no longer pending.");
 
-        // Return stock to proponent when proposal is rejected or cancelled
+        // Return stock to proponent when proposal is rejected or cancelled.
         if (newState == ExchangeProposalState.Rejected || newState == ExchangeProposalState.Cancelled)
         {
-            // Use inclusive query to also find stickers that were deactivated by the reservation
-            var offeredStickers = _inventoryRepo.GetMultipleByIdIncludingInactive(proposal.OfferedUserStickerIds);
-            foreach (var userSticker in offeredStickers)
-            {
-                userSticker.Quantity++;
-                userSticker.Active = true;
-                _inventoryRepo.Update(userSticker);
-            }
+            foreach (var sid in transitioned.OfferedUserStickerIds)
+                await _inventoryRepo.IncrementQuantityAndActivateAsync(sid);
         }
-
-        proposal.State = newState;
-        _exchangePropRepo.Update(proposal);
     }
 
     public ExchangeProposal AcceptProposalAtomically(int proposalId)
@@ -237,6 +238,27 @@ public class ExchangeProposalService
         if (accepted == null)
             throw new InvalidOperationException("Proposal not found or is no longer pending.");
         return accepted;
+    }
+
+    public async Task RollbackAcceptedProposalAsync(ExchangeProposal proposal)
+    {
+        await _exchangePropRepo.RevertToRejectedAsync(proposal.Id);
+        foreach (var sid in proposal.OfferedUserStickerIds)
+            await _inventoryRepo.IncrementQuantityAndActivateAsync(sid);
+    }
+
+    public async Task AutoRejectPendingProposalsForRequestedStickerAsync(int requestedUserStickerId)
+    {
+        var pendingCompetitors = await _exchangePropRepo.GetAllPendingForRequestedStickerAsync(requestedUserStickerId);
+        foreach (var competitor in pendingCompetitors)
+        {
+            var transitioned = await _exchangePropRepo.TryTransitionFromPendingAsync(competitor.Id, ExchangeProposalState.Rejected);
+            if (transitioned != null)
+            {
+                foreach (var sid in competitor.OfferedUserStickerIds)
+                    await _inventoryRepo.IncrementQuantityAndActivateAsync(sid);
+            }
+        }
     }
 
     private static ExchangeProposalResponseDTO MapToResponseDto(
